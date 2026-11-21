@@ -171,7 +171,7 @@
       <section class="panel"><div class="panelhead"><h2>สรุปคะแนนความง่ายในการทำงาน</h2></div><div id="ts-ease"></div></section>`;
 
     // field bindings
-    host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => { s[inp.dataset.f] = inp.value; });
+    host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => { s[inp.dataset.f] = inp.value; if (inp.dataset.f === 'station') renderSwct(); });
     host.querySelector('#ts-back').onclick = () => { cleanupVideo(); editing = null; renderList(); };
     host.querySelector('#ts-save').onclick = saveStudy;
     host.querySelector('#ts-file').onchange = onFile;
@@ -465,7 +465,7 @@
     });
     const cycle = Math.max(0, ...groups.map(g => g.ct)), machEnd = Math.max(0, ...groups.map(g => g.machEnd));
     const span = Math.ceil(Math.max(cycle, takt || 0, machEnd, 5) * 1.08 / 5) * 5;
-    const cOp = 46, cNo = 40, cName = 210, cNum = 36, L = cOp + cNo + cName + cNum * 3, W = 1100, RH = 24, top = 44;
+    const cOp = 70, cNo = 40, cName = 210, cNum = 36, L = cOp + cNo + cName + cNum * 3, W = 1100, RH = 24, top = 44;
     const nRows = groups.reduce((a, g) => a + g.rows.length, 0);
     const H = top + nRows * RH + RH + 6, X = v => L + 6 + (v / span) * (W - L - 16);
     let g = '';
@@ -473,13 +473,14 @@
     for (let v = 0; v <= span; v += gs) { const major = v % (gs * 2) === 0; g += `<line x1="${X(v)}" y1="${top}" x2="${X(v)}" y2="${H - RH}" class="${major ? 'sw-g2' : 'sw-g1'}"/>${v ? `<text x="${X(v)}" y="${top - 6}" class="sw-ax">${v}"</text>` : ''}`; }
     const hx = [cOp / 2, cOp + cNo / 2, cOp + cNo + cName / 2, cOp + cNo + cName + cNum / 2, cOp + cNo + cName + cNum * 1.5, cOp + cNo + cName + cNum * 2.5];
     let head = `<rect x="0" y="0" width="${W}" height="${top}" class="sw-headbg"/>` +
-      `<text x="${hx[0]}" y="${top - 16}" class="sw-h">จำนวน</text><text x="${hx[0]}" y="${top - 4}" class="sw-h">คน</text>` +
+      `<text x="${hx[0]}" y="${top - 10}" class="sw-h">Station</text>` +
       `<text x="${hx[1]}" y="${top - 10}" class="sw-h">ลำดับที่</text><text x="${hx[2]}" y="${top - 10}" class="sw-h sw-big">ชื่องานที่ทำ</text>` +
       `<text x="${hx[4]}" y="${top - 26}" class="sw-h">เวลา</text><text x="${hx[3]}" y="${top - 8}" class="sw-h">มือ</text><text x="${hx[4]}" y="${top - 8}" class="sw-h">ส่ง</text><text x="${hx[5]}" y="${top - 8}" class="sw-h">เดิน</text>`;
+    const st = String(editing.station || '—'), stTxt = st.length > 10 ? st.slice(0, 10) + '…' : st;
     let body = '', y0 = top, tot = { man: 0, auto: 0, walk: 0, wait: 0 };
     groups.forEach((gr, gi) => {
       const hgt = gr.rows.length * RH;
-      body += `<rect x="0" y="${y0}" width="${cOp}" height="${hgt}" fill="${OP_COLORS[(gr.op - 1) % OP_COLORS.length]}"/><text x="${cOp / 2}" y="${y0 + hgt / 2 + 4}" class="sw-op">คนที่ ${gr.op}</text>`;
+      body += `<rect x="0" y="${y0}" width="${cOp}" height="${hgt}" fill="${OP_COLORS[(gr.op - 1) % OP_COLORS.length]}"/><text x="${cOp / 2}" y="${y0 + hgt / 2 + 4}" class="sw-op">${esc(stTxt)}</text>${groups.length > 1 ? `<text x="${cOp / 2}" y="${y0 + hgt / 2 + 18}" class="sw-op">คนที่ ${gr.op}</text>` : ''}`;
       gr.rows.forEach((r, i) => {
         const y = y0 + i * RH + RH / 2, x1 = X(r.start), x2 = X(r.start + r.sec);
         const lbl = r.name.length > 26 ? r.name.slice(0, 26) + '…' : r.name;
