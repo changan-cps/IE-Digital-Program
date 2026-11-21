@@ -332,21 +332,25 @@
     if (editing.elements.length && !await yes('แทนที่ element ที่มีอยู่ด้วยผลจาก AI?')) return;
     aiBusy = true; const btn = host.querySelector('#ts-ai'); const label = btn.textContent; btn.disabled = true;
     try {
-      btn.textContent = 'กำลังเตรียมภาพ…'; v.pause(); const back = v.currentTime;
+      // เริ่มถอดเสียงพูดทันที (ส่งให้ AI) ไปพร้อมกับตัดภาพและหาเสียงเครื่องมือในเครื่อง
+      const dur = Math.round(v.duration * 10) / 10;
+      const speechJob = (useSpeech && videoFile) ? (async () => {
+        try {
+          const audio = await speechWav(await decodeAudio(), 600);
+          const tr = await window.CPS.sheet.call({ action: 'transcribe' }, { audio, mime: 'audio/wav', duration: dur });
+          if (tr.ok) return (tr.speech || []).filter(x => x && x.text);
+          U().toast('ถอดเสียงพูดไม่สำเร็จ ใช้ภาพและเสียงเครื่องมืออย่างเดียว: ' + (tr.error || ''));
+        } catch (e) { U().toast('ถอดเสียงพูดไม่สำเร็จ ใช้ภาพและเสียงเครื่องมืออย่างเดียว: ' + e.message); }
+        return [];
+      })() : Promise.resolve([]);
+      btn.textContent = useSpeech ? 'กำลังเตรียมภาพ + ถอดเสียงพูด…' : 'กำลังเตรียมภาพ…'; v.pause(); const back = v.currentTime;
       const frames = await grabFrames(v, 40, 384); v.currentTime = back;
       btn.textContent = 'กำลังวิเคราะห์เสียง…';
       const sound = videoFile ? (soundEvents.length ? soundEvents : await findSounds(true)) : [];
-      let speech = [];
-      if (useSpeech && videoFile) {
-        try {
-          btn.textContent = 'AI กำลังถอดเสียงพูด…';
-          const audio = await speechWav(await decodeAudio(), 600);
-          const tr = await window.CPS.sheet.call({ action: 'transcribe' }, { audio, mime: 'audio/wav', duration: Math.round(v.duration * 10) / 10 });
-          if (tr.ok) speech = (tr.speech || []).filter(x => x && x.text); else U().toast('ถอดเสียงพูดไม่สำเร็จ ใช้ภาพและเสียงเครื่องมืออย่างเดียว: ' + (tr.error || ''));
-        } catch (e) { U().toast('ถอดเสียงพูดไม่สำเร็จ ใช้ภาพและเสียงเครื่องมืออย่างเดียว: ' + e.message); }
-      }
+      if (useSpeech) btn.textContent = 'AI กำลังถอดเสียงพูด…';
+      const speech = await speechJob;
       btn.textContent = 'AI กำลังวิเคราะห์ภาพ…';
-      const res = await window.CPS.sheet.call({ action: 'ai' }, { frames, duration: Math.round(v.duration * 10) / 10, name: editing.name || '', sound: sound.map(e => [e.start, e.end]), speech: speech.map(x => ({ start: +x.start || 0, end: +x.end || 0, text: String(x.text).slice(0, 200) })) });
+      const res = await window.CPS.sheet.call({ action: 'ai' }, { frames, duration: dur, name: editing.name || '', sound: sound.map(e => [e.start, e.end]), speech: speech.map(x => ({ start: +x.start || 0, end: +x.end || 0, text: String(x.text).slice(0, 200) })) });
       if (!res.ok) throw new Error(res.error || 'AI ตอบกลับผิดปกติ');
       const ok = ['VA', 'NNVA', 'NVA']; const s15 = n => { n = parseInt(n, 10); return n >= 1 && n <= 5 ? String(n) : ''; };
       const els = (res.elements || []).map(e => ({
