@@ -160,6 +160,10 @@
         <div id="ts-bar" class="stack"></div>
         <p class="hint">คะแนนความง่าย: 1 = ยากสุด, 5 = ง่ายสุด · คะแนน ≤ 3 ขึ้นสีแดง = จุดต้องปรับปรุง</p>
       </section>
+      <section class="panel"><div class="panelhead"><h2>ตารางงานมาตรฐาน (SWCT)</h2>
+        <div class="head-btns"><label class="swct-takt">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
+        <div id="ts-swct" class="swct-wrap"></div>
+        <p class="hint">สร้างจากตาราง Element อัตโนมัติ · ใส่ "คนที่" ในตาราง Element เพื่อแยกผู้ปฏิบัติงาน แต่ละคนเริ่มเวลา 0 · เส้นทึบ = ทำงาน · เส้นประ = ส่ง (เครื่องจักรทำเอง) · เส้นหยัก = เดิน · จุดสีชมพู = รอ · เส้นน้ำเงิน = C.T ของแต่ละคน · เส้นแดง = T.T</p></section>
       <section class="panel"><div class="panelhead"><h2>สรุปคะแนนความง่ายในการทำงาน</h2></div><div id="ts-ease"></div></section>`;
 
     // field bindings
@@ -177,6 +181,9 @@
     v.addEventListener('play', () => host.querySelector('#ts-play').textContent = '⏸ หยุด');
     v.addEventListener('pause', () => host.querySelector('#ts-play').textContent = '▶︎ เล่น');
     host.querySelector('#ts-frames-btn').onclick = extractFrames;
+    const tk = host.querySelector('#swct-takt'); tk.value = editing.takt || ''; tk.placeholder = stationTakt() ? String(stationTakt()) : '';
+    tk.oninput = () => { editing.takt = tk.value; renderSwct(); };
+    host.querySelector('#swct-print').onclick = printSwct;
     host.querySelector('#ts-sound').onclick = () => findSounds(true);
     host.querySelector('#ts-sound-els').onclick = elementsFromSound;
     if (soundEvents.length) paintSounds();
@@ -355,7 +362,7 @@
       const ok = ['VA', 'NNVA', 'NVA']; const s15 = n => { n = parseInt(n, 10); return n >= 1 && n <= 5 ? String(n) : ''; };
       const els = (res.elements || []).map(e => ({
         id: U().uid(), name: String(e.name || ''), sec: Math.max(0, Math.round((U().num(e.end) - U().num(e.start)) * 10) / 10),
-        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), steps: Math.max(0, Math.round(U().num(e.steps))), note: '', ai: true
+        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), steps: Math.max(0, Math.round(U().num(e.steps))), kind: KINDS.some(k => k[0] === e.kind) ? e.kind : undefined, mach: e.kind === 'auto' && U().num(e.mach) > 0 ? Math.round(U().num(e.mach) * 10) / 10 : '', note: '', ai: true
       })).filter(e => e.sec > 0);
       if (!els.length) throw new Error('AI ไม่พบ element');
       editing.elements = els; editing.aiDraft = true;
@@ -399,7 +406,7 @@
     host.querySelector('#ts-count').textContent = list.length;
     if (!list.length) { wrap.innerHTML = '<div class="empty-row"><p>ยังไม่มี element — ใช้ปุ่มจับเวลา หรือ “＋ แถว”</p></div>'; }
     else {
-      wrap.innerHTML = `<table class="el-table ease-table"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วินาที</th><th>ก้าว</th><th>ประเภท</th>${DIMS.map(d => `<th>${d.label}</th>`).join('')}<th>รวม</th><th></th></tr></thead><tbody></tbody></table>`;
+      wrap.innerHTML = `<table class="el-table ease-table"><thead><tr><th>#</th><th>คนที่</th><th>ขั้นตอน</th><th>วินาที</th><th>ก้าว</th><th>ประเภท</th><th>แบบงาน</th><th>เครื่อง (วิ)</th>${DIMS.map(d => `<th>${d.label}</th>`).join('')}<th>รวม</th><th></th></tr></thead><tbody></tbody></table>`;
       const tb = wrap.querySelector('tbody');
       list.forEach((e, i) => tb.appendChild(row(list, e, i)));
     }
@@ -408,8 +415,100 @@
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
       mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว');
     host.querySelector('#ts-bar').innerHTML = stack(t);
-    renderEase();
+    renderEase(); renderSwct();
   }
+  // ---- ตารางงานมาตรฐาน (Standardized Work Combination Table) ----
+  const KINDS = [['manual', 'งานมือ'], ['walk', 'เดิน'], ['wait', 'รอ'], ['auto', 'เครื่องจักร']];
+  function kindOf(e) {
+    if (e.kind && KINDS.some(k => k[0] === e.kind)) return e.kind;
+    const n = String(e.name || '');
+    if (/รอ/.test(n)) return 'wait';
+    if (/เดิน/.test(n) || (U().num(e.steps) > 0 && e.type !== 'VA')) return 'walk';
+    return 'manual';
+  }
+  function stationTakt() {
+    const k = String(editing.station || editing.name || '').trim().toLowerCase(); if (!k) return 0;
+    const st = D().listStations().find(r => String(r.station || '').trim().toLowerCase() === k);
+    return st && U().num(st.jph) ? Math.round(3600 / U().num(st.jph) * 10) / 10 : 0;
+  }
+  const OP_COLORS = ['#f9c9d6', '#fbe9a6', '#c9ecc9', '#d9c7f0', '#c7e3f6', '#f6d5b5', '#e0e0e0', '#c8efe6', '#f2c7c7'];
+  function swctSvg(list, takt) {
+    const { esc, num, fmt } = U();
+    // แยกตามผู้ปฏิบัติงาน (คนที่) — แต่ละคนเริ่มเวลา 0
+    const ops = new Map();
+    list.forEach((e, i) => { const o = Math.max(1, parseInt(e.op, 10) || 1); if (!ops.has(o)) ops.set(o, []); ops.get(o).push({ e, idx: i }); });
+    const groups = [...ops.entries()].sort((x, y) => x[0] - y[0]).map(([o, arr]) => {
+      let t = 0; const rows = arr.map(({ e }, k) => { const sec = num(e.sec), kd = kindOf(e), mach = kd === 'auto' ? num(e.mach) : 0; const r = { no: k + 1, name: e.name || '', kd, start: t, sec, mach }; t += sec; return r; });
+      return { op: o, rows, ct: t, machEnd: Math.max(0, ...rows.map(r => r.kd === 'auto' ? r.start + r.sec + r.mach : 0)) };
+    });
+    const cycle = Math.max(0, ...groups.map(g => g.ct)), machEnd = Math.max(0, ...groups.map(g => g.machEnd));
+    const span = Math.ceil(Math.max(cycle, takt || 0, machEnd, 5) * 1.08 / 5) * 5;
+    const cOp = 46, cNo = 40, cName = 210, cNum = 36, L = cOp + cNo + cName + cNum * 3, W = 1100, RH = 24, top = 44;
+    const nRows = groups.reduce((a, g) => a + g.rows.length, 0);
+    const H = top + nRows * RH + RH + 6, X = v => L + 6 + (v / span) * (W - L - 16);
+    let g = '';
+    const gs = span <= 120 ? 5 : span <= 300 ? 10 : 30;
+    for (let v = 0; v <= span; v += gs) { const major = v % (gs * 2) === 0; g += `<line x1="${X(v)}" y1="${top}" x2="${X(v)}" y2="${H - RH}" class="${major ? 'sw-g2' : 'sw-g1'}"/>${v ? `<text x="${X(v)}" y="${top - 6}" class="sw-ax">${v}"</text>` : ''}`; }
+    const hx = [cOp / 2, cOp + cNo / 2, cOp + cNo + cName / 2, cOp + cNo + cName + cNum / 2, cOp + cNo + cName + cNum * 1.5, cOp + cNo + cName + cNum * 2.5];
+    let head = `<rect x="0" y="0" width="${W}" height="${top}" class="sw-headbg"/>` +
+      `<text x="${hx[0]}" y="${top - 16}" class="sw-h">จำนวน</text><text x="${hx[0]}" y="${top - 4}" class="sw-h">คน</text>` +
+      `<text x="${hx[1]}" y="${top - 10}" class="sw-h">ลำดับที่</text><text x="${hx[2]}" y="${top - 10}" class="sw-h sw-big">ชื่องานที่ทำ</text>` +
+      `<text x="${hx[4]}" y="${top - 26}" class="sw-h">เวลา</text><text x="${hx[3]}" y="${top - 8}" class="sw-h">มือ</text><text x="${hx[4]}" y="${top - 8}" class="sw-h">ส่ง</text><text x="${hx[5]}" y="${top - 8}" class="sw-h">เดิน</text>`;
+    let body = '', y0 = top, tot = { man: 0, auto: 0, walk: 0, wait: 0 };
+    groups.forEach((gr, gi) => {
+      const hgt = gr.rows.length * RH;
+      body += `<rect x="0" y="${y0}" width="${cOp}" height="${hgt}" fill="${OP_COLORS[(gr.op - 1) % OP_COLORS.length]}"/><text x="${cOp / 2}" y="${y0 + hgt / 2 + 4}" class="sw-op">คนที่ ${gr.op}</text>`;
+      gr.rows.forEach((r, i) => {
+        const y = y0 + i * RH + RH / 2, x1 = X(r.start), x2 = X(r.start + r.sec);
+        const lbl = r.name.length > 26 ? r.name.slice(0, 26) + '…' : r.name;
+        const man = r.kd === 'manual' || r.kd === 'auto' ? r.sec : 0, walk = r.kd === 'walk' ? r.sec : 0;
+        tot.man += man; tot.walk += walk; tot.auto += r.mach; if (r.kd === 'wait') tot.wait += r.sec;
+        body += `<line x1="${cOp}" y1="${y + RH / 2}" x2="${W}" y2="${y + RH / 2}" class="sw-row"/>` +
+          `<text x="${hx[1]}" y="${y + 4}" class="sw-c">${r.no}</text><text x="${cOp + cNo + 6}" y="${y + 4}" class="sw-name">${esc(lbl)}</text>` +
+          `<text x="${hx[3]}" y="${y + 4}" class="sw-c">${man ? fmt(man) : ''}</text><text x="${hx[4]}" y="${y + 4}" class="sw-c">${r.mach ? fmt(r.mach) : ''}</text><text x="${hx[5]}" y="${y + 4}" class="sw-c">${walk ? fmt(walk) : ''}</text>`;
+        if (r.sec > 0) {
+          if (r.kd === 'walk') { let d = `M${x1},${y}`; const n = Math.max(2, Math.round((x2 - x1) / 6)); for (let k = 1; k <= n; k++) { const xa = x1 + (x2 - x1) * (k - 0.5) / n, xb = x1 + (x2 - x1) * k / n; d += ` Q${xa},${y + (k % 2 ? -5 : 5)} ${xb},${y}`; } body += `<path d="${d}" class="sw-walk"/>`; }
+          else if (r.kd === 'wait') body += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="sw-wait"/>`;
+          else body += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="sw-man"/>`;
+        }
+        if (r.mach > 0) body += `<line x1="${x2}" y1="${y}" x2="${X(r.start + r.sec + r.mach)}" y2="${y}" class="sw-auto"/>`;
+        if (i < gr.rows.length - 1 && r.sec > 0) body += `<line x1="${x2}" y1="${y}" x2="${x2}" y2="${y + RH}" class="sw-link"/>`;
+      });
+      // C.T ของผู้ปฏิบัติงานคนนี้
+      body += `<line x1="${X(gr.ct)}" y1="${y0 + 2}" x2="${X(gr.ct)}" y2="${y0 + hgt - 2}" class="sw-ct"/><text x="${X(gr.ct) + 4}" y="${y0 + 12}" class="sw-ct-t">C.T = ${fmt(gr.ct)}"</text>`;
+      body += `<line x1="0" y1="${y0 + hgt}" x2="${W}" y2="${y0 + hgt}" class="sw-sep"/>`;
+      y0 += hgt;
+    });
+    const yT = y0 + RH / 2 + 5;
+    body += `<rect x="0" y="${y0}" width="${L}" height="${RH}" class="sw-headbg"/><text x="${cOp + cNo + cName / 2}" y="${yT}" class="sw-h sw-big">รวม</text><text x="${hx[3]}" y="${yT}" class="sw-c sw-b">${fmt(tot.man)}</text><text x="${hx[4]}" y="${yT}" class="sw-c sw-b">${tot.auto ? fmt(tot.auto) : ''}</text><text x="${hx[5]}" y="${yT}" class="sw-c sw-b">${tot.walk ? fmt(tot.walk) : ''}</text>`;
+    const tk = takt ? `<line x1="${X(takt)}" y1="${top - 2}" x2="${X(takt)}" y2="${y0}" class="sw-takt"/><text x="${X(takt)}" y="${top - 30}" class="sw-takt-t">T.T = ${fmt(takt)}"</text>` : '';
+    const cols = [cOp, cOp + cNo, cOp + cNo + cName, cOp + cNo + cName + cNum, cOp + cNo + cName + cNum * 2, L].map(x => `<line x1="${x}" y1="0" x2="${x}" y2="${H - 6}" class="sw-col"/>`).join('');
+    const svg = `<svg viewBox="0 0 ${W} ${H}" class="swct-svg" xmlns="http://www.w3.org/2000/svg"><style>
+      .sw-headbg{fill:#f1f5f9}.sw-g1{stroke:#eef2f6}.sw-g2{stroke:#d9e1e8}.sw-row{stroke:#edf1f4}.sw-sep{stroke:#9fb1c0}.sw-col{stroke:#c9d4de}
+      .sw-ax{font:10px sans-serif;fill:#52708a;text-anchor:middle}.sw-h{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.sw-big{font-size:13px}
+      .sw-c{font:11px sans-serif;fill:#17324b;text-anchor:middle}.sw-b{font-weight:bold}.sw-name{font:11px sans-serif;fill:#17324b}.sw-op{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}
+      .sw-man{stroke:#111;stroke-width:3}.sw-walk{stroke:#111;stroke-width:1.6;fill:none}.sw-auto{stroke:#111;stroke-width:2;stroke-dasharray:2 3}
+      .sw-wait{stroke:#d6338a;stroke-width:3;stroke-dasharray:1 5;stroke-linecap:round}.sw-link{stroke:#555;stroke-width:1}
+      .sw-ct{stroke:#1f4fd6;stroke-width:2.5}.sw-ct-t{font:bold 11px sans-serif;fill:#111}.sw-takt{stroke:#d62020;stroke-width:3}.sw-takt-t{font:bold 12px sans-serif;fill:#d62020;text-anchor:middle}
+    </style>${head}${g}${cols}${body}${tk}</svg>`;
+    return { svg, cycle, takt, machEnd, ops: groups.length, man: tot.man, walk: tot.walk, wait: tot.wait, auto: tot.auto, groups };
+  }
+  function swctTakt() { return U().num(editing.takt) || stationTakt(); }
+  function renderSwct() {
+    const box = host && host.querySelector('#ts-swct'); if (!box) return;
+    const list = editing.elements || [];
+    if (!list.length) { box.innerHTML = '<div class="empty-row"><p>เพิ่ม element ก่อน แผนภูมิจะสร้างให้อัตโนมัติ</p></div>'; return; }
+    const { fmt } = U(); const r = swctSvg(list, swctTakt());
+    const over = r.takt && r.cycle > r.takt;
+    box.innerHTML = `<div class="swct-sum"><span>ผู้ปฏิบัติงาน <b>${r.ops}</b> คน</span><span>งานมือ <b>${fmt(r.man)}</b> วิ</span><span>เดิน <b>${fmt(r.walk)}</b> วิ</span><span>รอ <b>${fmt(r.wait)}</b> วิ</span><span>C.T สูงสุด <b>${fmt(r.cycle)}</b> วิ</span><span>TAKT <b>${r.takt ? fmt(r.takt) : '—'}</b>${r.takt ? ' วิ' : ''}</span>${over ? `<span class="swct-over">เกิน TAKT ${fmt(r.cycle - r.takt)} วิ</span>` : ''}${r.machEnd > r.cycle ? `<span class="swct-over">เครื่องจักรทำงานเลยรอบ ${fmt(r.machEnd - r.cycle)} วิ</span>` : ''}</div><div class="swct-scroll">${r.svg}</div>`;
+  }
+  function printSwct() {
+    const { esc } = U(); const r = swctSvg(editing.elements || [], swctTakt());
+    const w = window.open('', '_blank'); if (!w) { U().toast('เบราว์เซอร์บล็อก popup'); return; }
+    w.document.write(`<!doctype html><meta charset="utf-8"><title>SWCT · ${esc(editing.station || editing.name || '')}</title><style>body{font-family:system-ui,sans-serif;padding:14px;color:#17324b}.hd{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}.hd td{border:1px solid #9fb1c0;padding:4px 8px;vertical-align:top}.hd .tt{text-align:center;font-size:20px;font-weight:bold;width:34%}.hd .tt small{font-size:11px;font-weight:normal}.lg{font-size:12px;margin:4px 0 6px;text-align:right}svg{width:100%;height:auto}@media print{@page{size:A4 landscape;margin:10mm}}</style><body onload="print()"><table class="hd"><tr><td><b>สถานี / ชิ้นงาน</b><br>${esc(editing.station || '—')}</td><td><b>ชื่องาน</b><br>${esc(editing.name || '—')}</td><td class="tt" rowspan="2">ตารางงานมาตรฐานผสม<br><small>Standardized Work Combination Table</small></td><td><b>วันที่</b><br>${esc(editing.date || '')}</td><td><b>Cycle Time</b><br>${U().fmt(r.cycle)} วิ</td></tr><tr><td><b>ผู้วิเคราะห์</b><br>${esc(editing.analyst || '—')}</td><td><b>ผู้ปฏิบัติงาน</b><br>${esc(editing.operator || '—')} (${r.ops} คน)</td><td><b>พื้นที่</b><br>${esc([D().scope.workshop, D().scope.group, D().scope.team].filter(Boolean).join(' / '))}</td><td><b>Takt Time</b><br>${r.takt ? U().fmt(r.takt) + ' วิ' : '—'}</td></tr></table><div class="lg">━ ทำงาน &nbsp; ┅ ส่ง (เครื่องจักร) &nbsp; ∿ เดิน &nbsp; <span style="color:#d6338a">•••</span> รอ &nbsp; <span style="color:#1f4fd6">┃</span> C.T &nbsp; <span style="color:#d62020">┃</span> T.T</div>${r.svg}</body>`);
+    w.document.close();
+  }
+
   function renderEase() {
     const { esc } = U(); const box = host.querySelector('#ts-ease'); if (!box) return;
     const s = easeSummary(editing.elements);
@@ -429,10 +528,13 @@
     const { TYPES, uid } = U();
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="idx">${i + 1}</td>
+      <td><input class="r-op" type="number" min="1" max="9" step="1" inputmode="numeric" title="ผู้ปฏิบัติงานคนที่ (สำหรับ SWCT หลายคน)"></td>
       <td><input class="r-name" placeholder="ชื่อขั้นตอน"></td>
       <td><input class="r-sec" type="number" min="0" step="0.1" inputmode="decimal"></td>
       <td><input class="r-steps" type="number" min="0" step="1" inputmode="numeric" title="จำนวนก้าวเดิน (AI ประมาณให้ แก้ได้)"></td>
       <td><select class="r-type">${TYPES.map(ty => `<option value="${ty.k}">${ty.k}</option>`).join('')}</select></td>
+      <td><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
+      <td><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
       ${DIMS.map(d => `<td><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></td>`).join('')}
       <td class="r-sum"></td>
       <td><button class="r-del" title="ลบ" type="button">✕</button></td>`;
@@ -446,6 +548,11 @@
     const sec = tr.querySelector('.r-sec'); sec.value = e.sec; sec.oninput = () => { e.sec = sec.value; refreshMetrics(); };
     const type = tr.querySelector('.r-type'); type.value = e.type; type.onchange = () => { e.type = type.value; refreshMetrics(); };
     const stp = tr.querySelector('.r-steps'); stp.value = e.steps ?? ''; stp.oninput = () => { e.steps = stp.value; refreshMetrics(); };
+    const op = tr.querySelector('.r-op'); op.value = e.op || 1; op.oninput = () => { e.op = Math.max(1, Math.min(9, parseInt(op.value, 10) || 1)); renderSwct(); };
+    const kd = tr.querySelector('.r-kind'), mc = tr.querySelector('.r-mach');
+    kd.value = kindOf(e); mc.value = e.mach ?? ''; mc.disabled = kd.value !== 'auto';
+    kd.onchange = () => { e.kind = kd.value; mc.disabled = kd.value !== 'auto'; renderSwct(); };
+    mc.oninput = () => { e.mach = mc.value; renderSwct(); };
     tr.querySelector('.r-del').onclick = () => { const idx = list.indexOf(e); if (idx > -1) list.splice(idx, 1); renderTable(); };
     return tr;
   }
@@ -456,6 +563,7 @@
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
       mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว');
     host.querySelector('#ts-bar').innerHTML = stack(t);
+    renderSwct();
   }
 
   function saveStudy() {
