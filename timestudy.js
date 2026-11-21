@@ -351,7 +351,7 @@
       const ok = ['VA', 'NNVA', 'NVA']; const s15 = n => { n = parseInt(n, 10); return n >= 1 && n <= 5 ? String(n) : ''; };
       const els = (res.elements || []).map(e => ({
         id: U().uid(), name: String(e.name || ''), sec: Math.max(0, Math.round((U().num(e.end) - U().num(e.start)) * 10) / 10),
-        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), note: '', ai: true
+        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), steps: Math.max(0, Math.round(U().num(e.steps))), note: '', ai: true
       })).filter(e => e.sec > 0);
       if (!els.length) throw new Error('AI ไม่พบ element');
       editing.elements = els; editing.aiDraft = true;
@@ -395,14 +395,14 @@
     host.querySelector('#ts-count').textContent = list.length;
     if (!list.length) { wrap.innerHTML = '<div class="empty-row"><p>ยังไม่มี element — ใช้ปุ่มจับเวลา หรือ “＋ แถว”</p></div>'; }
     else {
-      wrap.innerHTML = `<table class="el-table ease-table"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วินาที</th><th>ประเภท</th>${DIMS.map(d => `<th>${d.label}</th>`).join('')}<th>รวม</th><th></th></tr></thead><tbody></tbody></table>`;
+      wrap.innerHTML = `<table class="el-table ease-table"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วินาที</th><th>ก้าว</th><th>ประเภท</th>${DIMS.map(d => `<th>${d.label}</th>`).join('')}<th>รวม</th><th></th></tr></thead><tbody></tbody></table>`;
       const tb = wrap.querySelector('tbody');
       list.forEach((e, i) => tb.appendChild(row(list, e, i)));
     }
     const t = U().totals(list);
     host.querySelector('#ts-metrics').innerHTML =
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
-      mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475');
+      mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว');
     host.querySelector('#ts-bar').innerHTML = stack(t);
     renderEase();
   }
@@ -427,6 +427,7 @@
     tr.innerHTML = `<td class="idx">${i + 1}</td>
       <td><input class="r-name" placeholder="ชื่อขั้นตอน"></td>
       <td><input class="r-sec" type="number" min="0" step="0.1" inputmode="decimal"></td>
+      <td><input class="r-steps" type="number" min="0" step="1" inputmode="numeric" title="จำนวนก้าวเดิน (AI ประมาณให้ แก้ได้)"></td>
       <td><select class="r-type">${TYPES.map(ty => `<option value="${ty.k}">${ty.k}</option>`).join('')}</select></td>
       ${DIMS.map(d => `<td><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></td>`).join('')}
       <td class="r-sum"></td>
@@ -440,20 +441,22 @@
     const name = tr.querySelector('.r-name'); name.value = e.name || ''; name.oninput = () => e.name = name.value;
     const sec = tr.querySelector('.r-sec'); sec.value = e.sec; sec.oninput = () => { e.sec = sec.value; refreshMetrics(); };
     const type = tr.querySelector('.r-type'); type.value = e.type; type.onchange = () => { e.type = type.value; refreshMetrics(); };
+    const stp = tr.querySelector('.r-steps'); stp.value = e.steps ?? ''; stp.oninput = () => { e.steps = stp.value; refreshMetrics(); };
     tr.querySelector('.r-del').onclick = () => { const idx = list.indexOf(e); if (idx > -1) list.splice(idx, 1); renderTable(); };
     return tr;
   }
+  const totalSteps = list => (list || []).reduce((a, e) => a + Math.max(0, Math.round(U().num(e.steps))), 0);
   function refreshMetrics() {
     const { fmt } = U(); const t = U().totals(editing.elements);
     host.querySelector('#ts-metrics').innerHTML =
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
-      mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475');
+      mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว');
     host.querySelector('#ts-bar').innerHTML = stack(t);
   }
 
   function saveStudy() {
     const t = U().totals(editing.elements);
-    editing.ct = U().round1(t.ct); editing.va = U().round1(t.VA); editing.nnva = U().round1(t.NNVA); editing.nva = U().round1(t.NVA); editing.vaPct = U().round1(t.vaPct);
+    editing.ct = U().round1(t.ct); editing.va = U().round1(t.VA); editing.nnva = U().round1(t.NNVA); editing.nva = U().round1(t.NVA); editing.vaPct = U().round1(t.vaPct); editing.steps = totalSteps(editing.elements);
     const es = easeSummary(editing.elements);
     editing.ease = { avg: U().round1(es.avg * 10) / 10, t: es.dims.t, u: es.dims.u, v: es.dims.v, w: es.dims.w };
     editing.station = String(editing.station || editing.name || '').trim();
