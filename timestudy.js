@@ -164,6 +164,10 @@
         <div class="head-btns"><label class="swct-takt">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
         <div id="ts-swct" class="swct-wrap"></div>
         <p class="hint">สร้างจากตาราง Element อัตโนมัติ · ใส่ "คนที่" ในตาราง Element เพื่อแยกผู้ปฏิบัติงาน แต่ละคนเริ่มเวลา 0 · เส้นทึบ = ทำงาน · เส้นประ = ส่ง (เครื่องจักรทำเอง) · เส้นหยัก = เดิน · จุดสีชมพู = รอ · เส้นน้ำเงิน = C.T ของแต่ละคน · เส้นแดง = T.T</p></section>
+      <section class="panel"><div class="panelhead"><h2>แผนภูมิสองมือ (Two-Handed Process Chart)</h2>
+        <div class="head-btns"><label class="swct-takt">Proposed เทียบกับ <select id="th-cmp"></select></label><button id="th-print" type="button" class="ghost">พิมพ์</button></div></div>
+        <div id="th-table" class="tbl"></div><div id="th-chart" class="swct-wrap"></div><div id="th-sum" class="th-sum"></div>
+        <p class="hint">○ ทำงาน · ⇨ เคลื่อนย้าย · D รอ/มือว่าง · ▽ ถือค้าง · □ ตรวจสอบ · แถวละ 1 element · AI ร่างให้ แก้ได้ในตารางด้านบน · Proposed = เลือกรอบหลังปรับปรุงของสถานีเดียวกันมาเทียบ</p></section>
       <section class="panel"><div class="panelhead"><h2>สรุปคะแนนความง่ายในการทำงาน</h2></div><div id="ts-ease"></div></section>`;
 
     // field bindings
@@ -184,6 +188,8 @@
     const tk = host.querySelector('#swct-takt'); tk.value = editing.takt || ''; tk.placeholder = stationTakt() ? String(stationTakt()) : '';
     tk.oninput = () => { editing.takt = tk.value; renderSwct(); };
     host.querySelector('#swct-print').onclick = printSwct;
+    host.querySelector('#th-print').onclick = printHands;
+    host.querySelector('#th-cmp').onchange = e => { editing.thCmp = e.target.value; renderHandsChart(); };
     host.querySelector('#ts-sound').onclick = () => findSounds(true);
     host.querySelector('#ts-sound-els').onclick = elementsFromSound;
     if (soundEvents.length) paintSounds();
@@ -362,7 +368,7 @@
       const ok = ['VA', 'NNVA', 'NVA']; const s15 = n => { n = parseInt(n, 10); return n >= 1 && n <= 5 ? String(n) : ''; };
       const els = (res.elements || []).map(e => ({
         id: U().uid(), name: String(e.name || ''), sec: Math.max(0, Math.round((U().num(e.end) - U().num(e.start)) * 10) / 10),
-        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), steps: Math.max(0, Math.round(U().num(e.steps))), kind: KINDS.some(k => k[0] === e.kind) ? e.kind : undefined, mach: e.kind === 'auto' && U().num(e.mach) > 0 ? Math.round(U().num(e.mach) * 10) / 10 : '', note: '', ai: true
+        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), steps: Math.max(0, Math.round(U().num(e.steps))), kind: KINDS.some(k => k[0] === e.kind) ? e.kind : undefined, lh: handOf(e.lh), rh: handOf(e.rh), mach: e.kind === 'auto' && U().num(e.mach) > 0 ? Math.round(U().num(e.mach) * 10) / 10 : '', note: '', ai: true
       })).filter(e => e.sec > 0);
       if (!els.length) throw new Error('AI ไม่พบ element');
       editing.elements = els; editing.aiDraft = true;
@@ -415,7 +421,7 @@
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
       mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว');
     host.querySelector('#ts-bar').innerHTML = stack(t);
-    renderEase(); renderSwct();
+    renderEase(); renderSwct(); renderHands();
   }
   // ---- ตารางงานมาตรฐาน (Standardized Work Combination Table) ----
   const KINDS = [['manual', 'งานมือ'], ['walk', 'เดิน'], ['wait', 'รอ'], ['auto', 'เครื่องจักร']];
@@ -506,6 +512,79 @@
     const { esc } = U(); const r = swctSvg(editing.elements || [], swctTakt());
     const w = window.open('', '_blank'); if (!w) { U().toast('เบราว์เซอร์บล็อก popup'); return; }
     w.document.write(`<!doctype html><meta charset="utf-8"><title>SWCT · ${esc(editing.station || editing.name || '')}</title><style>body{font-family:system-ui,sans-serif;padding:14px;color:#17324b}.hd{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}.hd td{border:1px solid #9fb1c0;padding:4px 8px;vertical-align:top}.hd .tt{text-align:center;font-size:20px;font-weight:bold;width:34%}.hd .tt small{font-size:11px;font-weight:normal}.lg{font-size:12px;margin:4px 0 6px;text-align:right}svg{width:100%;height:auto}@media print{@page{size:A4 landscape;margin:10mm}}</style><body onload="print()"><table class="hd"><tr><td><b>สถานี / ชิ้นงาน</b><br>${esc(editing.station || '—')}</td><td><b>ชื่องาน</b><br>${esc(editing.name || '—')}</td><td class="tt" rowspan="2">ตารางงานมาตรฐานผสม<br><small>Standardized Work Combination Table</small></td><td><b>วันที่</b><br>${esc(editing.date || '')}</td><td><b>Cycle Time</b><br>${U().fmt(r.cycle)} วิ</td></tr><tr><td><b>ผู้วิเคราะห์</b><br>${esc(editing.analyst || '—')}</td><td><b>ผู้ปฏิบัติงาน</b><br>${esc(editing.operator || '—')} (${r.ops} คน)</td><td><b>พื้นที่</b><br>${esc([D().scope.workshop, D().scope.group, D().scope.team].filter(Boolean).join(' / '))}</td><td><b>Takt Time</b><br>${r.takt ? U().fmt(r.takt) + ' วิ' : '—'}</td></tr></table><div class="lg">━ ทำงาน &nbsp; ┅ ส่ง (เครื่องจักร) &nbsp; ∿ เดิน &nbsp; <span style="color:#d6338a">•••</span> รอ &nbsp; <span style="color:#1f4fd6">┃</span> C.T &nbsp; <span style="color:#d62020">┃</span> T.T</div>${r.svg}</body>`);
+    w.document.close();
+  }
+
+  // ---- แผนภูมิสองมือ (Two-Handed Process Chart) ----
+  const SYMS = [['O', '○', 'ทำงาน', 'Operations'], ['T', '⇨', 'เคลื่อนย้าย', 'Transports'], ['D', 'D', 'รอ', 'Delays'], ['H', '▽', 'ถือค้าง', 'Holds'], ['I', '□', 'ตรวจสอบ', 'Inspections']];
+  const SYMK = SYMS.map(x => x[0]);
+  function handOf(h) { if (!h || typeof h !== 'object') return undefined; const sy = String(h.s || '').toUpperCase(); return { d: String(h.d || ''), s: SYMK.includes(sy) ? sy : '' }; }
+  function handCounts(list) {
+    const c = { L: {}, R: {} }; SYMK.forEach(k => { c.L[k] = 0; c.R[k] = 0; });
+    (list || []).forEach(e => { const l = e.lh && e.lh.s, r = e.rh && e.rh.s; if (SYMK.includes(l)) c.L[l]++; if (SYMK.includes(r)) c.R[r]++; });
+    return c;
+  }
+  function renderHands() {
+    const box = host && host.querySelector('#th-table'); if (!box) return;
+    const { esc } = U(); const list = editing.elements || [];
+    // ตัวเลือก Proposed = รอบอื่นของสถานีเดียวกัน
+    const sel = host.querySelector('#th-cmp'); const G = D().group;
+    const others = G.roundsOf(G.key(editing)).filter(x => x.id !== editing.id);
+    sel.innerHTML = '<option value="">— ไม่เทียบ —</option>' + others.map((x, i) => `<option value="${esc(x.id)}">${esc(x.date || '')} · ${esc(x.operator || 'รอบ ' + (i + 1))}</option>`).join('');
+    sel.value = others.some(x => x.id === editing.thCmp) ? editing.thCmp : '';
+    if (!list.length) { box.innerHTML = '<div class="empty-row"><p>เพิ่ม element ก่อน</p></div>'; renderHandsChart(); return; }
+    const opt = v => '<option value="">–</option>' + SYMS.map(x => `<option value="${x[0]}"${v === x[0] ? ' selected' : ''}>${x[1]} ${x[2]}</option>`).join('');
+    box.innerHTML = `<table class="el-table th-table"><thead><tr><th>#</th><th>มือซ้ายทำอะไร</th><th>ซ้าย</th><th>ขวา</th><th>มือขวาทำอะไร</th></tr></thead><tbody>${list.map((e, i) => {
+      const l = e.lh || {}, r = e.rh || {};
+      return `<tr data-i="${i}"><td class="idx">${i + 1}</td><td><input class="th-ld" value="${esc(l.d || '')}" placeholder="${esc(e.name || '')}"></td><td><select class="th-ls">${opt(l.s)}</select></td><td><select class="th-rs">${opt(r.s)}</select></td><td><input class="th-rd" value="${esc(r.d || '')}"></td></tr>`;
+    }).join('')}</tbody></table>`;
+    box.querySelectorAll('tr[data-i]').forEach(tr => {
+      const e = list[+tr.dataset.i];
+      const hl = () => (e.lh = e.lh || { d: '', s: '' }), hr = () => (e.rh = e.rh || { d: '', s: '' });
+      tr.querySelector('.th-ld').oninput = ev => { hl().d = ev.target.value; renderHandsChart(); };
+      tr.querySelector('.th-rd').oninput = ev => { hr().d = ev.target.value; renderHandsChart(); };
+      tr.querySelector('.th-ls').onchange = ev => { hl().s = ev.target.value; renderHandsChart(); };
+      tr.querySelector('.th-rs').onchange = ev => { hr().s = ev.target.value; renderHandsChart(); };
+    });
+    renderHandsChart();
+  }
+  function handsSvg(list) {
+    const { esc } = U();
+    const cD = 300, cS = 26, W = cD * 2 + cS * 10, RH = 22, top = 30, H = top + list.length * RH + 6;
+    const xL = k => cD + cS * SYMK.indexOf(k) + cS / 2, xR = k => cD + cS * 5 + cS * SYMK.indexOf(k) + cS / 2;
+    let g = `<rect x="0" y="0" width="${W}" height="${top}" class="th-hb"/><text x="${cD / 2}" y="${top - 10}" class="th-h">LEFT-HAND (มือซ้าย)</text><text x="${cD + cS * 10 + cD / 2}" y="${top - 10}" class="th-h">RIGHT-HAND (มือขวา)</text>`;
+    const icon = (k, cx, cy) => k === 'O' ? `<circle cx="${cx}" cy="${cy}" r="6" class="th-ic"/>` : k === 'T' ? `<path d="M${cx - 7},${cy - 3} h7 v-4 l7,7 l-7,7 v-4 h-7 z" class="th-ic"/>` : k === 'D' ? `<text x="${cx}" y="${cy + 5}" class="th-sy">D</text>` : k === 'H' ? `<path d="M${cx - 7},${cy - 5} h14 l-7,12 z" class="th-ic"/>` : `<rect x="${cx - 6}" y="${cy - 6}" width="12" height="12" class="th-ic"/>`;
+    SYMS.forEach((x, k) => { g += icon(x[0], cD + cS * k + cS / 2, top - 14) + icon(x[0], cD + cS * 5 + cS * k + cS / 2, top - 14); });
+    for (let k = 0; k <= 10; k++) g += `<line x1="${cD + cS * k}" y1="0" x2="${cD + cS * k}" y2="${H - 6}" class="${k === 5 ? 'th-mid' : 'th-col'}"/>`;
+    const pl = [], pr = [];
+    list.forEach((e, i) => {
+      const y = top + i * RH + RH / 2, l = e.lh || {}, r = e.rh || {};
+      const ld = (l.d || e.name || ''), rd = (r.d || '');
+      g += `<line x1="0" y1="${y + RH / 2}" x2="${W}" y2="${y + RH / 2}" class="th-row"/><text x="6" y="${y + 4}" class="th-t">${esc(ld.length > 34 ? ld.slice(0, 34) + '…' : ld)}</text><text x="${cD + cS * 10 + 6}" y="${y + 4}" class="th-t">${esc(rd.length > 34 ? rd.slice(0, 34) + '…' : rd)}</text>`;
+      if (SYMK.includes(l.s)) pl.push([xL(l.s), y]);
+      if (SYMK.includes(r.s)) pr.push([xR(r.s), y]);
+    });
+    const poly = pts => pts.length > 1 ? `<polyline points="${pts.map(p => p.join(',')).join(' ')}" class="th-line"/>` : '';
+    const dots = pts => pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" class="th-dot"/>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" class="swct-svg" xmlns="http://www.w3.org/2000/svg"><style>.th-hb{fill:#f1f5f9}.th-h{font:bold 12px sans-serif;fill:#17324b;text-anchor:middle}.th-sy{font:bold 14px sans-serif;fill:#17324b;text-anchor:middle}.th-ic{fill:none;stroke:#17324b;stroke-width:1.6}.th-col{stroke:#d5dde5}.th-mid{stroke:#17324b;stroke-width:1.5}.th-row{stroke:#eef2f6}.th-t{font:11px sans-serif;fill:#17324b}.th-line{fill:none;stroke:#111;stroke-width:1.4}.th-dot{fill:#111}</style>${g}${poly(pl)}${poly(pr)}${dots(pl)}${dots(pr)}</svg>`;
+  }
+  function handsSummary(list) {
+    const cmp = editing.thCmp ? D().listStudies().find(x => x.id === editing.thCmp) : null;
+    const a = handCounts(list), b = cmp ? handCounts(cmp.elements) : null;
+    const tot = c => SYMK.reduce((s, k) => s + c[k], 0);
+    const cell = v => `<td>${v == null ? '–' : v}</td>`;
+    return `<table class="el-table th-summary"><thead><tr><th rowspan="2">สรุป (Method)</th><th colspan="2">Present (รอบนี้)</th><th colspan="2">Proposed${cmp ? ' (' + U().esc(cmp.date || '') + ')' : ''}</th></tr><tr><th>L.H</th><th>R.H</th><th>L.H</th><th>R.H</th></tr></thead><tbody>${SYMS.map(x => `<tr><td>${x[1]} ${x[3]} (${x[2]})</td>${cell(a.L[x[0]])}${cell(a.R[x[0]])}${cell(b ? b.L[x[0]] : null)}${cell(b ? b.R[x[0]] : null)}</tr>`).join('')}<tr class="th-total"><td>Total</td>${cell(tot(a.L))}${cell(tot(a.R))}${cell(b ? tot(b.L) : null)}${cell(b ? tot(b.R) : null)}</tr></tbody></table>`;
+  }
+  function renderHandsChart() {
+    const c = host && host.querySelector('#th-chart'); if (!c) return;
+    const list = editing.elements || [];
+    c.innerHTML = list.length ? `<div class="swct-scroll">${handsSvg(list)}</div>` : '';
+    host.querySelector('#th-sum').innerHTML = list.length ? handsSummary(list) : '';
+  }
+  function printHands() {
+    const { esc } = U(); const list = editing.elements || [];
+    const w = window.open('', '_blank'); if (!w) { U().toast('เบราว์เซอร์บล็อก popup'); return; }
+    w.document.write(`<!doctype html><meta charset="utf-8"><title>Two-Handed Process Chart · ${esc(editing.station || editing.name || '')}</title><style>body{font-family:system-ui,sans-serif;padding:14px;color:#17324b}h1{font-size:18px;margin:0 0 6px}.hd{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}.hd td{border:1px solid #9fb1c0;padding:4px 8px}svg{width:100%;height:auto}table.s{border-collapse:collapse;font-size:12px;margin-top:10px}table.s th,table.s td{border:1px solid #9fb1c0;padding:3px 10px;text-align:center}table.s td:first-child{text-align:left}@media print{@page{size:A4 portrait;margin:10mm}}</style><body onload="print()"><h1>TWO-HANDED PROCESS CHART · แผนภูมิกระบวนการสองมือ</h1><table class="hd"><tr><td><b>สถานี</b> ${esc(editing.station || '—')}</td><td><b>งาน</b> ${esc(editing.name || '—')}</td><td><b>ผู้ปฏิบัติงาน</b> ${esc(editing.operator || '—')}</td><td><b>ผู้วิเคราะห์</b> ${esc(editing.analyst || '—')}</td><td><b>วันที่</b> ${esc(editing.date || '')}</td></tr></table>${handsSvg(list)}${handsSummary(list).replace('class="el-table th-summary"', 'class="s"')}</body>`);
     w.document.close();
   }
 

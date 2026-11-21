@@ -312,3 +312,11 @@ dialog::backdrop{background:#071a3a77}
 .ease-table .r-mach{max-width:70px;text-align:right}
 .ease-table .r-mach:disabled{background:#f3f5f7;color:#b5c0ca}
 .ease-table .r-op{max-width:52px;text-align:center}
+.th-table{min-width:760px}
+.th-table .th-ld,.th-table .th-rd{min-width:220px}
+.th-table select{min-width:110px}
+.th-sum{padding:0 16px 12px;overflow-x:auto}
+.th-summary{max-width:620px}
+.th-summary th,.th-summary td{text-align:center}
+.th-summary td:first-child{text-align:left}
+.th-summary .th-total td{font-weight:700;border-top:2px solid #c9d4de}
