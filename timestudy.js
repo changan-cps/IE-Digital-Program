@@ -368,13 +368,29 @@
       const ok = ['VA', 'NNVA', 'NVA']; const s15 = n => { n = parseInt(n, 10); return n >= 1 && n <= 5 ? String(n) : ''; };
       const els = (res.elements || []).map(e => ({
         id: U().uid(), name: String(e.name || ''), sec: Math.max(0, Math.round((U().num(e.end) - U().num(e.start)) * 10) / 10),
-        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), steps: Math.max(0, Math.round(U().num(e.steps))), kind: KINDS.some(k => k[0] === e.kind) ? e.kind : undefined, lh: handOf(e.lh), rh: handOf(e.rh), mach: e.kind === 'auto' && U().num(e.mach) > 0 ? Math.round(U().num(e.mach) * 10) / 10 : '', note: '', ai: true
+        type: ok.includes(e.type) ? e.type : 'NNVA', t: s15(e.t), u: s15(e.u), v: s15(e.v), w: s15(e.w), steps: Math.max(0, Math.round(U().num(e.steps))), note: '', ai: true, _span: [U().num(e.start), U().num(e.end)]
       })).filter(e => e.sec > 0);
+      const spans = els.map(e => { const sp = e._span; delete e._span; return sp; });
       if (!els.length) throw new Error('AI ไม่พบ element');
       editing.elements = els; editing.aiDraft = true;
       if (res.ergo) { editing.ergo.risk = ['low', 'medium', 'high'].includes(res.ergo.risk) ? res.ergo.risk : editing.ergo.risk; if (res.ergo.notes) editing.ergo.notes = String(res.ergo.notes); }
       renderEditor();
       U().toast('AI ร่างให้ ' + els.length + ' element' + (sound.length ? ` (ใช้เสียงเครื่องมือ ${sound.length} ช่วง` + (speech.length ? ` + คำพูด ${speech.length} ช่วง)` : ')') : '') + ' — กรุณาตรวจและแก้ก่อนบันทึก');
+      // คำขอที่ 2: ร่างแบบงาน เวลาเครื่อง และมือซ้าย/ขวา (แยกเพื่อไม่ให้เกินเวลา 6 นาทีของ Apps Script)
+      const b2 = host.querySelector('#ts-ai'); if (b2) { b2.disabled = true; b2.textContent = 'AI กำลังร่างแบบงาน / มือซ้าย-ขวา…'; }
+      try {
+        const det = await window.CPS.sheet.call({ action: 'aidetail' }, { frames, elements: els.map((e, i) => ({ i, name: e.name, start: spans[i][0], end: spans[i][1] })) });
+        if (!det.ok) throw new Error(det.error || 'AI ตอบกลับผิดปกติ');
+        let n = 0;
+        if (editing.elements === els) (det.items || []).forEach(it => {
+          const e = els[parseInt(it && it.i, 10)]; if (!e) return;
+          if (KINDS.some(k => k[0] === it.kind)) e.kind = it.kind;
+          e.mach = it.kind === 'auto' && U().num(it.mach) > 0 ? Math.round(U().num(it.mach) * 10) / 10 : '';
+          const l = handOf(it.lh), r = handOf(it.rh); if (l) e.lh = l; if (r) e.rh = r; n++;
+        });
+        if (editing.elements === els) { renderTable(); U().toast('AI ร่างแบบงาน / มือซ้าย-ขวา ให้ ' + n + ' element — กรุณาตรวจก่อนบันทึก'); }
+      } catch (e) { U().toast('ร่างแบบงาน / มือซ้าย-ขวา ไม่สำเร็จ (element ที่แบ่งไว้ยังอยู่): ' + e.message); }
+      const b3 = host.querySelector('#ts-ai'); if (b3) { b3.disabled = false; b3.textContent = label; }
     } catch (e) { U().toast('AI วิเคราะห์ไม่สำเร็จ: ' + e.message); btn.textContent = label; btn.disabled = false; }
     aiBusy = false;
   }
@@ -623,7 +639,7 @@
     };
     tr.querySelectorAll('.r-dim').forEach(s => { s.value = e[s.dataset.k] || ''; s.onchange = () => { e[s.dataset.k] = s.value; paintRow(); renderEase(); }; });
     paintRow();
-    const name = tr.querySelector('.r-name'); name.value = e.name || ''; name.oninput = () => e.name = name.value;
+    const name = tr.querySelector('.r-name'); name.value = e.name || ''; name.oninput = () => { e.name = name.value; renderSwct(); renderHands(); };
     const sec = tr.querySelector('.r-sec'); sec.value = e.sec; sec.oninput = () => { e.sec = sec.value; refreshMetrics(); };
     const type = tr.querySelector('.r-type'); type.value = e.type; type.onchange = () => { e.type = type.value; refreshMetrics(); };
     const stp = tr.querySelector('.r-steps'); stp.value = e.steps ?? ''; stp.oninput = () => { e.steps = stp.value; refreshMetrics(); };
