@@ -7,6 +7,9 @@
   const D = () => window.CPS.data;
   let editing = null;      // study object being edited
   let videoUrl = null;     // objectURL (not persisted)
+  let videoFile = null;    // File object (not persisted) — used for local audio analysis
+  let audioCache = null;   // { file, buffer }
+  let soundEvents = [];    // [{start,end,db}] tool-sound bursts found locally
   let boundary = null;     // currentTime of the open element start
   let host = null;
 
@@ -132,6 +135,7 @@
           <span id="ts-open" class="muted"></span>
         </div>
         <p class="hint">วิธีใช้: เล่นวิดีโอ → กด “มาร์คจุดเริ่ม” ตรงจุดเริ่มงาน → พอจบขั้นตอนกด “ตัดจบขั้นตอน” ระบบจะสร้างแถว element พร้อมเวลาให้อัตโนมัติ แล้วเริ่มจับขั้นถัดไปต่อเนื่อง ตั้งชื่อและเลือกประเภทได้ภายหลัง</p>
+        <div class="sound-strip"><button id="ts-sound" type="button" class="ghost">🔊 หาเสียงเครื่องมือ</button><button id="ts-sound-els" type="button" class="ghost" hidden>สร้าง element จากเสียง</button><label class="sound-opt"><input id="ts-speech" type="checkbox"> ใช้เสียงพูดบรรยายช่วย AI (ส่งเสียงให้ Gemini ถอดความ)</label><small id="ts-sound-msg" class="muted">เสียงเครื่องมือวิเคราะห์ในเครื่อง ไม่ส่งออก</small></div><div id="ts-sound-list" class="sound-list"></div>
         <div class="ai-strip"><button id="ts-ai" type="button" class="ghost">🤖 แยก element อัตโนมัติ (AI)</button><small>AI ร่าง element + เวลา + VA/NNVA/NVA + คะแนน + Ergonomic ให้ แล้วคนตรวจแก้ · ต้องตั้งค่า Gemini ตามคู่มือก่อน</small></div>
       </section>
 
@@ -173,6 +177,9 @@
     v.addEventListener('play', () => host.querySelector('#ts-play').textContent = '⏸ หยุด');
     v.addEventListener('pause', () => host.querySelector('#ts-play').textContent = '▶︎ เล่น');
     host.querySelector('#ts-frames-btn').onclick = extractFrames;
+    host.querySelector('#ts-sound').onclick = () => findSounds(true);
+    host.querySelector('#ts-sound-els').onclick = elementsFromSound;
+    if (soundEvents.length) paintSounds();
     host.querySelector('#ts-mark').onclick = markStart;
     host.querySelector('#ts-lap').onclick = lap;
     host.querySelector('#ts-addrow').onclick = () => { s.elements.push({ id: U().uid(), name: '', sec: '', type: 'VA', note: '' }); renderTable(); };
@@ -192,11 +199,11 @@
   function onFile(e) {
     const f = e.target.files[0]; if (!f) return;
     cleanupVideo();
-    videoUrl = URL.createObjectURL(f);
+    videoUrl = URL.createObjectURL(f); videoFile = f; audioCache = null; soundEvents = [];
     const v = host.querySelector('#ts-video'); v.src = videoUrl;
     host.querySelector('#ts-empty').hidden = true;
   }
-  function cleanupVideo() { if (videoUrl) { URL.revokeObjectURL(videoUrl); videoUrl = null; } boundary = null; }
+  function cleanupVideo() { if (videoUrl) { URL.revokeObjectURL(videoUrl); videoUrl = null; } videoFile = null; audioCache = null; soundEvents = []; boundary = null; }
 
   // แตกเฟรมจากวิดีโอเป็นแถบภาพย่อ (อยู่ในหน้าจอเท่านั้น ไม่ถูกบันทึก) — กดภาพเพื่อข้ามไปเวลานั้น
   let extracting = false;
@@ -224,6 +231,84 @@
     v.currentTime = back; extracting = false;
   }
 
+  // ---- เสียง: ถอดรหัสเสียงจากไฟล์ในเครื่อง ----
+  async function decodeAudio() {
+    if (!videoFile) throw new Error('เลือกวิดีโอจากเครื่องก่อน');
+    if (audioCache && audioCache.file === videoFile) return audioCache.buffer;
+    const AC = window.AudioContext || window.webkitAudioContext; const ctx = new AC();
+    try {
+      const buf = await ctx.decodeAudioData(await videoFile.arrayBuffer());
+      audioCache = { file: videoFile, buffer: buf }; return buf;
+    } catch (e) { throw new Error('อ่านเสียงจากไฟล์นี้ไม่ได้ (ไฟล์อาจไม่มีเสียง)'); }
+    finally { try { ctx.close(); } catch (e) {} }
+  }
+  // หาช่วงเสียงดังเด่นกว่าเสียงพื้นหลัง (เช่น บล็อกไฟฟ้า เสียงคลิก) — คำนวณในเครื่องทั้งหมด
+  function detectBursts(buf) {
+    const sr = buf.sampleRate, win = Math.max(1, Math.round(sr * 0.05)), n = Math.floor(buf.length / win);
+    const chs = []; for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c));
+    const db = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let sum = 0; const o = i * win;
+      for (let j = 0; j < win; j++) { let x = 0; for (const ch of chs) x += ch[o + j]; x /= chs.length; sum += x * x; }
+      db[i] = 10 * Math.log10(sum / win + 1e-12);
+    }
+    const sorted = Array.from(db).sort((a, b) => a - b); const pct = q => sorted[Math.min(n - 1, Math.floor(q * n))];
+    const floor = pct(0.2);
+    // ปรับตามคลิป: เอาเฉพาะช่วงที่ดังติดอันดับ 7% แรก และดังกว่าเสียงพื้นหลังอย่างน้อย 6 dB (โรงงานเสียงดัง + ไมค์มือถือบีบเสียง)
+    let thr = Math.max(floor + 6, pct(0.93)), ev = [];
+    for (let pass = 0; pass < 6; pass++) {
+      ev = []; let st = -1, gap = 0;
+      for (let i = 0; i <= n; i++) {
+        const loud = i < n && db[i] >= thr;
+        if (loud) { if (st < 0) st = i; gap = 0; }
+        else if (st >= 0) { gap++; if (gap > 6 || i === n) { const end = i - gap + 1; if ((end - st) * 0.05 >= 0.3) { let pk = -200; for (let k = st; k < end; k++) pk = Math.max(pk, db[k]); ev.push({ start: +(st * 0.05).toFixed(1), end: +(end * 0.05).toFixed(1), db: Math.round(pk - floor) }); } st = -1; gap = 0; } }
+      }
+      if (ev.length <= 60) break; thr += 3;
+    }
+    return ev;
+  }
+  async function findSounds(show) {
+    const msg = host.querySelector('#ts-sound-msg');
+    try {
+      msg.textContent = 'กำลังวิเคราะห์เสียง…';
+      const buf = await decodeAudio(); soundEvents = detectBursts(buf);
+      msg.textContent = soundEvents.length ? `พบเสียงเครื่องมือ ${soundEvents.length} ช่วง (คำนวณในเครื่อง)` : 'ไม่พบช่วงเสียงดังเด่นชัด';
+      if (show) paintSounds();
+      return soundEvents;
+    } catch (e) { msg.textContent = e.message; soundEvents = []; if (show) paintSounds(); return []; }
+  }
+  function paintSounds() {
+    const box = host.querySelector('#ts-sound-list'); const v = host.querySelector('#ts-video');
+    host.querySelector('#ts-sound-els').hidden = !soundEvents.length;
+    box.innerHTML = soundEvents.map((e, i) => `<button type="button" class="sound-chip" data-i="${i}">🔊 ${e.start.toFixed(1)}–${e.end.toFixed(1)} วิ</button>`).join('');
+    box.querySelectorAll('.sound-chip').forEach(b => b.onclick = () => { v.currentTime = soundEvents[+b.dataset.i].start; });
+  }
+  // แบ่งคลิปเป็นช่วง "มีเสียงเครื่องมือ" กับ "ช่วงระหว่างนั้น" เป็นร่าง element ให้คนตั้งชื่อต่อ
+  async function elementsFromSound() {
+    const v = host.querySelector('#ts-video'); if (!soundEvents.length) return;
+    if (editing.elements.length && !(await U().ask('แทนที่ element ที่มีอยู่ด้วยช่วงที่แบ่งจากเสียง?', []))) return;
+    const out = []; let t = 0, k = 0; const dur = v.duration || soundEvents[soundEvents.length - 1].end;
+    const push = (a, b, name, type) => { const sec = Math.round((b - a) * 10) / 10; if (sec >= 0.3) out.push({ id: U().uid(), name, sec, type, note: `${a.toFixed(1)}–${b.toFixed(1)} วิ`, sound: true }); };
+    for (const e of soundEvents) { push(t, e.start, '', 'NNVA'); push(e.start, e.end, `ใช้เครื่องมือ ${++k}`, 'VA'); t = e.end; }
+    push(t, dur, '', 'NNVA');
+    editing.elements = out; renderEditor();
+    U().toast(`แบ่งได้ ${out.length} ช่วงจากเสียง — ตั้งชื่อขั้นตอนและตรวจประเภทต่อ`);
+  }
+  // แปลงเสียงเป็น WAV 8 kHz โมโน (สำหรับถอดเสียงพูดเท่านั้น)
+  async function speechWav(buf, maxSec) {
+    const sec = Math.min(buf.duration, maxSec), rate = 8000;
+    const off = new OfflineAudioContext(1, Math.ceil(sec * rate), rate);
+    const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start(0, 0, sec);
+    const pcm = (await off.startRendering()).getChannelData(0);
+    const ab = new ArrayBuffer(44 + pcm.length * 2), dv = new DataView(ab);
+    const w = (o, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length * 2, true); w(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, pcm.length * 2, true);
+    for (let i = 0; i < pcm.length; i++) { const x = Math.max(-1, Math.min(1, pcm[i])); dv.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+    const bytes = new Uint8Array(ab); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+
   // ---- AI วิเคราะห์อัตโนมัติ: ส่งเฟรมภาพไปให้ Gemini ผ่าน Apps Script แล้วเติม element/เวลา/ประเภท/คะแนน/Ergonomic ----
   let aiBusy = false;
   async function grabFrames(v, maxFrames, width) {
@@ -242,14 +327,26 @@
     if (!v.src || !v.duration) { U().toast('เลือกวิดีโอก่อน'); return; }
     if (!window.CPS.sheet.configured()) { U().toast('ยังไม่ได้ตั้งค่า Google Sheet/AI — ดูคู่มือ (README) ส่วนที่ 3'); return; }
     const yes = async m => !!(await U().ask(m, []));
-    if (!await yes('ส่งภาพนิ่งจากวิดีโอนี้ (สูงสุด 40 ภาพ) ไปให้ Google Gemini วิเคราะห์ ผ่าน Apps Script ของคุณ?')) return;
+    const useSpeech = !!(host.querySelector('#ts-speech') || {}).checked;
+    if (!await yes(useSpeech ? 'ส่งภาพนิ่งจากวิดีโอนี้ (สูงสุด 40 ภาพ) และเสียงพูดในคลิป ไปให้ Google Gemini วิเคราะห์ ผ่าน Apps Script ของคุณ?' : 'ส่งภาพนิ่งจากวิดีโอนี้ (สูงสุด 40 ภาพ) ไปให้ Google Gemini วิเคราะห์ ผ่าน Apps Script ของคุณ?')) return;
     if (editing.elements.length && !await yes('แทนที่ element ที่มีอยู่ด้วยผลจาก AI?')) return;
     aiBusy = true; const btn = host.querySelector('#ts-ai'); const label = btn.textContent; btn.disabled = true;
     try {
       btn.textContent = 'กำลังเตรียมภาพ…'; v.pause(); const back = v.currentTime;
       const frames = await grabFrames(v, 40, 384); v.currentTime = back;
-      btn.textContent = 'AI กำลังวิเคราะห์…';
-      const res = await window.CPS.sheet.call({ action: 'ai' }, { frames, duration: Math.round(v.duration * 10) / 10, name: editing.name || '' });
+      btn.textContent = 'กำลังวิเคราะห์เสียง…';
+      const sound = videoFile ? (soundEvents.length ? soundEvents : await findSounds(true)) : [];
+      let speech = [];
+      if (useSpeech && videoFile) {
+        try {
+          btn.textContent = 'AI กำลังถอดเสียงพูด…';
+          const audio = await speechWav(await decodeAudio(), 600);
+          const tr = await window.CPS.sheet.call({ action: 'transcribe' }, { audio, mime: 'audio/wav', duration: Math.round(v.duration * 10) / 10 });
+          if (tr.ok) speech = (tr.speech || []).filter(x => x && x.text); else U().toast('ถอดเสียงพูดไม่สำเร็จ ใช้ภาพและเสียงเครื่องมืออย่างเดียว: ' + (tr.error || ''));
+        } catch (e) { U().toast('ถอดเสียงพูดไม่สำเร็จ ใช้ภาพและเสียงเครื่องมืออย่างเดียว: ' + e.message); }
+      }
+      btn.textContent = 'AI กำลังวิเคราะห์ภาพ…';
+      const res = await window.CPS.sheet.call({ action: 'ai' }, { frames, duration: Math.round(v.duration * 10) / 10, name: editing.name || '', sound: sound.map(e => [e.start, e.end]), speech: speech.map(x => ({ start: +x.start || 0, end: +x.end || 0, text: String(x.text).slice(0, 200) })) });
       if (!res.ok) throw new Error(res.error || 'AI ตอบกลับผิดปกติ');
       const ok = ['VA', 'NNVA', 'NVA']; const s15 = n => { n = parseInt(n, 10); return n >= 1 && n <= 5 ? String(n) : ''; };
       const els = (res.elements || []).map(e => ({
@@ -260,7 +357,7 @@
       editing.elements = els; editing.aiDraft = true;
       if (res.ergo) { editing.ergo.risk = ['low', 'medium', 'high'].includes(res.ergo.risk) ? res.ergo.risk : editing.ergo.risk; if (res.ergo.notes) editing.ergo.notes = String(res.ergo.notes); }
       renderEditor();
-      U().toast('AI ร่างให้ ' + els.length + ' element — กรุณาตรวจและแก้ก่อนบันทึก');
+      U().toast('AI ร่างให้ ' + els.length + ' element' + (sound.length ? ` (ใช้เสียงเครื่องมือ ${sound.length} ช่วง` + (speech.length ? ` + คำพูด ${speech.length} ช่วง)` : ')') : '') + ' — กรุณาตรวจและแก้ก่อนบันทึก');
     } catch (e) { U().toast('AI วิเคราะห์ไม่สำเร็จ: ' + e.message); btn.textContent = label; btn.disabled = false; }
     aiBusy = false;
   }
