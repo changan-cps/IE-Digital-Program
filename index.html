@@ -106,10 +106,11 @@
     <label>Web App URL (จาก Google Apps Script)
       <input id="sheet-url" type="url" placeholder="https://script.google.com/macros/s/..../exec" autocomplete="off">
     </label>
-    <p class="muted">วาง URL ของ Apps Script Web App ที่ Deploy แล้ว ดูวิธีทำในไฟล์ README</p>
+    <p class="muted">วาง URL ของ Apps Script Web App ที่ Deploy แล้ว ดูวิธีทำในไฟล์ README · ทุกเครื่องที่เชื่อม URL เดียวกันจะเห็นข้อมูลเดียวกัน (ซิงค์อัตโนมัติทุก 30 วินาที) · ใช้ปุ่ม “คัดลอกลิงก์สำหรับทีม” ส่งให้คนอื่นเปิดครั้งแรก ไม่ต้องตั้งค่าเอง</p>
     <div class="dlg-actions">
       <button id="sheet-test" value="cancel" type="button" class="ghost">ทดสอบการเชื่อมต่อ</button>
       <button id="sheet-sync" value="cancel" type="button" class="ghost">ซิงค์เดี๋ยวนี้</button>
+      <button id="sheet-link" value="cancel" type="button" class="ghost">คัดลอกลิงก์สำหรับทีม</button>
       <button id="sheet-save" value="default" class="primary">บันทึก</button>
     </div>
     <p id="sheet-status" class="muted" role="status"></p>

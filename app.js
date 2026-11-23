@@ -200,38 +200,116 @@
     const txt = await r.text();
     try { return JSON.parse(txt); } catch { throw new Error('ตอบกลับไม่ใช่ JSON (ตรวจการ Deploy)'); }
   }
+  // ---- ข้อมูลกลาง: ทุกเครื่องเห็นเหมือนกัน (Sheet เป็นตัวจริง) ----
+  // up = แก้ในเครื่องแล้วแต่ยังส่งขึ้น Sheet ไม่สำเร็จ · del = ลบในเครื่องแล้วยังส่งไม่สำเร็จ · seen = เคยเห็นใน Sheet (ถ้าหายไปแปลว่าเครื่องอื่นลบ)
+  function Q() { const q = store.sync = store.sync || {}; q.up = q.up || {}; q.del = q.del || {}; q.seen = q.seen || {}; return q; }
+  const areaId = a => JSON.stringify([a.workshop || '', a.group || '', a.team || '']);
+  const qk = (kind, rec) => kind + '|' + (kind === 'areas' ? areaId(rec) : rec.id);
   function syncPush(kind, rec) {
+    const k = qk(kind, rec); Q().up[k] = 1; persist();
     if (!sheetUrl) return;
-    setSync('pending');
-    sheetFetch({ action: 'upsert', sheet: kind }, rec)
-      .then(() => setSync('ok', 'ซิงค์แล้ว')).catch(e => setSync('error', e.message));
+    const ts = rec.updatedAt; setSync('pending');
+    sheetFetch({ action: 'upsert', sheet: kind }, rec).then(() => {
+      if (rec.updatedAt === ts) delete Q().up[k];
+      Q().seen[k] = 1; persist(); setSync('ok', 'ซิงค์แล้ว');
+    }).catch(e => setSync('error', e.message));
   }
   function syncDelete(kind, id) {
+    const k = kind + '|' + id; delete Q().up[k]; Q().del[k] = 1; persist();
     if (!sheetUrl) return;
     setSync('pending');
-    sheetFetch({ action: 'delete', sheet: kind }, { id })
-      .then(() => setSync('ok')).catch(e => setSync('error', e.message));
+    sheetFetch({ action: 'delete', sheet: kind }, { id }).then(() => { delete Q().del[k]; delete Q().seen[k]; persist(); setSync('ok'); })
+      .catch(e => setSync('error', e.message));
   }
-  async function syncPull() {
-    if (!sheetUrl) { toast('ยังไม่ได้ตั้งค่า Google Sheet'); return; }
-    setSync('pending'); sheetStatus('กำลังดึงข้อมูลจาก Sheet…');
-    try {
-      for (const kind of ['studies', 'jobs', 'stations', 'areas']) {
-        const res = await sheetFetch({ action: 'list', sheet: kind });
-        if (Array.isArray(res.rows)) mergeRows(kind, res.rows);
-      }
-      persist(); setSync('ok', 'ซิงค์แล้ว'); sheetStatus('ดึงข้อมูลสำเร็จ'); render();
-    } catch (e) { setSync('error', e.message); sheetStatus('ดึงข้อมูลไม่สำเร็จ: ' + e.message); }
-  }
-  function mergeRows(kind, rows) {
-    const col = store[kind];
-    for (const row of rows) {
-      if (kind === 'areas') { if (row.workshop && !col.some(a => a.workshop === row.workshop && a.group === row.group && a.team === row.team)) col.push({ workshop: row.workshop, group: row.group, team: row.team }); continue; }
-      const i = col.findIndex(x => x.id === row.id);
-      if (i < 0) col.push(row);
-      else if ((row.updatedAt || 0) >= (col[i].updatedAt || 0)) col[i] = row;
+  async function flushQueue() {
+    const q = Q();
+    for (const k of Object.keys(q.del)) {
+      const kind = k.slice(0, k.indexOf('|')), id = k.slice(k.indexOf('|') + 1);
+      await sheetFetch({ action: 'delete', sheet: kind }, { id }); delete q.del[k]; delete q.seen[k];
     }
+    for (const k of Object.keys(q.up)) {
+      const kind = k.slice(0, k.indexOf('|')), id = k.slice(k.indexOf('|') + 1);
+      const rec = kind === 'areas' ? store.areas.find(a => areaId(a) === id) : (store[kind] || []).find(x => x.id === id);
+      if (!rec) { delete q.up[k]; continue; }
+      const ts = rec.updatedAt;
+      await sheetFetch({ action: 'upsert', sheet: kind }, rec);
+      if (rec.updatedAt === ts) delete q.up[k];
+      q.seen[k] = 1;
+    }
+    persist();
   }
+  function applyRemote(kind, rows) {
+    const q = Q(); let changed = false;
+    if (kind === 'areas') {
+      rows.forEach(row => { if (row && row.workshop && !store.areas.some(a => areaId(a) === areaId(row))) { store.areas.push({ workshop: row.workshop, group: row.group || '', team: row.team || '' }); changed = true; } q.seen['areas|' + areaId(row || {})] = 1; });
+      const have = new Set(rows.map(r => areaId(r || {})));
+      store.areas.forEach(a => { const k = 'areas|' + areaId(a); if (!have.has(areaId(a)) && !q.seen[k]) q.up[k] = 1; }); // พื้นที่ที่เพิ่มในเครื่องนี้ก่อนเชื่อม Sheet → ส่งขึ้น
+      return changed;
+    }
+    const remote = new Map(rows.filter(r => r && r.id).map(r => [r.id, r]));
+    const out = [];
+    for (const loc of store[kind]) {
+      const k = kind + '|' + loc.id, r = remote.get(loc.id);
+      if (r) {
+        remote.delete(loc.id); q.seen[k] = 1;
+        if (!q.up[k] && (r.updatedAt || 0) >= (loc.updatedAt || 0) && JSON.stringify(r) !== JSON.stringify(loc)) { out.push(r); changed = true; }
+        else out.push(loc);
+      } else if (q.up[k]) out.push(loc);                       // ยังส่งไม่สำเร็จ เก็บไว้ส่งรอบหน้า
+      else if (q.seen[k]) { delete q.seen[k]; changed = true; } // เครื่องอื่นลบไปแล้ว
+      else { out.push(loc); q.up[k] = 1; }                      // ข้อมูลเดิมในเครื่องที่ยังไม่เคยขึ้น Sheet → ส่งขึ้น
+    }
+    for (const [id, r] of remote) { const k = kind + '|' + id; if (q.del[k]) continue; out.push(r); q.seen[k] = 1; changed = true; }
+    store[kind] = out;
+    return changed;
+  }
+  let pulling = false;
+  async function syncPull(silent) {
+    if (!sheetUrl) { if (!silent) toast('ยังไม่ได้ตั้งค่า Google Sheet'); return; }
+    if (pulling) return; pulling = true;
+    setSync('pending'); if (!silent) sheetStatus('กำลังซิงค์กับ Sheet…');
+    try {
+      // เปลี่ยน Sheet (URL ใหม่) → ล้างประวัติ "เคยเห็น" เพื่อไม่ให้ตีความว่าข้อมูลถูกลบ แล้วส่งข้อมูลในเครื่องขึ้น Sheet ใหม่
+      if (Q().url !== sheetUrl) { Q().seen = {}; Q().url = sheetUrl; persist(); }
+      await flushQueue();
+      const kinds = ['studies', 'jobs', 'stations', 'areas'];
+      const res = await Promise.all(kinds.map(k => sheetFetch({ action: 'list', sheet: k })));
+      let changed = false;
+      kinds.forEach((k, i) => { if (res[i] && Array.isArray(res[i].rows)) changed = applyRemote(k, res[i].rows) || changed; });
+      persist();
+      setSync('ok', 'ซิงค์แล้ว ' + new Date().toLocaleTimeString());
+      if (!silent) sheetStatus('ซิงค์สำเร็จ — ข้อมูลตรงกับ Sheet แล้ว');
+      if (Object.keys(Q().up).length) flushQueue().catch(() => {});
+      if (changed || pendingRender) safeRender();
+    } catch (e) { setSync('error', e.message); if (!silent) sheetStatus('ซิงค์ไม่สำเร็จ: ' + e.message); }
+    finally { pulling = false; }
+  }
+  // วาดหน้าใหม่เมื่อมีข้อมูลจากเครื่องอื่น — แต่ไม่รบกวนตอนกำลังพิมพ์/แก้ไขอยู่ (ไว้วาดรอบถัดไป)
+  let pendingRender = false;
+  function isBusy() {
+    const a = document.activeElement;
+    if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return true;
+    if ([...document.querySelectorAll('dialog')].some(x => x.open)) return true;
+    if (!$('#app').hidden && document.querySelector('.tab-page:not([hidden]) #ts-table, .tab-page:not([hidden]) #an-back, .tab-page:not([hidden]) .wf-steps')) return true;
+    return false;
+  }
+  function safeRender() {
+    if (isBusy()) { pendingRender = true; return; }
+    pendingRender = false;
+    if (!$('#gate').hidden) { ['workshop', 'group', 'team'].forEach(st => { fillSelect(st); if (pick[st]) $('#sel-' + st).value = pick[st]; }); return; }
+    render();
+  }
+  function startAutoSync() {
+    setInterval(() => { if (!document.hidden) syncPull(true); }, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPull(true); });
+  }
+  // ลิงก์สำหรับทีม: #sheet=<Web App URL> → ตั้งค่าเครื่องนี้ให้อัตโนมัติ (ส่วนหลัง # ไม่ถูกส่งไปที่ GitHub)
+  function takeSheetFromLink() {
+    const m = location.hash.match(/[#&]sheet=([^&]+)/); if (!m) return;
+    const u = decodeURIComponent(m[1]);
+    if (/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) { sheetUrl = u; localStorage.setItem(URL_KEY, u); toast('เชื่อมข้อมูลกลางของทีมแล้ว'); }
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  function teamLink() { return location.origin + location.pathname + '#sheet=' + encodeURIComponent(sheetUrl); }
   async function fullPush() {
     if (!sheetUrl) { toast('ยังไม่ได้ตั้งค่า Google Sheet'); return; }
     setSync('pending'); sheetStatus('กำลังอัปโหลดข้อมูลทั้งหมด…');
@@ -368,6 +446,7 @@
     document.body.classList.toggle('readonly', !canEdit());
     setSync(sheetUrl ? 'ok' : 'off', sheetUrl ? 'เชื่อม Sheet แล้ว' : 'ยังไม่เชื่อม Sheet');
     showTab(currentTab);
+    syncPull(true);
   }
   function showTab(tab) {
     currentTab = tab;
@@ -446,12 +525,20 @@
     // settings dialog
     $('#sheet-save').onclick = () => { store.approval = store.approval || {}; $$('[data-pin]').forEach(i => store.approval[i.dataset.pin] = i.value.trim()); persist(); sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl); setSync(sheetUrl ? 'ok' : 'off'); toast('บันทึกการตั้งค่าแล้ว'); };
     $('#sheet-test').onclick = async () => { sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl); sheetStatus('กำลังทดสอบ…'); try { const r = await sheetFetch({ action: 'ping' }); sheetStatus(r.ok ? 'เชื่อมต่อสำเร็จ ✓' : 'ตอบกลับผิดปกติ'); setSync('ok'); } catch (e) { sheetStatus('เชื่อมต่อไม่สำเร็จ: ' + e.message); setSync('error'); } };
-    $('#sheet-sync').onclick = async () => { sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl); await fullPush(); await syncPull(); };
+    $('#sheet-sync').onclick = async () => { sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl); await syncPull(); };
+    $('#sheet-link').onclick = async () => {
+      sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl);
+      if (!sheetUrl) { sheetStatus('ใส่ Web App URL ก่อน'); return; }
+      try { await navigator.clipboard.writeText(teamLink()); sheetStatus('คัดลอกลิงก์สำหรับทีมแล้ว — ส่งให้เพื่อนในทีมเปิดครั้งแรกครั้งเดียว เครื่องนั้นจะเชื่อมข้อมูลกลางอัตโนมัติ'); }
+      catch (e) { window.prompt('คัดลอกลิงก์นี้ส่งให้ทีม', teamLink()); }
+    };
     $('#export-json').onclick = exportJSON;
     $('#import-json').onchange = importJSON;
 
     // start
-    if (scope && scope.workshop) openApp(); else openGate();
+    takeSheetFromLink();
+    if (scope && scope.workshop) openApp(); else { openGate(); syncPull(true); }
+    startAutoSync();
   }
 
   function exportJSON() {
