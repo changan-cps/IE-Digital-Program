@@ -336,3 +336,8 @@ dialog.sb-dlg{width:min(1180px,96vw);max-width:96vw;max-height:92vh;border:none;
 .sbd-head #sbd-close{margin-left:auto}
 #sbd-body{padding:8px 16px 18px}
 #sbd-body h3{font-size:15px;margin:14px 0 4px;color:#17324b}
+/* แจ้งเตือน AI Free out of Credit */
+#ai-out{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:flex-start;width:min(680px,calc(100% - 32px));box-sizing:border-box;background:#b42318;color:#fff;padding:12px 14px;border-radius:12px;box-shadow:0 12px 40px #0005;font-size:14px;line-height:1.45}
+#ai-out b{white-space:nowrap;font-size:15px}
+#ai-out span{flex:1 1 240px;order:3}
+#ai-out button{margin-left:auto;background:none;border:none;color:#fff;font-size:16px;cursor:pointer;padding:0 2px}

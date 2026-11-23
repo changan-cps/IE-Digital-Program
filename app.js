@@ -198,7 +198,19 @@
     const r = await fetch(url, opt);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const txt = await r.text();
-    try { return JSON.parse(txt); } catch { throw new Error('ตอบกลับไม่ใช่ JSON (ตรวจการ Deploy)'); }
+    let res; try { res = JSON.parse(txt); } catch { throw new Error('ตอบกลับไม่ใช่ JSON (ตรวจการ Deploy)'); }
+    if (res && res.code === 'AI_FREE_OUT') aiOutAlert();
+    return res;
+  }
+  // แจ้งเตือนเด่น ๆ เมื่อโควตาฟรีของ AI หมด (หลังบ้านตอบ code AI_FREE_OUT)
+  function aiOutAlert() {
+    let b = $('#ai-out');
+    if (!b) {
+      b = document.createElement('div'); b.id = 'ai-out'; b.setAttribute('role', 'alert');
+      b.innerHTML = '<b>⚠️ AI Free out of Credit</b><span>โควตาฟรีของ AI หมดแล้ว — ใช้ AI ได้อีกครั้งเมื่อโควตารีเซ็ต (วันถัดไป) หรือให้ผู้ดูแลระบบเปิด Billing ใน Google AI Studio · บันทึก/แก้ข้อมูลเองยังใช้ได้ตามปกติ</span><button type="button" aria-label="ปิด">✕</button>';
+      b.querySelector('button').onclick = () => b.remove();
+      document.body.appendChild(b);
+    }
   }
   // ---- ข้อมูลกลาง: ทุกเครื่องเห็นเหมือนกัน (Sheet เป็นตัวจริง) ----
   // up = แก้ในเครื่องแล้วแต่ยังส่งขึ้น Sheet ไม่สำเร็จ · del = ลบในเครื่องแล้วยังส่งไม่สำเร็จ · seen = เคยเห็นใน Sheet (ถ้าหายไปแปลว่าเครื่องอื่นลบ)
