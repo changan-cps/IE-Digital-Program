@@ -315,6 +315,8 @@
     pick[step] = v; input.value = '';
     if (step === 'workshop') { pick.group = ''; pick.team = ''; }
     if (step === 'group') pick.team = '';
+    // จำพื้นที่ที่เพิ่มใหม่ทันที (ครั้งหน้าขึ้นในดรอปดาวน์เลย แม้ยังไม่ได้กดเข้าใช้งาน)
+    registerArea({ workshop: pick.workshop, group: step === 'workshop' ? '' : pick.group, team: step === 'team' ? v : '' });
     // ensure dependent enabled
     if (step === 'workshop') { $('#sel-group').disabled = false; }
     if (step === 'group') { $('#sel-team').disabled = false; }
