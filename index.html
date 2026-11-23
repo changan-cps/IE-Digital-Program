@@ -11,6 +11,20 @@
 <body>
 
 <!-- ======== GATE: เลือกพื้นที่ก่อนใช้งาน ======== -->
+<!-- ======== LOGIN: รหัสเข้าใช้งานของทีม ======== -->
+<section id="login" class="gate" hidden>
+  <div class="gate-card">
+    <p class="eyebrow">CPS IE STUDIO</p>
+    <h1>เข้าสู่ระบบ</h1>
+    <p class="gate-sub">ใส่รหัสเข้าใช้งานของทีม (ขอจากผู้ดูแลระบบ)</p>
+    <form id="login-form" class="login-form">
+      <input id="login-code" type="password" autocomplete="current-password" placeholder="รหัสเข้าใช้งาน" required>
+      <button id="login-go" class="primary" type="submit">เข้าสู่ระบบ →</button>
+    </form>
+    <p id="login-msg" class="muted" role="status"></p>
+  </div>
+</section>
+
 <section id="gate" class="gate">
   <div class="gate-card">
     <p class="eyebrow">CPS IE STUDIO</p>
@@ -67,6 +81,7 @@
 
     <button id="enter" class="primary" disabled>เข้าใช้งาน →</button>
     <p id="gate-msg" class="muted" role="status"></p>
+    <button id="gate-logout" type="button" class="linklike" hidden>ออกจากระบบ</button>
   </div>
 </section>
 
@@ -77,6 +92,7 @@
     <div class="top-actions">
       <span id="sync-badge" class="badge" title="สถานะการซิงค์">●</span>
       <button id="btn-switch" class="ghost">เปลี่ยนพื้นที่</button>
+      <button id="btn-logout" class="ghost" hidden>ออกจากระบบ</button>
     </div>
   </header>
 

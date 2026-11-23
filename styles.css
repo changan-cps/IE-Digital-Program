@@ -341,3 +341,7 @@ dialog.sb-dlg{width:min(1180px,96vw);max-width:96vw;max-height:92vh;border:none;
 #ai-out b{white-space:nowrap;font-size:15px}
 #ai-out span{flex:1 1 240px;order:3}
 #ai-out button{margin-left:auto;background:none;border:none;color:#fff;font-size:16px;cursor:pointer;padding:0 2px}
+/* หน้าเข้าสู่ระบบ */
+.login-form{display:grid;gap:12px;margin-top:16px}
+.login-form input{width:100%;box-sizing:border-box;font-size:16px;padding:12px 14px}
+#gate-logout{display:block;margin-top:8px}

@@ -12,11 +12,51 @@
 
   async function call(params, body) {
     const u = getUrl(); if (!u) throw new Error('ยังไม่ได้บันทึก Web App URL');
+    const a = adminCode(); if (a) params = Object.assign({}, params, { admin: a });
     const r = await fetch(u + '?' + new URLSearchParams(params), body
       ? { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) } : {});
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    try { return JSON.parse(await r.text()); } catch { throw new Error('ตอบกลับไม่ใช่ JSON (ตรวจการ Deploy)'); }
+    let res; try { res = JSON.parse(await r.text()); } catch { throw new Error('ตอบกลับไม่ใช่ JSON (ตรวจการ Deploy)'); }
+    if (res && res.code === 'AUTH_ADMIN' && adminCode()) { admLogout(); say('#st-adm', 'รหัสผู้ดูแลไม่ถูกต้องหรือถูกเปลี่ยน — เข้าสู่ระบบใหม่'); }
+    return res;
   }
+
+  // ---- เข้า/ออกระบบผู้ดูแล (เก็บรหัสไว้เฉพาะแท็บนี้ ปิดแท็บ = ออกจากระบบ) ----
+  const ADM_KEY = 'cps-ie-admin';
+  function adminCode() { try { return sessionStorage.getItem(ADM_KEY) || ''; } catch { return ''; } }
+  function showTeamState(set) { $('#team-state').textContent = set ? 'สถานะ: ตั้งรหัสทีมแล้ว ✓ (ผู้ใช้ต้องใส่รหัสก่อนใช้งาน)' : 'สถานะ: ยังไม่ตั้งรหัสทีม — ใครมีลิงก์ก็ใช้งานได้'; }
+  function admLogout() {
+    try { sessionStorage.removeItem(ADM_KEY); } catch {}
+    $('#priv').hidden = true; $('#adm-out').hidden = true; $('#adm-go').hidden = false; $('#adm-code').hidden = false;
+  }
+  async function admLogin(code) {
+    if (!getUrl()) { say('#st-adm', 'บันทึก Web App URL ในข้อ 1 ก่อน'); return; }
+    try { sessionStorage.setItem(ADM_KEY, code); } catch {}
+    say('#st-adm', 'กำลังตรวจรหัส…');
+    try {
+      const r = await call({ action: 'adminauth' });
+      if (!r.ok) { try { sessionStorage.removeItem(ADM_KEY); } catch {} say('#st-adm', r.error || 'เข้าสู่ระบบไม่สำเร็จ'); return; }
+      $('#priv').hidden = false; $('#adm-out').hidden = false; $('#adm-go').hidden = true; $('#adm-code').hidden = true; $('#adm-code').value = '';
+      say('#st-adm', 'เข้าสู่ระบบผู้ดูแลแล้ว'); showTeamState(r.teamSet); loadPinStatus();
+    } catch (e) { try { sessionStorage.removeItem(ADM_KEY); } catch {} say('#st-adm', 'เข้าสู่ระบบไม่สำเร็จ: ' + e.message); }
+  }
+  $('#adm-form').onsubmit = e => { e.preventDefault(); const c = $('#adm-code').value.trim(); if (c) admLogin(c); };
+  $('#adm-out').onclick = () => { admLogout(); say('#st-adm', 'ออกจากระบบแล้ว'); };
+  async function setTeam(code) {
+    say('#st-team', 'กำลังบันทึก…');
+    try {
+      const r = await call({ action: 'setteamcode' }, { code });
+      if (!r.ok) throw new Error(r.error || 'ตอบกลับผิดปกติ');
+      $('#team-code').value = ''; showTeamState(r.teamSet);
+      say('#st-team', r.teamSet ? 'บันทึกรหัสทีมแล้ว — ผู้ใช้ทุกเครื่องต้องใส่รหัสนี้' : 'ยกเลิกรหัสทีมแล้ว — เปิดให้ทุกคนที่มีลิงก์');
+    } catch (e) { say('#st-team', 'บันทึกไม่สำเร็จ: ' + e.message); }
+  }
+  $('#team-form').onsubmit = e => {
+    e.preventDefault(); const c = $('#team-code').value.trim();
+    if (c.length < 6) { say('#st-team', 'รหัสทีมต้องยาวอย่างน้อย 6 ตัว'); return; }
+    if (confirm('ตั้ง/เปลี่ยนรหัสทีม? ผู้ใช้ทุกเครื่องจะต้องใส่รหัสใหม่')) setTeam(c);
+  };
+  $('#team-clear').onclick = () => { if (confirm('ยกเลิกรหัสทีม? ใครที่มีลิงก์สำหรับทีมจะเข้าใช้งานได้โดยไม่ต้องใส่รหัส')) setTeam(''); };
   function download(obj, name) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
@@ -76,7 +116,7 @@
       $$('[data-pin]').forEach(i => i.value = ''); showPinStatus(r.status); say('#st-pin', `บันทึกแล้ว ${r.saved} ฝ่าย — ใช้ได้ทุกเครื่องทันที`);
     } catch (e) { say('#st-pin', 'บันทึกไม่สำเร็จ: ' + e.message); }
   };
-  if (getUrl()) loadPinStatus();
+  if (adminCode()) admLogin(adminCode());
 
   // 4) ข้อมูลสำรอง
   $('#exp-sheet').onclick = async () => {

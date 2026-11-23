@@ -45,13 +45,37 @@
   </section>
 
   <section class="panel">
-    <h2>2. ข้อมูลใน Sheet</h2>
+    <h2>2. เข้าสู่ระบบผู้ดูแล</h2>
+    <form id="adm-form" class="row" style="margin-top:0">
+      <input id="adm-code" type="password" autocomplete="current-password" placeholder="รหัสผู้ดูแล (ADMIN_CODE)" style="flex:1;min-width:200px">
+      <button id="adm-go" class="primary" type="submit">เข้าสู่ระบบ</button>
+      <button id="adm-out" class="ghost" type="button" hidden>ออกจากระบบ</button>
+    </form>
+    <p id="st-adm" class="muted" role="status"></p>
+    <p class="muted">รหัสผู้ดูแลตั้งได้ที่ Apps Script → ⚙ Project Settings → Script properties → ชื่อ <b>ADMIN_CODE</b> (ตั้งครั้งเดียว ไม่ต้อง Deploy ใหม่) · หน้านี้จะออกจากระบบเองเมื่อปิดแท็บ</p>
+  </section>
+
+  <div id="priv" hidden>
+  <section class="panel">
+    <h2>3. รหัสเข้าใช้งานของทีม</h2>
+    <p id="team-state" class="muted"></p>
+    <form id="team-form" class="row">
+      <input id="team-code" type="password" autocomplete="new-password" placeholder="รหัสทีมใหม่ (อย่างน้อย 6 ตัว)" style="flex:1;min-width:200px">
+      <button class="primary" type="submit">บันทึกรหัสทีม</button>
+      <button id="team-clear" class="ghost" type="button">ยกเลิกรหัส (เปิดให้ทุกคน)</button>
+    </form>
+    <p id="st-team" class="muted" role="status"></p>
+    <p class="muted">ผู้ใช้ทุกคนต้องใส่รหัสนี้ครั้งแรกในแต่ละเครื่อง · เปลี่ยนรหัส = ทุกเครื่องต้องใส่รหัสใหม่ · ส่งรหัสให้ทีมทางช่องทางภายใน แยกจากลิงก์สำหรับทีม</p>
+  </section>
+
+  <section class="panel">
+    <h2>4. ข้อมูลใน Sheet</h2>
     <div class="row"><button id="count" class="ghost" type="button">นับข้อมูลใน Sheet</button></div>
     <div id="counts" class="counts"></div>
   </section>
 
   <section class="panel">
-    <h2>3. PIN ผู้อนุมัติ (ต่อฝ่าย)</h2>
+    <h2>5. PIN ผู้อนุมัติ (ต่อฝ่าย)</h2>
     <div class="pin-grid">
       <label>Flow 1 ผู้ตรวจสอบ<input type="password" data-pin="reviewer" autocomplete="off"></label>
       <label>Flow 2 ฝ่ายความปลอดภัย<input type="password" data-pin="safety" autocomplete="off"></label>
@@ -65,7 +89,7 @@
   </section>
 
   <section class="panel">
-    <h2>4. ข้อมูลสำรอง</h2>
+    <h2>6. ข้อมูลสำรอง</h2>
     <div class="row">
       <button id="exp-sheet" class="ghost" type="button">ส่งออกจาก Sheet (JSON)</button>
       <button id="exp-local" class="ghost" type="button">ส่งออกจากเครื่องนี้ (JSON)</button>
@@ -74,6 +98,7 @@
     <p id="st-bak" class="muted" role="status"></p>
     <p class="muted">นำเข้า = เพิ่ม/อัปเดตรายการตาม id ขึ้น Sheet (ไม่ลบของเดิม) ทุกเครื่องจะได้รับในการซิงค์รอบถัดไป</p>
   </section>
+  </div>
 </div>
 
 <div id="toast" role="status"></div>

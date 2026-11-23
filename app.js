@@ -15,6 +15,7 @@
   const STORE_KEY = 'cps-ie-store-v1';
   const SCOPE_KEY = 'cps-ie-scope-v1';
   const URL_KEY = 'cps-ie-sheeturl-v1';
+  const CODE_KEY = 'cps-ie-code-v1', NEED_KEY = 'cps-ie-needcode-v1'; // รหัสเข้าใช้งานของทีม / server ต้องการรหัสหรือไม่
   const $ = s => document.querySelector(s);
   const $$ = s => [...document.querySelectorAll(s)];
   const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id' + Math.random().toString(36).slice(2) + Date.now().toString(36));
@@ -191,6 +192,7 @@
   function setSync(s, msg) { syncState = s; const b = $('#sync-badge'); if (b) { b.dataset.state = s; b.title = msg || s; } }
   async function sheetFetch(params, body) {
     if (!sheetUrl) throw new Error('ยังไม่ได้ตั้งค่า Google Sheet');
+    if (accessCode) params = Object.assign({}, params, { key: accessCode });
     const url = sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + new URLSearchParams(params).toString();
     const opt = body
       ? { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }
@@ -200,6 +202,7 @@
     const txt = await r.text();
     let res; try { res = JSON.parse(txt); } catch { throw new Error('ตอบกลับไม่ใช่ JSON (ตรวจการ Deploy)'); }
     if (res && res.code === 'AI_FREE_OUT') aiOutAlert();
+    if (res && res.code === 'AUTH') { localStorage.setItem(NEED_KEY, '1'); showLogin('รหัสเข้าใช้งานไม่ถูกต้องหรือถูกเปลี่ยน — ใส่รหัสใหม่'); }
     return res;
   }
   // แจ้งเตือนเด่น ๆ เมื่อโควตาฟรีของ AI หมด (หลังบ้านตอบ code AI_FREE_OUT)
@@ -276,6 +279,7 @@
   }
   let pulling = false;
   async function syncPull(silent) {
+    if (locked) return;
     if (!sheetUrl) { if (!silent) toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     if (pulling) return; pulling = true;
     setSync('pending'); if (!silent) sheetStatus('กำลังซิงค์กับ Sheet…');
@@ -310,6 +314,41 @@
     if (!$('#gate').hidden) { ['workshop', 'group', 'team'].forEach(st => { fillSelect(st); if (pick[st]) $('#sel-' + st).value = pick[st]; }); return; }
     render();
   }
+  // ---- รหัสเข้าใช้งาน (เข้า/ออกระบบ) ----
+  let accessCode = localStorage.getItem(CODE_KEY) || '';
+  let locked = false;
+  function startApp() {
+    $('#btn-logout').hidden = !accessCode; $('#gate-logout').hidden = !accessCode;
+    if (scope && scope.workshop) openApp(); else { openGate(); syncPull(true); }
+  }
+  function showLogin(msg) {
+    locked = true;
+    $('#app').hidden = true; $('#gate').hidden = true; $('#login').hidden = false;
+    $('#login-msg').textContent = msg || '';
+    setTimeout(() => $('#login-code').focus(), 50);
+  }
+  async function login() {
+    const code = $('#login-code').value.trim(); if (!code) return;
+    const old = accessCode; accessCode = code;
+    $('#login-go').disabled = true; $('#login-msg').textContent = 'กำลังตรวจรหัส…';
+    try {
+      const r = await sheetFetch({ action: 'auth' });
+      if (r && r.ok && r.valid) {
+        localStorage.setItem(CODE_KEY, code); if (r.need) localStorage.setItem(NEED_KEY, '1');
+        locked = false; $('#login').hidden = true; $('#login-code').value = ''; $('#login-msg').textContent = '';
+        startApp();
+      } else { accessCode = old; $('#login-msg').textContent = 'รหัสไม่ถูกต้อง'; }
+    } catch (e) { accessCode = old; $('#login-msg').textContent = 'ตรวจรหัสไม่สำเร็จ (ตรวจอินเทอร์เน็ต): ' + e.message; }
+    $('#login-go').disabled = false;
+  }
+  function logout() {
+    const q = Q(), n = Object.keys(q.up).length + Object.keys(q.del).length;
+    const msg = 'ออกจากระบบ?\nข้อมูลที่เก็บไว้ในเครื่องนี้จะถูกล้าง (ข้อมูลกลางใน Sheet ยังอยู่ครบ)' + (n ? `\n\n⚠️ มี ${n} รายการที่ยังส่งขึ้น Sheet ไม่สำเร็จ จะหายไป` : '');
+    if (!confirm(msg)) return;
+    [CODE_KEY, STORE_KEY, SCOPE_KEY, 'cps-ie-me'].forEach(k => localStorage.removeItem(k));
+    location.reload();
+  }
+
   function startAutoSync() {
     setInterval(() => { if (!document.hidden) syncPull(true); }, 30000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPull(true); });
@@ -524,11 +563,21 @@
     $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     $('#btn-switch').onclick = () => openGate(scope);
 
+    $('#login-form').onsubmit = e => { e.preventDefault(); login(); };
+    $('#btn-logout').onclick = logout; $('#gate-logout').onclick = logout;
+
     // start
     takeSheetFromLink();
     if (!sheetUrl) $('#gate-msg').textContent = 'เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอ “ลิงก์สำหรับทีม” จากผู้ดูแลระบบแล้วเปิดครั้งเดียว';
-    if (scope && scope.workshop) openApp(); else { openGate(); syncPull(true); }
+    if (sheetUrl && !accessCode && localStorage.getItem(NEED_KEY)) showLogin(); else startApp();
     startAutoSync();
+    // ถาม server ว่าต้องใช้รหัสหรือไม่ / รหัสในเครื่องยังถูกอยู่ไหม
+    if (sheetUrl) sheetFetch({ action: 'auth' }).then(r => {
+      if (!r || !r.ok) return;
+      if (r.need) localStorage.setItem(NEED_KEY, '1'); else localStorage.removeItem(NEED_KEY);
+      if (r.need && !r.valid) showLogin(accessCode ? 'รหัสเข้าใช้งานถูกเปลี่ยน — ใส่รหัสใหม่' : '');
+      else if (locked && !r.need) { locked = false; $('#login').hidden = true; startApp(); }
+    }).catch(() => {});
   }
 
   // ---------- public API for modules ----------
