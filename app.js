@@ -5,6 +5,13 @@
 */
 (() => {
   const DEFAULT_WORKSHOPS = ['GA', 'BS', 'PS', 'PT'];
+  // พื้นที่ตั้งต้น Workshop → Group → Team (ตามตารางของโรงงาน)
+  const PRESET_AREAS = {
+    GA: { CA: ['CA-A', 'CA-B'], TA1: ['TA1-A', 'TA1-B'], TA2: ['TA2-A', 'TA2-B'], PCA: ['PCA-PBS', 'DA'], FA: ['FA-A', 'FA-B'], FI: ['FI'], Other: [] },
+    BS: { BS: ['BS', 'EH/RH', 'UB', 'FA1', 'FA2', 'GA'] },
+    PS: { Group1: ['ED Sanding', 'Sealer', 'UBS/UBC', 'BIW'], Group2: ['Primer Coat', 'Primer Sanding', 'Top Coat'], Group3: ['B216', 'Wax', 'Inspection', 'Repair'] },
+    PT: { Battery: ['Module', 'Pack1', 'Pack2', 'Pack3'], Subline: ['IP', 'RS', 'FS'] }
+  };
   const STORE_KEY = 'cps-ie-store-v1';
   const SCOPE_KEY = 'cps-ie-scope-v1';
   const URL_KEY = 'cps-ie-sheeturl-v1';
@@ -268,7 +275,7 @@
 
   function setLevel(level) {
     pick.level = level;
-    $$('#levels button').forEach(b => b.classList.toggle('active', b.dataset.level === level));
+    $('#sel-level').value = level;
     showSteps();
     updateEnter();
   }
@@ -287,8 +294,9 @@
     else if (step === 'group') opts = [...new Set(areas.filter(a => a.workshop === pick.workshop).map(a => a.group))];
     else opts = [...new Set(areas.filter(a => a.workshop === pick.workshop && a.group === pick.group).map(a => a.team))];
     opts = opts.filter(Boolean);
-    if (step === 'workshop') { const extra = opts.filter(o => !DEFAULT_WORKSHOPS.includes(o)).sort(); opts = [...DEFAULT_WORKSHOPS, ...extra]; }
-    else opts = opts.sort();
+    // รายการตั้งต้นขึ้นก่อนตามลำดับในตาราง ส่วนที่เพิ่มเองต่อท้าย
+    const base = step === 'workshop' ? DEFAULT_WORKSHOPS : step === 'group' ? Object.keys(PRESET_AREAS[pick.workshop] || {}) : ((PRESET_AREAS[pick.workshop] || {})[pick.group] || []);
+    opts = [...base, ...opts.filter(o => !base.includes(o)).sort()];
     sel.innerHTML = '<option value="">— เลือก —</option>' + opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('') + `<option value="${NEW}">➕ เพิ่มใหม่…</option>`;
     sel.value = pick[step] && opts.includes(pick[step]) ? pick[step] : '';
   }
@@ -329,7 +337,7 @@
   function openGate(prefill) {
     pick.level = prefill?.level || ''; pick.workshop = prefill?.workshop || ''; pick.group = prefill?.group || ''; pick.team = prefill?.team || '';
     $('#app').hidden = true; $('#gate').hidden = false;
-    $$('#levels button').forEach(b => b.classList.toggle('active', b.dataset.level === pick.level));
+    $('#sel-level').value = pick.level;
     showSteps();
     $('#sel-group').disabled = !pick.workshop; $('#sel-team').disabled = !pick.group;
     fillSelect('workshop'); fillSelect('group'); fillSelect('team');
@@ -421,7 +429,7 @@
     ['workshop', 'group', 'team'].forEach(step => {
       $('#sel-' + step).addEventListener('change', e => onPick(step, e.target.value));
     });
-    $$('#levels button').forEach(b => b.onclick = () => setLevel(b.dataset.level));
+    $('#sel-level').addEventListener('change', e => setLevel(e.target.value));
     $$('[data-addconfirm]').forEach(b => b.onclick = () => addNew(b.dataset.addconfirm));
     $$('[data-addcancel]').forEach(b => b.onclick = () => { b.closest('.step-add').hidden = true; $('#sel-' + b.dataset.addcancel).value = pick[b.dataset.addcancel] || ''; });
     $$('.step-add input').forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const step = inp.id.replace('new-', ''); addNew(step); } }));

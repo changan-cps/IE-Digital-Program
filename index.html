@@ -17,16 +17,21 @@
     <h1>เข้าใช้งาน</h1>
     <p class="gate-sub">เลือกระดับการใช้งาน แล้วเลือกพื้นที่</p>
 
-    <div class="levels" id="levels">
-      <button type="button" data-level="team"><b>🧑‍🔧 ระดับทีม</b><small>บันทึก/ทำงาน — เห็นเฉพาะทีมตัวเอง</small></button>
-      <button type="button" data-level="group"><b>👥 ระดับกลุ่ม</b><small>วิเคราะห์รวมทุกทีมในกลุ่ม</small></button>
-      <button type="button" data-level="workshop"><b>🏢 ระดับ Workshop</b><small>วิเคราะห์รวมทั้ง Workshop</small></button>
-      <button type="button" data-level="factory"><b>🏭 ระบบโรงงาน</b><small>วิเคราะห์รวมทุกพื้นที่</small></button>
-    </div>
-
     <ol class="steps">
+      <li class="step" data-step="level">
+        <div class="step-head"><span class="step-no">1</span><b>ระดับการใช้งาน</b></div>
+        <div class="step-body">
+          <select id="sel-level">
+            <option value="">— เลือก —</option>
+            <option value="team">🧑‍🔧 ระดับทีม — บันทึก/ทำงาน เห็นเฉพาะทีมตัวเอง</option>
+            <option value="group">👥 ระดับกลุ่ม — วิเคราะห์รวมทุกทีมในกลุ่ม</option>
+            <option value="workshop">🏢 ระดับ Workshop — วิเคราะห์รวมทั้ง Workshop</option>
+            <option value="factory">🏭 ระบบโรงงาน — วิเคราะห์รวมทุกพื้นที่</option>
+          </select>
+        </div>
+      </li>
       <li class="step" data-step="workshop">
-        <div class="step-head"><span class="step-no">1</span><b>IE Workshop</b></div>
+        <div class="step-head"><span class="step-no">2</span><b>IE Workshop</b></div>
         <div class="step-body">
           <select id="sel-workshop"></select>
           <div class="step-add" hidden>
@@ -37,7 +42,7 @@
         </div>
       </li>
       <li class="step" data-step="group">
-        <div class="step-head"><span class="step-no">2</span><b>Group Area</b></div>
+        <div class="step-head"><span class="step-no">3</span><b>Group Area</b></div>
         <div class="step-body">
           <select id="sel-group" disabled></select>
           <div class="step-add" hidden>
@@ -48,7 +53,7 @@
         </div>
       </li>
       <li class="step" data-step="team">
-        <div class="step-head"><span class="step-no">3</span><b>Team Level</b></div>
+        <div class="step-head"><span class="step-no">4</span><b>Team Level</b></div>
         <div class="step-body">
           <select id="sel-team" disabled></select>
           <div class="step-add" hidden>
