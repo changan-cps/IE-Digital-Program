@@ -6,13 +6,17 @@
   const URL_RE = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/;
   const say = (id, m) => { $(id).textContent = m || ''; };
 
-  const getUrl = () => localStorage.getItem(URL_KEY) || '';
+  const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbw4oG6L_q-uWJCj3WhNPpJr6LlC7stp8UGqFjizkM3Naq30hktQCosJg6_uFF8csvVD3A/exec';
+  const getUrl = () => localStorage.getItem(URL_KEY) || DEFAULT_SHEET_URL;
+  const ssoTok = () => (window.cpsAppToken ? window.cpsAppToken() : '');
   const readStore = () => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } };
   const teamLink = u => location.origin + location.pathname.replace(/admin\.html$/, '') + '#sheet=' + encodeURIComponent(u);
 
   async function call(params, body) {
     const u = getUrl(); if (!u) throw new Error('ยังไม่ได้บันทึก Web App URL');
     const a = adminCode(); if (a) params = Object.assign({}, params, { admin: a });
+    if (window.CPS_READY) await window.CPS_READY;
+    const st = ssoTok(); if (st) params = Object.assign({}, params, { sso: st });
     const r = await fetch(u + '?' + new URLSearchParams(params), body
       ? { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) } : {});
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -116,7 +120,19 @@
       $$('[data-pin]').forEach(i => i.value = ''); showPinStatus(r.status); say('#st-pin', `บันทึกแล้ว ${r.saved} ฝ่าย — ใช้ได้ทุกเครื่องทันที`);
     } catch (e) { say('#st-pin', 'บันทึกไม่สำเร็จ: ' + e.message); }
   };
-  if (adminCode()) admLogin(adminCode());
+  // CPS SSO: ผู้ที่มีสิทธิ์ IE Digital Program (Admin) ใน CPS Digital Platform เข้าหลังบ้านได้เลย ไม่ต้องใส่รหัสผู้ดูแล
+  async function ssoAdmin() {
+    try {
+      if (window.CPS_READY) await window.CPS_READY;
+      if (!ssoTok()) return;
+      const r = await call({ action: 'adminauth' });
+      if (!r.ok || !r.sso) return;
+      $('#priv').hidden = false; $('#adm-go').hidden = true; $('#adm-code').hidden = true;
+      say('#st-adm', 'เข้าสู่ระบบผ่าน CPS Digital Platform แล้ว'); loadPinStatus();
+      $('#team-state').textContent = 'สถานะ: ใช้การเข้าสู่ระบบของ CPS Digital Platform — ไม่ใช้รหัสทีม';
+    } catch (e) { /* ใช้ฟอร์มรหัสผู้ดูแลตามเดิม */ }
+  }
+  if (adminCode()) admLogin(adminCode()); else ssoAdmin();
 
   // 4) ข้อมูลสำรอง
   $('#exp-sheet').onclick = async () => {

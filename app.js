@@ -40,7 +40,20 @@
   // ---------- data store ----------
   let store = load();
   let scope = loadScope();   // {workshop, group, team}
-  let sheetUrl = localStorage.getItem(URL_KEY) || '';
+  // ข้อมูลกลางของทีม (Apps Script ที่ผูกกับ Sheet "CPS IE Data") — ทุกคำขอต้องมีบัตรจาก CPS Digital Platform จึงเปิดเผย URL ได้
+  const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbw4oG6L_q-uWJCj3WhNPpJr6LlC7stp8UGqFjizkM3Naq30hktQCosJg6_uFF8csvVD3A/exec';
+  let sheetUrl = localStorage.getItem(URL_KEY) || DEFAULT_SHEET_URL;
+  // ---- CPS SSO: บัตรแอปจาก sso-gate.js (เข้าผ่าน CPS Digital Platform) ใช้แทนรหัสทีม ----
+  const PORTAL_URL = '/cps-portal/', SSO_RETRY = 'cps-ie-sso-retry';
+  const ssoTok = () => (window.cpsAppToken ? window.cpsAppToken() : '');
+  // server ไม่รับบัตร (หมดอายุ/ถูกถอนสิทธิ์): ขอบัตรใหม่หนึ่งครั้ง ถ้ายังไม่ได้ให้กลับไป Portal
+  let ssoRefreshing = false;
+  function ssoRefresh() {
+    if (ssoRefreshing) return; ssoRefreshing = true;   // หลายคำขอถูกปฏิเสธพร้อมกัน: ทำครั้งเดียวต่อการโหลดหน้า
+    let again = false; try { again = !!sessionStorage.getItem(SSO_RETRY); sessionStorage.setItem(SSO_RETRY, '1'); } catch (e) {}
+    if (window.cpsGateReset) window.cpsGateReset();
+    if (again) location.href = PORTAL_URL; else location.reload();
+  }
 
   function load() {
     try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && s.studies) { s.stations = s.stations || []; s.approval = s.approval || {}; return s; } } catch {}
@@ -193,6 +206,8 @@
   async function sheetFetch(params, body) {
     if (!sheetUrl) throw new Error('ยังไม่ได้ตั้งค่า Google Sheet');
     if (accessCode) params = Object.assign({}, params, { key: accessCode });
+    if (window.CPS_READY) await window.CPS_READY;      // รอ sso-gate.js ตรวจสิทธิ์เสร็จก่อน
+    const st = ssoTok(); if (st) params = Object.assign({}, params, { sso: st });
     const url = sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + new URLSearchParams(params).toString();
     const opt = body
       ? { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }
@@ -202,6 +217,7 @@
     const txt = await r.text();
     let res; try { res = JSON.parse(txt); } catch { throw new Error('ตอบกลับไม่ใช่ JSON (ตรวจการ Deploy)'); }
     if (res && res.code === 'AI_FREE_OUT') aiOutAlert();
+    if (res && res.code === 'AUTH' && res.sso) { ssoRefresh(); return res; }
     if (res && res.code === 'AUTH') { localStorage.setItem(NEED_KEY, '1'); showLogin('รหัสเข้าใช้งานไม่ถูกต้องหรือถูกเปลี่ยน — ใส่รหัสใหม่'); }
     return res;
   }
@@ -569,11 +585,18 @@
     // start
     takeSheetFromLink();
     if (!sheetUrl) $('#gate-msg').textContent = 'เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอ “ลิงก์สำหรับทีม” จากผู้ดูแลระบบแล้วเปิดครั้งเดียว';
-    if (sheetUrl && !accessCode && localStorage.getItem(NEED_KEY)) showLogin(); else startApp();
+    if (sheetUrl && !accessCode && !window.CPS_READY && localStorage.getItem(NEED_KEY)) showLogin(); else startApp();
     startAutoSync();
     // ถาม server ว่าต้องใช้รหัสหรือไม่ / รหัสในเครื่องยังถูกอยู่ไหม
     if (sheetUrl) sheetFetch({ action: 'auth' }).then(r => {
       if (!r || !r.ok) return;
+      if (r.sso) {                       // server ใช้การเข้าสู่ระบบของ CPS Digital Platform: ไม่มีรหัสทีม
+        localStorage.removeItem(NEED_KEY);
+        if (!r.valid) { ssoRefresh(); return; }
+        try { sessionStorage.removeItem(SSO_RETRY); } catch (e) {}
+        if (locked) { locked = false; $('#login').hidden = true; startApp(); }
+        return;
+      }
       if (r.need) localStorage.setItem(NEED_KEY, '1'); else localStorage.removeItem(NEED_KEY);
       if (r.need && !r.valid) showLogin(accessCode ? 'รหัสเข้าใช้งานถูกเปลี่ยน — ใส่รหัสใหม่' : '');
       else if (locked && !r.need) { locked = false; $('#login').hidden = true; startApp(); }
