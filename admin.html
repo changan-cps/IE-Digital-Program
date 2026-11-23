@@ -59,9 +59,9 @@
       <label>Flow 4 ฝ่ายกระบวนการ<input type="password" data-pin="process" autocomplete="off"></label>
       <label>Flow 5 ผู้จัดการฝ่าย<input type="password" data-pin="manager" autocomplete="off"></label>
     </div>
-    <div class="row"><button id="pin-save" class="primary" type="button">บันทึก PIN</button></div>
+    <div class="row"><button id="pin-save" class="primary" type="button">บันทึก PIN</button><button id="pin-check" class="ghost" type="button">ดูสถานะ PIN</button></div>
     <p id="st-pin" class="muted" role="status"></p>
-    <p class="muted">PIN เก็บไว้ในเบราว์เซอร์ของเครื่องที่เปิดหน้านี้ ใช้อนุมัติได้บนเครื่องนี้เท่านั้น (ถ้าแอปผู้ใช้เปิดค้างอยู่ในเครื่องนี้ ให้รีเฟรชแอปหลังบันทึก)</p>
+    <p class="muted">PIN เก็บที่ server (Script Properties ของ Apps Script) ไม่อยู่ใน Sheet และไม่ถูกส่งกลับมาแสดง · ใช้อนุมัติได้ทุกเครื่อง · ช่องที่เว้นว่าง = ไม่เปลี่ยน · ใส่ PIN ผิด 5 ครั้ง ฝ่ายนั้นล็อก 10 นาที</p>
   </section>
 
   <section class="panel">

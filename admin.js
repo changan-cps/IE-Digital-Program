@@ -57,14 +57,26 @@
     catch (e) { $('#counts').innerHTML = `<p class="muted">นับไม่สำเร็จ: ${e.message}</p>`; }
   };
 
-  // 3) PIN (เก็บในเครื่องนี้ ในที่เดียวกับที่แอปผู้ใช้อ่าน)
-  const ap = readStore().approval || {};
-  $$('[data-pin]').forEach(i => i.value = ap[i.dataset.pin] || '');
-  $('#pin-save').onclick = () => {
-    const s = readStore(); s.areas = s.areas || []; s.studies = s.studies || []; s.jobs = s.jobs || []; s.stations = s.stations || [];
-    s.approval = s.approval || {}; $$('[data-pin]').forEach(i => s.approval[i.dataset.pin] = i.value.trim());
-    localStorage.setItem(STORE_KEY, JSON.stringify(s)); say('#st-pin', 'บันทึก PIN แล้ว');
+  // 3) PIN กลาง (เก็บที่ server) — แสดงแค่ว่าฝ่ายไหนตั้งแล้ว ไม่ดึงค่า PIN กลับมา
+  function showPinStatus(st) {
+    $$('[data-pin]').forEach(i => { i.placeholder = st && st[i.dataset.pin] ? 'ตั้งแล้ว ✓ (เว้นว่าง = ไม่เปลี่ยน)' : 'ยังไม่ได้ตั้ง'; });
+  }
+  async function loadPinStatus() {
+    if (!getUrl()) { say('#st-pin', 'บันทึก Web App URL ก่อน'); return; }
+    try { const r = await call({ action: 'pinstatus' }); if (!r.ok) throw new Error(r.error || 'ตอบกลับผิดปกติ'); showPinStatus(r.status); say('#st-pin', ''); }
+    catch (e) { say('#st-pin', 'ดูสถานะ PIN ไม่สำเร็จ: ' + e.message); }
+  }
+  $('#pin-check').onclick = loadPinStatus;
+  $('#pin-save').onclick = async () => {
+    const pins = {}; $$('[data-pin]').forEach(i => { const v = i.value.trim(); if (v) pins[i.dataset.pin] = v; });
+    if (!Object.keys(pins).length) { say('#st-pin', 'ยังไม่ได้กรอก PIN ช่องไหน'); return; }
+    say('#st-pin', 'กำลังบันทึก…');
+    try {
+      const r = await call({ action: 'setpins' }, { pins }); if (!r.ok) throw new Error(r.error || 'ตอบกลับผิดปกติ');
+      $$('[data-pin]').forEach(i => i.value = ''); showPinStatus(r.status); say('#st-pin', `บันทึกแล้ว ${r.saved} ฝ่าย — ใช้ได้ทุกเครื่องทันที`);
+    } catch (e) { say('#st-pin', 'บันทึกไม่สำเร็จ: ' + e.message); }
   };
+  if (getUrl()) loadPinStatus();
 
   // 4) ข้อมูลสำรอง
   $('#exp-sheet').onclick = async () => {

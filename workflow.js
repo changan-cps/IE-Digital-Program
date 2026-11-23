@@ -239,12 +239,19 @@
     return panel('6 · ส่งอนุมัติ', d, badgeDone(st.approved));
   }
   async function approve(flowKey) {
-    const cfg = D().approval.get(); const pin = cfg[flowKey];
-    if (!pin) { U().toast('ยังไม่ได้ตั้ง PIN ของฝ่ายนี้ในเครื่องนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าหลังบ้าน'); return; }
+    // PIN กลาง: ตรวจที่ server (ผู้ดูแลตั้งที่หน้าหลังบ้าน) ใช้ได้ทุกเครื่อง
+    const S = window.CPS.sheet;
+    if (!S.configured()) { U().toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     const f = FLOWS.find(x => x.key === flowKey);
     const a = await U().ask('อนุมัติ · ' + f.name, [{ name: 'by', label: 'ชื่อผู้อนุมัติ' }, { name: 'pin', label: 'PIN ของฝ่าย', type: 'password' }]);
     if (!a || !a.by.trim()) return;
-    if (String(a.pin).trim() !== String(pin).trim()) { U().toast('PIN ไม่ถูกต้อง'); return; }
+    let r;
+    try { r = await S.call({ action: 'approve' }, { flow: flowKey, pin: String(a.pin || '') }); }
+    catch (e) { U().toast('ตรวจ PIN ไม่สำเร็จ: ' + e.message); return; }
+    if (!r || !r.ok) { U().toast('ตรวจ PIN ไม่สำเร็จ: ' + ((r && r.error) || '')); return; }
+    if (!r.set) { U().toast('ยังไม่ได้ตั้ง PIN ของฝ่ายนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าหลังบ้าน'); return; }
+    if (r.locked) { U().toast('ใส่ PIN ผิดหลายครั้ง — ล็อกฝ่ายนี้ 10 นาที'); return; }
+    if (!r.valid) { U().toast('PIN ไม่ถูกต้อง'); return; }
     const w = wf(); w.approval.flows[flowKey] = { by: a.by.trim(), at: Date.now() };
     saveRec(); U().toast('อนุมัติแล้ว'); render();
   }
