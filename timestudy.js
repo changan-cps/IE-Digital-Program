@@ -454,7 +454,7 @@
     return st && U().num(st.jph) ? Math.round(3600 / U().num(st.jph) * 10) / 10 : 0;
   }
   const OP_COLORS = ['#f9c9d6', '#fbe9a6', '#c9ecc9', '#d9c7f0', '#c7e3f6', '#f6d5b5', '#e0e0e0', '#c8efe6', '#f2c7c7'];
-  function swctSvg(list, takt) {
+  function swctSvg(list, takt, station) {
     const { esc, num, fmt } = U();
     // แยกตามผู้ปฏิบัติงาน (คนที่) — แต่ละคนเริ่มเวลา 0
     const ops = new Map();
@@ -476,7 +476,7 @@
       `<text x="${hx[0]}" y="${top - 10}" class="sw-h">Station</text>` +
       `<text x="${hx[1]}" y="${top - 10}" class="sw-h">ลำดับที่</text><text x="${hx[2]}" y="${top - 10}" class="sw-h sw-big">ชื่องานที่ทำ</text>` +
       `<text x="${hx[4]}" y="${top - 26}" class="sw-h">เวลา</text><text x="${hx[3]}" y="${top - 8}" class="sw-h">มือ</text><text x="${hx[4]}" y="${top - 8}" class="sw-h">ส่ง</text><text x="${hx[5]}" y="${top - 8}" class="sw-h">เดิน</text>`;
-    const st = String(editing.station || '—'), stTxt = st.length > 10 ? st.slice(0, 10) + '…' : st;
+    const st = String((station !== undefined ? station : editing && editing.station) || '—'), stTxt = st.length > 10 ? st.slice(0, 10) + '…' : st;
     let body = '', y0 = top, tot = { man: 0, auto: 0, walk: 0, wait: 0 };
     groups.forEach((gr, gi) => {
       const hgt = gr.rows.length * RH;
@@ -585,8 +585,8 @@
     const dots = pts => pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" class="th-dot"/>`).join('');
     return `<svg viewBox="0 0 ${W} ${H}" class="swct-svg" xmlns="http://www.w3.org/2000/svg"><style>.th-hb{fill:#f1f5f9}.th-h{font:bold 12px sans-serif;fill:#17324b;text-anchor:middle}.th-sy{font:bold 14px sans-serif;fill:#17324b;text-anchor:middle}.th-ic{fill:none;stroke:#17324b;stroke-width:1.6}.th-col{stroke:#d5dde5}.th-mid{stroke:#17324b;stroke-width:1.5}.th-row{stroke:#eef2f6}.th-t{font:11px sans-serif;fill:#17324b}.th-line{fill:none;stroke:#111;stroke-width:1.4}.th-dot{fill:#111}</style>${g}${poly(pl)}${poly(pr)}${dots(pl)}${dots(pr)}</svg>`;
   }
-  function handsSummary(list) {
-    const cmp = editing.thCmp ? D().listStudies().find(x => x.id === editing.thCmp) : null;
+  function handsSummary(list, cmpId = editing && editing.thCmp) {
+    const cmp = cmpId ? D().listStudies().find(x => x.id === cmpId) : null;
     const a = handCounts(list), b = cmp ? handCounts(cmp.elements) : null;
     const tot = c => SYMK.reduce((s, k) => s + c[k], 0);
     const cell = v => `<td>${v == null ? '–' : v}</td>`;
@@ -680,5 +680,11 @@
     cleanupVideo(); editing = null; renderList();
   }
 
-  window.CPSTimeStudy = { render };
+  // ให้หน้าอื่น (สมดุลสถานี) เรียกวาด SWCT / แผนภูมิสองมือ ของรอบที่บันทึกแล้วได้
+  const charts = {
+    swct: (study, takt) => swctSvg((study && study.elements) || [], takt, (study && study.station) || ''),
+    hands: study => handsSvg((study && study.elements) || []),
+    handsSum: study => handsSummary((study && study.elements) || [], '')
+  };
+  window.CPSTimeStudy = { render, charts };
 })();
