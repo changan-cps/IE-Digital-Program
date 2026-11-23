@@ -264,7 +264,7 @@
   }
   let pulling = false;
   async function syncPull(silent) {
-    if (!sheetUrl) { if (!silent) toast('ยังไม่ได้ตั้งค่า Google Sheet'); return; }
+    if (!sheetUrl) { if (!silent) toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     if (pulling) return; pulling = true;
     setSync('pending'); if (!silent) sheetStatus('กำลังซิงค์กับ Sheet…');
     try {
@@ -311,7 +311,7 @@
   }
   function teamLink() { return location.origin + location.pathname + '#sheet=' + encodeURIComponent(sheetUrl); }
   async function fullPush() {
-    if (!sheetUrl) { toast('ยังไม่ได้ตั้งค่า Google Sheet'); return; }
+    if (!sheetUrl) { toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     setSync('pending'); sheetStatus('กำลังอัปโหลดข้อมูลทั้งหมด…');
     try {
       await sheetFetch({ action: 'bulk' }, { areas: store.areas, studies: store.studies, jobs: store.jobs, stations: store.stations || [] });
@@ -444,7 +444,7 @@
     const crumb = (LEVEL_LABEL[scope.level] || 'ระดับทีม') + (parts ? ' · ' + parts : '');
     $('#scope-crumb').textContent = crumb; $('#foot-scope').textContent = crumb;
     document.body.classList.toggle('readonly', !canEdit());
-    setSync(sheetUrl ? 'ok' : 'off', sheetUrl ? 'เชื่อม Sheet แล้ว' : 'ยังไม่เชื่อม Sheet');
+    setSync(sheetUrl ? 'ok' : 'off', sheetUrl ? 'เชื่อมข้อมูลกลางแล้ว' : 'ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ');
     showTab(currentTab);
     syncPull(true);
   }
@@ -496,14 +496,6 @@
     return `<section class="panel"><div class="panelhead"><h2>ล่าสุด</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.t)}</span><b>${esc(r.n || '—')}</b><small>${esc(r.d || '')}</small>${r.ct != null ? `<em>${fmt(r.ct)} วิ</em>` : ''}</div>`).join('')}</div></section>`;
   }
 
-  // ================= Settings =================
-  function openSettings() {
-    $('#sheet-url').value = sheetUrl; sheetStatus('');
-    const ap = store.approval || (store.approval = {});
-    $$('[data-pin]').forEach(i => i.value = ap[i.dataset.pin] || '');
-    $('#settings-dialog').showModal();
-  }
-
   // ================= wire up =================
   function boot() {
     // gate events
@@ -515,43 +507,16 @@
     $$('[data-addcancel]').forEach(b => b.onclick = () => { b.closest('.step-add').hidden = true; $('#sel-' + b.dataset.addcancel).value = pick[b.dataset.addcancel] || ''; });
     $$('.step-add input').forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const step = inp.id.replace('new-', ''); addNew(step); } }));
     $('#enter').onclick = enter;
-    $('#gate-settings').onclick = openSettings;
 
     // app events
     $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     $('#btn-switch').onclick = () => openGate(scope);
-    $('#btn-settings').onclick = openSettings;
-
-    // settings dialog
-    $('#sheet-save').onclick = () => { store.approval = store.approval || {}; $$('[data-pin]').forEach(i => store.approval[i.dataset.pin] = i.value.trim()); persist(); sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl); setSync(sheetUrl ? 'ok' : 'off'); toast('บันทึกการตั้งค่าแล้ว'); };
-    $('#sheet-test').onclick = async () => { sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl); sheetStatus('กำลังทดสอบ…'); try { const r = await sheetFetch({ action: 'ping' }); sheetStatus(r.ok ? 'เชื่อมต่อสำเร็จ ✓' : 'ตอบกลับผิดปกติ'); setSync('ok'); } catch (e) { sheetStatus('เชื่อมต่อไม่สำเร็จ: ' + e.message); setSync('error'); } };
-    $('#sheet-sync').onclick = async () => { sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl); await syncPull(); };
-    $('#sheet-link').onclick = async () => {
-      sheetUrl = $('#sheet-url').value.trim(); localStorage.setItem(URL_KEY, sheetUrl);
-      if (!sheetUrl) { sheetStatus('ใส่ Web App URL ก่อน'); return; }
-      try { await navigator.clipboard.writeText(teamLink()); sheetStatus('คัดลอกลิงก์สำหรับทีมแล้ว — ส่งให้เพื่อนในทีมเปิดครั้งแรกครั้งเดียว เครื่องนั้นจะเชื่อมข้อมูลกลางอัตโนมัติ'); }
-      catch (e) { window.prompt('คัดลอกลิงก์นี้ส่งให้ทีม', teamLink()); }
-    };
-    $('#export-json').onclick = exportJSON;
-    $('#import-json').onchange = importJSON;
 
     // start
     takeSheetFromLink();
+    if (!sheetUrl) $('#gate-msg').textContent = 'เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอ “ลิงก์สำหรับทีม” จากผู้ดูแลระบบแล้วเปิดครั้งเดียว';
     if (scope && scope.workshop) openApp(); else { openGate(); syncPull(true); }
     startAutoSync();
-  }
-
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = 'cps-ie-backup-' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }
-  function importJSON(e) {
-    const f = e.target.files[0]; if (!f) return;
-    const rd = new FileReader();
-    rd.onload = () => { try { const d = JSON.parse(rd.result); if (!d.studies) throw Error('ไฟล์ไม่ถูกต้อง'); store = { areas: d.areas || [], studies: d.studies || [], jobs: d.jobs || [] }; persist(); render(); toast('นำเข้าข้อมูลสำเร็จ'); } catch (err) { toast('นำเข้าไม่สำเร็จ: ' + err.message); } e.target.value = ''; };
-    rd.readAsText(f);
   }
 
   // ---------- public API for modules ----------

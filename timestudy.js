@@ -338,7 +338,7 @@
     const v = host.querySelector('#ts-video');
     if (aiBusy) return;
     if (!v.src || !v.duration) { U().toast('เลือกวิดีโอก่อน'); return; }
-    if (!window.CPS.sheet.configured()) { U().toast('ยังไม่ได้ตั้งค่า Google Sheet/AI — ดูคู่มือ (README) ส่วนที่ 3'); return; }
+    if (!window.CPS.sheet.configured()) { U().toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     const yes = async m => !!(await U().ask(m, []));
     const useSpeech = !!(host.querySelector('#ts-speech') || {}).checked;
     if (!await yes(useSpeech ? 'ส่งภาพนิ่งจากวิดีโอนี้ (สูงสุด 40 ภาพ) และเสียงพูดในคลิป ไปให้ Google Gemini วิเคราะห์ ผ่าน Apps Script ของคุณ?' : 'ส่งภาพนิ่งจากวิดีโอนี้ (สูงสุด 40 ภาพ) ไปให้ Google Gemini วิเคราะห์ ผ่าน Apps Script ของคุณ?')) return;

@@ -240,7 +240,7 @@
   }
   async function approve(flowKey) {
     const cfg = D().approval.get(); const pin = cfg[flowKey];
-    if (!pin) { U().toast('ยังไม่ได้ตั้ง PIN ของฝ่ายนี้ — ไปตั้งที่ ⚙ ตั้งค่า'); return; }
+    if (!pin) { U().toast('ยังไม่ได้ตั้ง PIN ของฝ่ายนี้ในเครื่องนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าหลังบ้าน'); return; }
     const f = FLOWS.find(x => x.key === flowKey);
     const a = await U().ask('อนุมัติ · ' + f.name, [{ name: 'by', label: 'ชื่อผู้อนุมัติ' }, { name: 'pin', label: 'PIN ของฝ่าย', type: 'password' }]);
     if (!a || !a.by.trim()) return;

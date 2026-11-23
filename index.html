@@ -67,7 +67,6 @@
 
     <button id="enter" class="primary" disabled>เข้าใช้งาน →</button>
     <p id="gate-msg" class="muted" role="status"></p>
-    <button id="gate-settings" class="linklike">ตั้งค่า Google Sheet</button>
   </div>
 </section>
 
@@ -77,7 +76,6 @@
     <div class="brand"><span class="mark">▟</span><div>CPS IE Studio<small id="scope-crumb"></small></div></div>
     <div class="top-actions">
       <span id="sync-badge" class="badge" title="สถานะการซิงค์">●</span>
-      <button id="btn-settings" class="icon" title="ตั้งค่า">⚙</button>
       <button id="btn-switch" class="ghost">เปลี่ยนพื้นที่</button>
     </div>
   </header>
@@ -98,39 +96,6 @@
 
   <footer>CPS IE Studio · ข้อมูลพื้นที่: <span id="foot-scope"></span></footer>
 </div>
-
-<!-- ======== Settings dialog ======== -->
-<dialog id="settings-dialog">
-  <form method="dialog" class="dlg">
-    <div class="dlg-head"><h2>ตั้งค่า Google Sheet</h2><button value="cancel" class="icon">✕</button></div>
-    <label>Web App URL (จาก Google Apps Script)
-      <input id="sheet-url" type="url" placeholder="https://script.google.com/macros/s/..../exec" autocomplete="off">
-    </label>
-    <p class="muted">วาง URL ของ Apps Script Web App ที่ Deploy แล้ว ดูวิธีทำในไฟล์ README · ทุกเครื่องที่เชื่อม URL เดียวกันจะเห็นข้อมูลเดียวกัน (ซิงค์อัตโนมัติทุก 30 วินาที) · ใช้ปุ่ม “คัดลอกลิงก์สำหรับทีม” ส่งให้คนอื่นเปิดครั้งแรก ไม่ต้องตั้งค่าเอง</p>
-    <div class="dlg-actions">
-      <button id="sheet-test" value="cancel" type="button" class="ghost">ทดสอบการเชื่อมต่อ</button>
-      <button id="sheet-sync" value="cancel" type="button" class="ghost">ซิงค์เดี๋ยวนี้</button>
-      <button id="sheet-link" value="cancel" type="button" class="ghost">คัดลอกลิงก์สำหรับทีม</button>
-      <button id="sheet-save" value="default" class="primary">บันทึก</button>
-    </div>
-    <p id="sheet-status" class="muted" role="status"></p>
-    <hr>
-    <h2 style="font-size:16px;margin:0">PIN ผู้อนุมัติ (ต่อฝ่าย)</h2>
-    <div class="pin-grid">
-      <label>Flow 1 ผู้ตรวจสอบ<input type="password" data-pin="reviewer" autocomplete="off"></label>
-      <label>Flow 2 ฝ่ายความปลอดภัย<input type="password" data-pin="safety" autocomplete="off"></label>
-      <label>Flow 3 ฝ่ายคุณภาพ<input type="password" data-pin="quality" autocomplete="off"></label>
-      <label>Flow 4 ฝ่ายกระบวนการ<input type="password" data-pin="process" autocomplete="off"></label>
-      <label>Flow 5 ผู้จัดการฝ่าย<input type="password" data-pin="manager" autocomplete="off"></label>
-    </div>
-    <p class="muted">กด “บันทึก” ด้านบนเพื่อเก็บ PIN (เก็บในเครื่องนี้)</p>
-    <hr>
-    <div class="dlg-actions">
-      <button id="export-json" value="cancel" type="button" class="ghost">ส่งออกข้อมูลสำรอง (JSON)</button>
-      <label class="filebtn">นำเข้าข้อมูลสำรอง<input id="import-json" type="file" accept=".json" hidden></label>
-    </div>
-  </form>
-</dialog>
 
 <div id="toast" role="status"></div>
 

@@ -72,7 +72,7 @@
   let aiBusy = false;
   async function aiDraft() {
     if (aiBusy) return;
-    if (!window.CPS.sheet.configured()) { U().toast('ยังไม่ได้ตั้งค่า Google Sheet/AI — ดูคู่มือ (README) ส่วนที่ 3'); return; }
+    if (!window.CPS.sheet.configured()) { U().toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     const j = editing; const G = D().group; const k = G.key(j);
     const agg = G.aggregate(G.roundsOf(k));
     const st = D().listStations().find(r => String(r.station || '').trim().toLowerCase() === k);
