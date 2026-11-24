@@ -530,6 +530,7 @@
   }
 
   function renderDashboard() {
+    if (window.CPSDashboard) return window.CPSDashboard.render($('#tab-dashboard'), { lineBalance, lineBalanceTable, recent, levelLabel: LEVEL_LABEL[scope.level] });
     const studies = listStudies(), jobs = listJobs();
     const avgCt = studies.length ? studies.reduce((s, x) => s + num(x.ct), 0) / studies.length : 0;
     const trained = jobs.reduce((s, j) => s + (j.training || []).reduce((a, r) => a + num(r.count), 0), 0);
