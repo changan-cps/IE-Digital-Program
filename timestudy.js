@@ -163,7 +163,7 @@
       <section class="panel"><div class="panelhead"><h2>ตารางงานมาตรฐาน (SWCT)</h2>
         <div class="head-btns"><label class="swct-takt">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
         <div id="ts-swct" class="swct-wrap"></div>
-        <p class="hint">สร้างจากตาราง Element อัตโนมัติ · ใส่ "คนที่" ในตาราง Element เพื่อแยกผู้ปฏิบัติงาน แต่ละคนเริ่มเวลา 0 · เส้นทึบ = ทำงาน · เส้นประ = ส่ง (เครื่องจักรทำเอง) · เส้นหยัก = เดิน · จุดสีชมพู = รอ · เส้นน้ำเงิน = C.T ของแต่ละคน · เส้นแดง = T.T</p></section>
+      </section>
       <section class="panel"><div class="panelhead"><h2>แผนภูมิสองมือ (Two-Handed Process Chart)</h2>
         <div class="head-btns"><label class="swct-takt">Proposed เทียบกับ <select id="th-cmp"></select></label><button id="th-print" type="button" class="ghost">พิมพ์</button></div></div>
         <div id="th-table" class="tbl"></div><div id="th-chart" class="swct-wrap"></div><div id="th-sum" class="th-sum"></div>
