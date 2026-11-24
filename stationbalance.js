@@ -63,6 +63,38 @@
     }
   }
 
+  // Line Balance Rate (LBR) = ΣCT / (จำนวนสถานี × CT สูงสุด) × 100 · Balance loss = 100 − LBR
+  // ประสิทธิภาพเทียบ TAKT = ΣCT / (จำนวนสถานี × TAKT) × 100 · สถานีขั้นต่ำ = ⌈ΣCT / TAKT⌉
+  function lineStats(items, tk) {
+    const cts = items.map(x => x.ct).filter(v => v > 0);
+    if (!cts.length) return null;
+    const n = cts.length, sum = cts.reduce((a, b) => a + b, 0), max = Math.max(...cts);
+    const neck = items.find(x => x.ct === max);
+    return { n, sum, max, avg: sum / n, neck: neck ? neck.label : '', lbr: sum / (n * max) * 100,
+      eff: tk ? sum / (n * tk) * 100 : 0, minSt: tk ? Math.ceil(sum / tk - 1e-9) : 0, tk };
+  }
+  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#e08a00' : '#c0392b';
+  function lbrStrip(st, unit) {
+    unit = unit || 'สถานี';
+    const { fmt, esc } = U();
+    if (!st) return '';
+    const tip = 'Line Balance Rate = ΣCT ÷ (จำนวน' + unit + ' × CT สูงสุด) × 100';
+    return `<div class="sb-lbr">
+      <span title="${esc(tip)}">Line Balance Rate <b style="color:${lbrColor(st.lbr)}">${fmt(st.lbr)}%</b></span>
+      <span title="100 − Line Balance Rate">Balance Loss <b>${fmt(100 - st.lbr)}%</b></span>
+      <span>ΣCT <b>${fmt(st.sum)}</b> วิ</span>
+      <span>คอขวด <b>${esc(st.neck)}</b> ${fmt(st.max)} วิ</span>
+      ${st.tk ? `<span title="ΣCT ÷ (จำนวน${unit} × TAKT) × 100">ประสิทธิภาพเทียบ TAKT <b>${fmt(st.eff)}%</b></span>
+      <span title="⌈ΣCT ÷ TAKT⌉">${unit}ขั้นต่ำตาม TAKT <b>${st.minSt}</b> (ใช้อยู่ ${st.n})</span>` : ''}
+    </div>`;
+  }
+  function groupTakt(list) {
+    const jphs = list.map(r => U().num(r.jph)).filter(Boolean);
+    if (!jphs.length) return 0;
+    const jph = jphs.slice().sort((a, b) => jphs.filter(x => x === b).length - jphs.filter(x => x === a).length)[0];
+    return 3600 / jph;
+  }
+
   function sumCard(label, val, unit, color) {
     return `<div class="stat"><small>${U().esc(label)}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + U().esc(unit) : ''}</em></strong></div>`;
   }
@@ -78,6 +110,7 @@
         <div class="sb-grouphead-r">${list.length} station · ภาระสูงสุด <b style="color:${loadColor(max)}">${fmt(max)}%</b>
           <button class="sb-line-swct" type="button" data-key="${esc(key)}">📊 SWCT ทั้งไลน์</button></div>
       </div>
+      ${lbrStrip(lineStats(list.map(r => ({ label: r.station, ct: U().num(r.ct) })), groupTakt(list)))}
       <div class="sb-yama">${yamazumi(list)}</div>
       <div class="table-scroll"><table class="sb-table">
         <thead><tr><th>STATION</th><th>TEAM</th><th>JPH</th><th>TAKT</th><th>CT สูงสุด</th><th>ภาระงาน</th><th>OIS</th><th>ระบบแนะนำ / ขั้นตอน</th>${can ? '<th></th>' : ''}</tr></thead>
@@ -217,8 +250,7 @@
     const [model, submodel] = key.split('§');
     const jphs = list.map(r => num(r.jph)).filter(Boolean);
     const mode = { pick: 'latest' };
-    const jph = jphs.length ? jphs.sort((a, b) => jphs.filter(x => x === b).length - jphs.filter(x => x === a).length)[0] : 0;
-    const tk = jph ? 3600 / jph : 0;
+    const tk = groupTakt(list);
     let dlg = document.getElementById('sb-line-dlg');
     if (!dlg) { dlg = document.createElement('dialog'); dlg.id = 'sb-line-dlg'; dlg.className = 'sb-dlg'; document.body.appendChild(dlg); }
     let last = null;
@@ -241,11 +273,12 @@
       const slow = r.groups.reduce((a, g) => (g.ct > a.ct ? g : a), r.groups[0]);
       const fast = r.groups.reduce((a, g) => (g.ct < a.ct ? g : a), r.groups[0]);
       const avg = cts.reduce((a, b) => a + b, 0) / cts.length;
+      const ls = lineStats(r.groups.map(g => ({ label: g.label + (g.multi ? ' คนที่ ' + g.op : ''), ct: g.ct })), tk);
       body.innerHTML =
         `<div class="swct-sum"><span>สถานี <b>${lanes.length}</b></span><span>TAKT <b>${tk ? fmt(tk) : '—'}</b>${tk ? ' วิ' : ''}</span>` +
         `<span>C.T สูงสุด <b>${fmt(slow.ct)}</b> วิ (${esc(slow.label)})</span><span>ต่ำสุด <b>${fmt(fast.ct)}</b> วิ (${esc(fast.label)})</span>` +
         `<span>เฉลี่ย <b>${fmt(avg)}</b> วิ</span>${over.length ? `<span class="swct-over">เกิน TAKT ${over.length} สถานี: ${esc(over.map(g => g.label).join(', '))}</span>` : ''}` +
-        `${tk ? `<span>Balance <b>${fmt(avg / slow.ct * 100)}%</b></span>` : ''}</div>` +
+        `</div>` + lbrStrip(ls, r.groups.some(g => g.multi) ? 'คน' : 'สถานี') +
         (missing.length ? `<p class="muted">ยังไม่มีรอบจับเวลา: ${esc(missing.join(', '))}</p>` : '') +
         `<div class="swct-scroll">${r.svg}</div>`;
     };

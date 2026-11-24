@@ -343,6 +343,9 @@ dialog.sb-dlg{width:min(1180px,96vw);max-width:96vw;max-height:92vh;border:none;
 .sbd-head #sbd-close{margin-left:auto}
 .sb-line-swct{margin-left:10px;min-height:32px;padding:4px 12px;font-size:13px;background:#fff;border:1px solid #c5d6e6;border-radius:8px;cursor:pointer;color:#0b4f8a;font-weight:600}
 .sb-line-swct:hover{background:#edf7ff}
+.sb-lbr{display:flex;flex-wrap:wrap;gap:6px 18px;padding:8px 16px;font-size:13px;color:#52708a;background:#f8fbfe;border-bottom:1px solid #dbe7f1}
+.sb-lbr b{color:#17324b}
+.sb-lbr span[title]{cursor:help}
 #sbl-body{padding:8px 16px 18px}
 #sbl-print{min-height:34px;padding:4px 12px}
 #sbd-body{padding:8px 16px 18px}
