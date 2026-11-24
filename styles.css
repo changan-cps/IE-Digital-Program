@@ -177,6 +177,13 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:22px}
 .sb-table th{background:#f4f8fc;color:#52708a;font-size:12px;white-space:nowrap}
 .sb-table .sb-st{font-weight:700}
 .sb-table input{min-height:38px;padding:6px 8px;font-size:13px}
+/* edit row: give each input room for real codes (GA-FN-05, OIS-…) instead of shrinking to one character */
+.sb-table input.f-station{min-width:130px}
+.sb-table input.f-team{min-width:96px}
+.sb-table input.f-jph{width:72px;min-width:64px}
+.sb-table input.f-ct{width:88px;min-width:76px}
+.sb-table td:has(> input.f-station),.sb-table td:has(> input.f-team){min-width:110px}
+.sb-table:has(input.f-station){min-width:1180px}
 .sb-takt{color:var(--muted);white-space:nowrap}
 .sb-ct{display:flex;gap:4px;align-items:center}
 .sb-ct .f-pull{min-height:38px;padding:4px 9px;background:#edf7ff;border-color:#c5e4fa;color:#0566a6}

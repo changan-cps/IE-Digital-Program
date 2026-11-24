@@ -102,9 +102,9 @@
     return `<tr data-id="${esc(r.id)}">
       <td><input class="f-station" value="${esc(r.station)}" placeholder="CA-01A"></td>
       <td><input class="f-team" value="${esc(r.team || '')}" placeholder="CA-A"></td>
-      <td><input class="f-jph" type="number" min="1" step="1" value="${esc(r.jph)}" style="max-width:68px"></td>
+      <td><input class="f-jph" type="number" min="1" step="1" value="${esc(r.jph)}"></td>
       <td class="sb-takt">${fmt(t)} s</td>
-      <td><div class="sb-ct"><input class="f-ct" type="number" min="0" step="0.1" value="${esc(r.ct)}" style="max-width:80px"><button class="f-pull" title="ดึง CT จาก Time Study" type="button">↧</button></div>${r.rounds ? `<small class="sb-rounds">สูงสุดจาก ${esc(r.rounds)} รอบ</small>` : ''}</td>
+      <td><div class="sb-ct"><input class="f-ct" type="number" min="0" step="0.1" value="${esc(r.ct)}"><button class="f-pull" title="ดึง CT จาก Time Study" type="button">↧</button></div>${r.rounds ? `<small class="sb-rounds">สูงสุดจาก ${esc(r.rounds)} รอบ</small>` : ''}</td>
       <td class="sb-load">${bar}</td>
       <td class="sb-ois-edit"><input class="f-ois" value="${esc(r.ois)}" placeholder="OIS-..."><input class="f-oisdesc" value="${esc(r.oisDesc)}" placeholder="คำอธิบายงาน"></td>
       ${wfBtn}<td><button class="f-del r-del" type="button">✕</button></td></tr>`;
