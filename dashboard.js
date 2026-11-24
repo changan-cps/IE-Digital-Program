@@ -366,20 +366,27 @@
       return c.toDataURL('image/png');
     } finally { URL.revokeObjectURL(url); }
   }
+  // ทุกไลน์ในขอบเขตที่เลือก (ตามลำดับตาราง Line Balance) · ไลน์ยาวแบ่งหน้าละไม่เกิน 20 แถว สเกลเวลาเดียวกันทั้งไลน์
   async function swctReport(lb) {
     if (!lb.lines.length) return null;
-    const cur = lb.lines.find(l => lineKey(l) === swSel) || lb.lines[0];
-    const full = lineSwct(cur, swPick); if (!full || !full.r) return null;
-    const span = Math.ceil(Math.max(full.r.cycle, cur.tk || 0, full.r.machEnd, 5) * 1.08 / 5) * 5;
-    const chunks = []; let ch = [], rows = 0, off = 0;
-    full.lanes.forEach((ln, i) => { const k = (ln.elements || []).length; if (ch.length && rows + k > 20) { chunks.push({ lanes: ch, off }); ch = []; rows = 0; off = i; } ch.push(ln); rows += k; });
-    if (ch.length) chunks.push({ lanes: ch, off });
-    const C = window.CPSTimeStudy.charts, pages = [];
-    for (const c of chunks) { const r = C.swctLine(c.lanes, cur.tk, { lab: swctLabels(), span, laneOffset: c.off }); pages.push({ data: await svgToPng(r.svg, r.W, r.H), w: r.W, h: r.H }); }
-    const F = swctFacts(full), line = (arr) => arr.map(([k, v]) => k + (v ? ' ' + v : '')).join('   ·   ');
-    const name = areaOf(cur) + ' · ' + cur.model + ' / ' + cur.sub;
-    return { pages, titles: pages.map((p, i) => t('r_swctHead') + ' · ' + name + (pages.length > 1 ? ` (${i + 1}/${pages.length})` : '')), stats: line(F.a) + (F.over ? '   ·   ' + F.over : '') + '\n' + line(F.b), lbr: full.lbr };
+    const C = window.CPSTimeStudy.charts, pages = [], line = (arr) => arr.map(([k, v]) => k + (v ? ' ' + v : '')).join('   ·   ');
+    for (const cur of lb.lines) {
+      const full = lineSwct(cur, swPick); if (!full || !full.r) continue;
+      const span = Math.ceil(Math.max(full.r.cycle, cur.tk || 0, full.r.machEnd, 5) * 1.08 / 5) * 5;
+      const chunks = []; let ch = [], rows = 0, off = 0;
+      full.lanes.forEach((ln, i) => { const k = (ln.elements || []).length; if (ch.length && rows + k > 20) { chunks.push({ lanes: ch, off }); ch = []; rows = 0; off = i; } ch.push(ln); rows += k; });
+      if (ch.length) chunks.push({ lanes: ch, off });
+      const F = swctFacts(full), stats = line(F.a) + (F.over ? '   ·   ' + F.over : '') + '\n' + line(F.b);
+      const name = areaOf(cur) + ' · ' + cur.model + ' / ' + cur.sub;
+      for (let i = 0; i < chunks.length; i++) {
+        const c = chunks[i], r = C.swctLine(c.lanes, cur.tk, { lab: swctLabels(), span, laneOffset: c.off });
+        pages.push({ data: await svgToPng(r.svg, r.W, r.H), w: r.W, h: r.H, stats,
+          title: t('r_swctHead') + ' · ' + name + (chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : '') });
+      }
+    }
+    return pages.length ? { pages } : null;
   }
+
 
   // ---------- PPT report (แม่แบบ CHANGAN Confidential 16:9) ----------
   const PPTX_CDN = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js', JSZIP_CDN = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
