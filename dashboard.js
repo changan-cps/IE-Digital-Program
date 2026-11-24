@@ -206,20 +206,18 @@
     el.innerHTML = `
       <div class="page-head dz-head"><div class="dz-id"><h1>${esc(title)}</h1><p class="muted dz-meta"><b>${esc(levelLabel)}</b>${subT ? ' · ' + esc(subT) : ''} · ${esc(t('range', n, mode, rangeText(B)))}</p></div>
         <div class="dz-actions">
-          <label class="dz-lang" title="${esc(t('repLangTip'))}"><span>${esc(t('repLang'))}</span><select data-langsel>${I().LANGS.map(([k, l]) => `<option value="${k}"${I().lang === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
           <button class="dz-ppt" data-ppt title="${esc(t('pptTip'))}">${esc(t('ppt'))}</button>
           <div class="dz-tabs" role="tablist">${[['week', t('weekly')], ['month', t('monthly')]].map(([k, x]) => `<button role="tab" data-mode="${k}" class="${mode === k ? 'active' : ''}" aria-selected="${mode === k}">${esc(x)}</button>`).join('')}</div>
         </div></div>
       ${!D().canEdit() ? `<div class="ro-banner">${esc(t('roBanner'))}</div>` : ''}
+      ${att}
       <div class="cards dz-cards">
-        ${kpi('Time Study', nSt, t('items'), esc(t('latestCount', mode, last.st.length)))}
+        ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85')), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
         ${kpi(I().tn('r_ctLatest', mode), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? esc(B[iCt].long) + (same && same.n ? '<br>' + delta(same.cur, same.prev, ' ' + s, true) + ` <small class="dz-same">${esc(t('sameSt', same.n))}</small>` : same ? `<br><small class="dz-same">${esc(t('noSame'))}</small>` : '') : esc(t('noStudy')))}
         ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')), totRed ? '#15856b' : '')}
         ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
-        ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85')), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
-        ${kpi(t('trained'), trained, t('people'))}
       </div>
-      ${att}
+      <p class="muted dz-sub">Time Study <b>${nSt}</b> ${esc(t('items'))} (${esc(t('latestCount', mode, last.st.length))}) · ${esc(t('trained'))} <b>${trained}</b> ${esc(t('people'))}</p>
       <section class="panel"><div class="panelhead"><h2>${esc(t('redTitle', mode))}</h2><small class="muted">${esc(t('redNote', mode))} · ${esc(t('redZero'))}</small></div><div class="dz-body" data-chart="red"></div></section>
       <div class="dz-grid">
         <section class="panel"><div class="panelhead"><h2>${esc(t('ctTitle'))}</h2><small class="muted">${esc(t('ctNote'))}</small></div><div class="dz-body" data-chart="ct"></div></section>
@@ -233,13 +231,12 @@
         <button class="bigbtn" data-go="timestudy"><b>${esc(t('goTs'))}</b><span>${esc(t('goTsSub'))}</span></button>
         <button class="bigbtn" data-go="analysis"><b>${esc(t('goAn'))}</b><span>${esc(t('goAnSub'))}</span></button>
       </div>` : ''}
-      ${recent(P.studies, P.jobs)}`;
+      <details class="dz-more"><summary>${esc(t('recent'))}</summary>${recent(P.studies, P.jobs)}</details>`;
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => window.CPS.showTab(b.dataset.go));
     el.querySelector('[data-ppt]').onclick = e => downloadPpt(e.currentTarget, ctx);
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; try { localStorage.setItem(PKEY, mode); } catch (e) {} render(el, ctx); });
     el.querySelectorAll('[data-sw]').forEach(sl => sl.onchange = () => { if (sl.dataset.sw === 'line') swSel = sl.value; else swPick = sl.value; saveSw(); render(el, ctx); });
-    const ls = el.querySelector('[data-langsel]'); if (ls) ls.onchange = () => { I().set(ls.value); render(el, ctx); window.CPS?.applyShell?.(); el.querySelector('[data-langsel]')?.focus(); };
-    el.querySelector('[data-goto]')?.addEventListener('click', () => window.CPS.showTab('stations'));
+        el.querySelector('[data-goto]')?.addEventListener('click', () => window.CPS.showTab('stations'));
     drawCharts(el, B);
   }
 

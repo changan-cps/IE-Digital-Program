@@ -8,7 +8,8 @@
   const DRAFT = 'cps-ie-an-draft-v1';
   const snaps = new WeakMap();
   const scopeId = () => { const sc = D().scope || {}; return [sc.workshop, sc.group, sc.team].join('§'); };
-  const isDirty = () => !!editing && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
+  const hasContent = j => !!j && (String(j.name || j.station || j.problem || '').trim() !== '' || (j.before || []).some(e => String(e.name || '').trim() || U().num(e.sec) > 0) || (j.after || []).length > 0);
+  const isDirty = () => !!editing && hasContent(editing) && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
   function saveDraft() { if (!isDirty()) return; try { localStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), scope: scopeId(), j: editing })); } catch (e) {} }
   function readDraft() { try { const d = JSON.parse(localStorage.getItem(DRAFT)); return d && d.j && d.scope === scopeId() ? d : null; } catch (e) { return null; } }
   const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
@@ -37,7 +38,7 @@
         ${can ? '<button class="primary" id="an-new">＋ งานใหม่</button>' : ''}</div>
       ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
       ${!jobs.length ? `<div class="blank">ยังไม่มีงานวิเคราะห์ในพื้นที่นี้${can ? '<br><small>กด “＋ งานใหม่” เพื่อเริ่มเอง หรือบันทึก Time Study ของสถานี แล้วระบบจะสร้างงานวิเคราะห์ให้อัตโนมัติ</small>' : ''}</div>` :
-        `<section class="panel"><div class="recent">${jobs.map(j => {
+        `${jobs.length > 3 ? '<label class="list-search"><span class="vh">ค้นหา</span><input type="search" id="an-q" placeholder="ค้นหาชื่องาน / สถานี"></label>' : ''}<section class="panel"><div class="recent">${jobs.map(j => {
           const b = U().totals(j.before), a = U().totals(j.after);
           const saved = b.ct - a.ct, has = a.count > 0;
           return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
@@ -45,8 +46,9 @@
             <span class="row-btns"><button data-edit="${j.id}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}">ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
+    const q = host.querySelector('#an-q'); if (q) q.oninput = () => { const v = q.value.trim().toLowerCase(); host.querySelectorAll('.recent-row').forEach(r => r.hidden = !!v && !r.textContent.toLowerCase().includes(v)); };
     const dg = host.querySelector('#an-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.j; snaps.set(editing, ''); renderEditor(); };
-    const dd = host.querySelector('#an-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่างงานวิเคราะห์นี้? ข้อมูลในร่างจะหายถาวร', [], { ok: 'ทิ้งร่าง', cancel: 'เก็บไว้' })) { dropDraft(); renderList(); } };
+    const dd = host.querySelector('#an-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่างงานวิเคราะห์นี้? ข้อมูลในร่างจะหายถาวร', [], { ok: 'ทิ้งร่าง', cancel: 'เก็บไว้', danger: true })) { dropDraft(); renderList(); } };
     host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = structuredClone(D().listJobs().find(j => j.id === b.dataset.edit)); renderEditor(); });
     host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => D().removeUndo('jobs', b.dataset.del, 'ลบงานวิเคราะห์แล้ว', renderList));
   }

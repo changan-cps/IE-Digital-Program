@@ -70,8 +70,9 @@ textarea{min-height:auto;resize:vertical;line-height:1.6}
 main{max-width:1680px;margin:auto;padding:clamp(14px,3vw,24px)}
 footer{text-align:center;color:var(--muted);font-size:13px;padding:22px}
 
-.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:4px 0 20px;flex-wrap:wrap}
-.page-head h1{font-size:clamp(20px,4vw,26px);margin:4px 0 0}
+.page-head{display:flex;justify-content:space-between;align-items:center;gap:10px 12px;margin:0 0 14px;flex-wrap:wrap}
+.page-head h1{font-size:clamp(19px,3vw,23px);margin:0;line-height:1.2}
+.page-head h1+.muted{margin:2px 0 0;font-size:13px}
 .head-btns{display:flex;gap:8px;flex-wrap:wrap}
 
 /* ---------- cards / dashboard ---------- */
@@ -386,7 +387,7 @@ dialog.sb-dlg{width:min(1180px,96vw);max-width:96vw;max-height:92vh;border:none;
 .dz-tabs button{border:0;min-height:40px;padding:8px 18px;border-radius:9px;background:transparent;color:var(--muted)}
 .dz-tabs button.active{background:var(--navy);color:#fff}
 .dz-range{margin:-6px 0 14px}
-.dz-cards{grid-template-columns:repeat(6,1fr)}
+.dz-cards{grid-template-columns:repeat(4,1fr)}
 .dz-d{font-weight:600}.dz-d.up{color:#15856b}.dz-d.down{color:#c0392b}
 .dz-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
 .dz-body{padding:12px}
@@ -518,3 +519,20 @@ button:disabled{opacity:.45}
   .ts-capture #ts-open{grid-column:1/-1}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* round 5: compact headers, sticky editor save, global language, danger dialogs */
+.dz-sub{margin:-6px 0 16px;font-size:13px}
+.dz-more>summary{cursor:pointer;padding:10px 2px;font-weight:600;color:var(--blue)}
+.lang-global select{min-height:40px;border-radius:999px;border:1px solid #ffffff55;background:transparent;color:#fff;padding:2px 10px;font-size:14px}
+.lang-global option{color:#17324b}
+.dlg-actions .danger{background:#c0392b;color:#fff;border-color:#c0392b}
+.field-err{display:block;color:#b3261e;font-size:13px;margin-top:4px}
+.sb-ois b,.sb-ois-edit input.f-ois{white-space:nowrap}
+.f-pull{min-height:44px;white-space:nowrap}
+.sb-line-swct,.r-del,.el-table .r-del,.f-del{min-height:44px;min-width:44px}
+.r-dim{min-width:118px}
+#tab-timestudy .page-head:has(#ts-save),#tab-analysis .page-head:has(#an-save){position:sticky;top:calc(var(--topbar-h,56px) + 56px);z-index:12;background:var(--bg);padding:8px 0;margin-bottom:8px}
+@media(max-width:560px){
+  .lang-global select{max-width:92px}
+  #tab-timestudy .page-head:has(#ts-save),#tab-analysis .page-head:has(#an-save){top:calc(var(--topbar-h,56px) + 52px)}
+}

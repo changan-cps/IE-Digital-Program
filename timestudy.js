@@ -16,7 +16,9 @@
   const DRAFT = 'cps-ie-ts-draft-v1';
   const snaps = new WeakMap();
   const scopeId = () => { const sc = D().scope || {}; return [sc.workshop, sc.group, sc.team].join('§'); };
-  const isDirty = () => !!editing && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
+  // ร่างที่ยังไม่มีอะไรเลย (แถวว่าง) ไม่นับว่าแก้ไข
+  const hasContent = s => !!s && (String(s.station || s.name || s.operator || '').trim() !== '' || (s.elements || []).some(e => String(e.name || '').trim() || U().num(e.sec) > 0));
+  const isDirty = () => !!editing && hasContent(editing) && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
   function saveDraft() { if (!isDirty()) return; try { localStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), scope: scopeId(), s: editing })); } catch (e) {} }
   function readDraft() { try { const d = JSON.parse(localStorage.getItem(DRAFT)); return d && d.s && d.scope === scopeId() ? d : null; } catch (e) { return null; } }
   const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
@@ -67,7 +69,7 @@
       return `<section class="panel ts-group">
         <div class="sb-grouphead">
           <div><span class="sb-model" translate="no">${esc(label)}</span> ${head.station && head.name && !String(head.name).includes(head.station) ? U().ud(head.name) : ''}${can ? '' : ' · ' + esc([head.workshop, head.group, head.team].filter(Boolean).join('/'))}</div>
-          <div class="sb-grouphead-r"><b>${agg.n}</b> รอบ · CT เฉลี่ย <b>${fmt(agg.ctAvg)}</b> วิ · สูงสุด <b>${fmt(agg.ctMax)}</b> · ต่ำสุด <b>${fmt(agg.ctMin)}</b>${can ? ` <button class="mini dark" data-round="${head.id}">＋ จับรอบใหม่</button>` : ''}</div>
+          <div class="sb-grouphead-r"><b>${agg.n}</b> รอบ · CT เฉลี่ย <b>${fmt(agg.ctAvg)}</b> วิ · สูงสุด <b>${fmt(agg.ctMax)}</b> · ต่ำสุด <b>${fmt(agg.ctMin)}</b>${can ? ` <button class="mini ghost" data-round="${head.id}">＋ จับรอบใหม่</button>` : ''}</div>
         </div>
         <div class="recent">${rounds.map((s, i) => { const t = U().totals(s.elements); return `<div class="recent-row ts-row">
             <span class="tag">รอบ ${i + 1}</span>
@@ -89,7 +91,7 @@
       ${!studies.length ? '<div class="blank">ยังไม่มี Time Study ในพื้นที่นี้</div>' : '<p class="hint" style="margin:0 0 12px">รอบจับเวลาที่ใช้รหัสสถานีเดียวกันจะถูกรวมเป็นกลุ่มเดียว และคำนวณค่าเฉลี่ยให้อัตโนมัติ</p>' + blocks.join('')}`;
     const nb = host.querySelector('#ts-new'); if (nb) nb.onclick = () => { editing = blank(); renderEditor(); };
     const dg = host.querySelector('#ts-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.s; snaps.set(editing, ''); laps = []; renderEditor(); U().toast('กู้คืนร่างแล้ว — วิดีโอไม่ถูกเก็บในร่าง ถ้าจะจับเวลาต่อให้เลือกไฟล์วิดีโอเดิมอีกครั้ง', 7000); };
-    const dd = host.querySelector('#ts-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่าง Time Study นี้? ข้อมูลในร่างจะหายถาวร', [], { ok: 'ทิ้งร่าง', cancel: 'เก็บไว้' })) { dropDraft(); renderList(); } };
+    const dd = host.querySelector('#ts-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่าง Time Study นี้? ข้อมูลในร่างจะหายถาวร', [], { ok: 'ทิ้งร่าง', cancel: 'เก็บไว้', danger: true })) { dropDraft(); renderList(); } };
     host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = structuredClone(D().listStudies().find(s => s.id === b.dataset.edit)); renderEditor(); });
     host.querySelectorAll('[data-round]').forEach(b => b.onclick = () => { editing = newRound(D().listStudies().find(s => s.id === b.dataset.round)); renderEditor(); });
     host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
@@ -181,7 +183,6 @@
         <div id="ts-metrics" class="mini-metrics"></div>
         <div id="ts-bar" class="stack"></div>
         <p class="hint">คะแนนความง่าย: 1 = ยากสุด, 5 = ง่ายสุด · คะแนน ≤ 3 ขึ้นสีแดง = จุดต้องปรับปรุง</p>
-        <p class="hint ergo-legend">${DIMS.map(d => `<b>${d.label}</b> ` + Object.keys(d.r).map(n => n + ' = ' + d.r[n]).join(', ')).join(' · ')}</p>
       </section>
       <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>ตารางงานมาตรฐาน (SWCT)</h2>
         <div class="head-btns"><label class="swct-takt">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
@@ -703,7 +704,7 @@
       <td><div class="r-type seg" role="radiogroup" tabindex="-1" aria-label="ประเภท แถว ${i + 1}">${TYPES.map(ty => `<button type="button" role="radio" data-ty="${ty.k}" style="--c:${ty.color}">${ty.k}</button>`).join('')}</div></td>
       <td><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
       <td><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
-      ${DIMS.map(d => `<td><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}"${d.r[n] ? ` title="${d.r[n]}"` : ''}>${n}</option>`).join('')}</select></td>`).join('')}
+      ${DIMS.map(d => `<td><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></td>`).join('')}
       <td class="r-sum"></td>
       <td><button class="r-del" title="ลบ" type="button">✕</button></td>`;
     const paintRow = () => {
@@ -746,7 +747,7 @@
     const badSec = host.querySelector('.r-sec.bad');
     if (badSec) { badSec.focus(); U().toast('เวลาบางแถวไม่ถูกต้อง (ต้องเป็นตัวเลข 0 ขึ้นไป) — แก้ช่องที่ขึ้นสีแดงก่อนบันทึก', 6000); return; }
     const st = host.querySelector('[data-f="station"]');
-    if (!String(editing.station || editing.name || '').trim()) { st.classList.add('bad'); st.setAttribute('aria-invalid', 'true'); st.focus(); U().toast('กรอกรหัสสถานีหรือชื่องานก่อนบันทึก', 6000); return; }
+    if (!String(editing.station || editing.name || '').trim()) { st.classList.add('bad'); st.setAttribute('aria-invalid', 'true'); const fl = st.closest('.field'); if (fl && !fl.querySelector('.field-err')) fl.insertAdjacentHTML('beforeend', '<small class="field-err" role="alert">กรอกรหัสสถานีหรือชื่องานก่อนบันทึก</small>'); st.focus(); U().toast('กรอกรหัสสถานีหรือชื่องานก่อนบันทึก', 6000); return; }
     if (untyped() && !(await U().ask(`มี ${untyped()} แถวที่ยังไม่ระบุประเภท (VA/NNVA/NVA) — แถวเหล่านี้จะนับใน CT แต่ไม่นับใน VA% · บันทึกต่อ?`, [], { ok: 'บันทึกต่อ', cancel: 'กลับไประบุประเภท' }))) { host.querySelector('.r-type.need')?.focus(); return; }
     const t = U().totals(editing.elements);
     editing.ct = U().round1(t.ct); editing.va = U().round1(t.VA); editing.nnva = U().round1(t.NNVA); editing.nva = U().round1(t.NVA); editing.vaPct = U().round1(t.vaPct); editing.steps = totalSteps(editing.elements);

@@ -25,7 +25,7 @@
 
   // ชื่อจากการล็อกอินผ่านพอร์ทัล (SSO) · ไม่มีก็ให้พิมพ์
   const ssoName = () => { const u = window.CPS_USER; return u ? String(u.name || u.username || '') : ''; };
-  const loadOf = r => { const j = U().num(r.jph); return j ? U().num(r.ct) / (3600 / j) * 100 : 0; };
+  const loadOf = r => { const j = U().num(r.jph); return j ? D().ctOf(r) / (3600 / j) * 100 : 0; };
   function stepStatus() {
     const r = rec(), w = wf();
     const s1 = !!matchStudy();
@@ -41,7 +41,7 @@
 
   function open(id, container, back) {
     stationId = id; host = container; onBack = back;
-    render();
+    render(); scrollTo(0, 0);
   }
 
   function render() {
@@ -50,9 +50,9 @@
     const steps = [
       { n: 1, t: 'Time Study', done: st.s1 },
       { n: 2, t: 'วิเคราะห์งาน', done: st.s2 },
-      { n: 3, t: 'Confirm ปรับปรุง', done: st.s3 },
+      { n: 3, t: 'ยืนยันปรับปรุง', done: st.s3 },
       { n: 4, t: 'Line Balance', done: st.s4 },
-      { n: 5, t: 'New OIS', done: st.s5 },
+      { n: 5, t: 'OIS ใหม่', done: st.s5 },
       { n: 6, t: 'ส่งอนุมัติ', done: st.s6 },
     ];
     const ended = st.s3 && w.improve === false, over = loadOf(r) > 100;
@@ -144,8 +144,8 @@
       .sort((x, y) => String(x.station).localeCompare(String(y.station), undefined, { numeric: true }));
     return peers.map(p => {
       const g = G().aggregate(G().roundsOf(p.station));
-      const mine = p.id === r.id && job && (job.after || []).length;
-      return { id: p.id, station: p.station, now: U().num(p.ct), ct: mine ? U().totals(job.after).ct : U().num(p.ct), els: mine ? job.after : (g ? g.elements : []), improved: !!mine };
+      const ci = D().ctInfo(p), pj = ci.src === 'after' ? D().listJobs().find(j => G().key(j) === G().key(p) && (j.after || []).length) : null;
+      return { id: p.id, station: p.station, now: ci.ct, ct: ci.ct, els: pj ? pj.after : (g ? g.elements : []), improved: ci.src === 'after' };
     });
   }
   function panelStep4(st, can) {
@@ -171,8 +171,8 @@
     d.appendChild(box);
 
     const tbl = document.createElement('div'); tbl.className = 'table-scroll';
-    const loadCell = v => { const load = takt ? (num(v) / takt) * 100 : 0; const col = load > 100 ? '#c0392b' : load >= 90 ? '#9a5b00' : '#15856b'; return `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(load, 100)}%;background:${col}"></i></div><span style="color:${col}">${fmt(load)}%</span></div>`; };
-    tbl.innerHTML = `<table class="sb-table"><thead><tr><th>Station</th><th>CT ปัจจุบัน</th><th>ระบบเสนอ</th><th>CT หลังปรับ</th><th>ภาระใหม่</th></tr></thead><tbody>${items.map((it, i) => {
+    const loadCell = v => { const load = takt ? (num(v) / takt) * 100 : 0; const col = load > 100 ? '#c0392b' : load > num(lb.limit || 90) ? '#9a5b00' : '#15856b'; return `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(load, 100)}%;background:${col}"></i></div><span style="color:${col}">${fmt(load)}%</span></div>`; };
+    tbl.innerHTML = `<table class="sb-table"><thead><tr><th>สถานี</th><th>CT ที่ใช้</th><th>ระบบเสนอ</th><th>CT หลังปรับ</th><th>ภาระใหม่</th></tr></thead><tbody>${items.map((it, i) => {
       const after = lb.rows[it.id] != null ? lb.rows[it.id] : it.ct;
       return `<tr data-pid="${it.id}"><td class="sb-st">${esc(it.station)}${it.improved ? ' <small class="muted">(ใช้ค่า After)</small>' : ''}</td><td>${fmt(it.now)} วิ</td><td>${fmt(prop.proposed[i])} วิ</td>
         <td><input class="lb-ct" type="number" min="0" step="0.1" value="${esc(after)}" style="max-width:90px" ${can ? '' : 'disabled'}></td><td class="lb-load">${loadCell(after)}</td></tr>`;
@@ -252,10 +252,11 @@
     if (can) flowsWrap.querySelectorAll('.wf-approve').forEach(b => b.onclick = () => approve(b.dataset.flow));
     if (can && !Object.values(ap.flows || {}).some(x => x && x.by)) {
       const wd = el('button', 'ghost', '↶ ถอนการส่ง (ยังไม่มีใครอนุมัติ)');
-      wd.onclick = async () => { if (await U().ask('ถอนการส่งอนุมัติ OIS นี้? แก้ OIS แล้วค่อยส่งใหม่ได้', [], { ok: 'ถอนการส่ง', cancel: 'ไม่ถอน' })) { ap.submitted = false; ap.by = ''; if (w.newOis) w.newOis.reviewed = false; saveRec(); render(); } };
+      wd.onclick = async () => { if (await U().ask('ถอนการส่งอนุมัติ OIS นี้? แก้ OIS แล้วค่อยส่งใหม่ได้', [], { ok: 'ถอนการส่ง', cancel: 'ไม่ถอน', danger: true })) { ap.submitted = false; ap.by = ''; if (w.newOis) w.newOis.reviewed = false; saveRec(); render(); } };
       d.appendChild(wd);
     }
-    return panel('6 · ส่งอนุมัติ', d, badgeDone(st.approved));
+    const nOk = FLOWS.filter(f => ap.flows[f.key] && ap.flows[f.key].by).length;
+    return panel('6 · ส่งอนุมัติ', d, st.approved ? badgeDone(true) : `<span class="wf-badge">อนุมัติแล้ว ${nOk}/${FLOWS.length}</span>`);
   }
   async function approve(flowKey) {
     // PIN กลาง: ตรวจที่ server (ผู้ดูแลตั้งที่หน้าหลังบ้าน) ใช้ได้ทุกเครื่อง

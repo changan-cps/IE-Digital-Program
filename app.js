@@ -153,9 +153,21 @@
 
   // ---------- ระบบแนะนำว่าสถานีควรปรับปรุงหรือไม่ ----------
   const RULES = { load: 90, ease: 3, nva: 15 };   // ภาระ ≥ 90% · คะแนนความง่าย ≤ 3 · NVA ≥ 15% ของรอบเวลา
+  // CT ที่ใช้ของสถานี — แหล่งเดียวทั้งแอป: After ของงานวิเคราะห์ (ถ้ามี) > CT สูงสุดจาก Time Study > ค่าที่กรอกเอง
+  function ctInfo(r) {
+    const k = gkey(r);
+    if (k) {
+      const job = listJobs().find(j => gkey(j) === k && (j.after || []).length && (!r.team || !j.team || j.team === r.team));
+      if (job) { const ct = totals(job.after).ct; if (ct) return { ct, src: 'after', before: totals(job.before || []).ct }; }
+      const agg = aggregate(roundsOf(k));
+      if (agg && agg.ctMax) return { ct: agg.ctMax, src: 'study', n: agg.n };
+    }
+    return { ct: num(r.ct), src: 'manual' };
+  }
+  const ctOf = r => ctInfo(r).ct;
   function advise(r) {
     const agg = aggregate(roundsOf(r.station));
-    const takt = num(r.jph) ? 3600 / num(r.jph) : 0; const load = takt ? (num(r.ct) / takt) * 100 : 0;
+    const takt = num(r.jph) ? 3600 / num(r.jph) : 0; const load = takt ? (ctOf(r) / takt) * 100 : 0;
     const reasons = [];
     if (load > 100) reasons.push(`ภาระงาน ${fmt(load)}% เกิน TAKT`);
     else if (load >= RULES.load) reasons.push(`ภาระงาน ${fmt(load)}% ถึงเกณฑ์ ${RULES.load}%`);
@@ -165,7 +177,7 @@
       let weak = 0; (agg.latest.elements || []).forEach(e => ['t', 'u', 'v', 'w'].forEach(k => { const x = parseInt(e[k], 10); if (x >= 1 && x <= RULES.ease) weak++; }));
       if (weak) reasons.push(`คะแนนความง่าย ≤ ${RULES.ease} จำนวน ${weak} จุด`);
     }
-    const status = (!agg && !num(r.ct)) ? 'nodata' : reasons.length ? 'improve' : 'ok';
+    const status = (!agg && !ctOf(r)) ? 'nodata' : reasons.length ? 'improve' : 'ok';
     return { status, reasons, load, hasStudy: !!agg };
   }
 
@@ -485,7 +497,7 @@
         <li><b>แดชบอร์ด</b> — ดูแนวโน้ม CT, VA และ Line Balance Rate และดาวน์โหลดรายงาน PPT</li></ol>
         <p><b>คีย์ลัด</b> Space ตัดจบขั้นตอน · M มาร์คจุดเริ่ม · P เล่น/หยุด · Z ย้อน Lap · ← → ทีละ 0.1 วินาที · Ctrl+S บันทึก</p>
         <p><b>สูตร</b> Line Balance Rate = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 · TAKT = 3600 ÷ JPH</p>
-        <p><b>AI</b> ใช้ Gemini ผ่านเซิร์ฟเวอร์กลาง — ถ้าปุ่ม AI แจ้งว่ายังไม่ได้ตั้งค่า ให้ผู้ดูแลระบบใส่ API key ที่หน้า Admin</p>
+        <p><b>AI</b> ช่วยร่าง element และข้อเสนอให้ แล้วคนตรวจแก้ — ถ้าปุ่ม AI แจ้งว่ายังไม่พร้อม ให้ติดต่อผู้ดูแลระบบ</p>
         <div class="dlg-actions"><button type="button" class="primary" data-close>ปิด</button></div></div>`;
       document.body.appendChild(d);
       d.querySelector('[data-close]').onclick = () => d.close();
@@ -503,7 +515,7 @@
       d.innerHTML = `<form method="dialog" class="dlg"><div class="dlg-head"><h2>${esc(title)}</h2></div>${fields.map(f => f.options
         ? `<label>${esc(f.label)}<select name="${f.name}">${f.options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</select></label>`
         : `<label>${esc(f.label)}<input name="${f.name}" type="${f.type || 'text'}" autocomplete="off"></label>`).join('')}
-        <div class="dlg-actions"><button value="cancel" class="ghost">${esc(opt.cancel || 'ยกเลิก')}</button><button value="ok" class="primary">${esc(opt.ok || 'ตกลง')}</button></div></form>`;
+        <div class="dlg-actions"><button value="cancel" class="ghost">${esc(opt.cancel || 'ยกเลิก')}</button><button value="ok" class="${opt.danger ? 'danger' : 'primary'}">${esc(opt.ok || 'ตกลง')}</button></div></form>`;
       document.body.appendChild(d);
       // ปิดและคืนค่าทันทีจากปุ่ม ไม่รอ event 'close' (บางเบราว์เซอร์/แท็บที่ซ่อนอยู่ยิง event นี้ช้า)
       let done = false;
@@ -683,7 +695,7 @@
   function lineBalance() {
     const map = new Map();
     listStations().forEach(r => {
-      const ct = num(r.ct); if (!ct) return;
+      const ct = ctOf(r); if (!ct) return;
       const k = [r.workshop, r.group, r.team, r.model || '-', r.submodel || '-'].join('§');
       if (!map.has(k)) map.set(k, { ws: r.workshop, group: r.group, team: r.team, model: r.model || '-', sub: r.submodel || '-', items: [], jph: [] });
       const g = map.get(k); g.items.push({ st: r.station, ct }); if (num(r.jph)) g.jph.push(num(r.jph));
@@ -737,6 +749,13 @@
     $('#btn-switch').onclick = () => guardLeave(() => openGate(scope));
     if ($('#gate-cancel')) $('#gate-cancel').onclick = () => openApp();
     if ($('#btn-help')) $('#btn-help').onclick = openHelp;
+    // ภาษาทั้งแอป (แถบบน)
+    const lg = $('#lang-global');
+    if (lg && window.CPSDashI18n) {
+      lg.innerHTML = window.CPSDashI18n.LANGS.map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('');
+      lg.value = window.CPSDashI18n.lang;
+      lg.onchange = () => { window.CPSDashI18n.set(lg.value); applyShell(); render(); };
+    }
     // Ctrl+S / ⌘S บันทึกหน้าที่กำลังแก้
     addEventListener('keydown', e => {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's' || $('#app').hidden || document.querySelector('dialog[open]')) return;
@@ -786,7 +805,7 @@
     util: { $, $$, uid, esc, ud, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
-      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit,
+      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },
       advise, balance, RULES,
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },

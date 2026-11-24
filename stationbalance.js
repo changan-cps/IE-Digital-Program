@@ -9,7 +9,7 @@
   let host = null;
 
   const takt = jph => { const j = U().num(jph); return j ? 3600 / j : 0; };
-  const loadPct = r => { const t = takt(r.jph); return t ? (U().num(r.ct) / t) * 100 : 0; };
+  const loadPct = r => { const t = takt(r.jph); return t ? (D().ctOf(r) / t) * 100 : 0; };
   // ไลน์ = ทีม + รุ่น/รุ่นย่อย (คีย์เดียวกับแดชบอร์ด) — คนละทีมที่ใช้รุ่นเดียวกันไม่ถูกรวมเป็นไลน์เดียว
 
   // ป้ายของหน้าสรุป (ส่วนที่ผู้จัดการเปิดดู) ตามภาษาที่เลือกบนแดชบอร์ด · โหมดแก้ไขตารางยังเป็นภาษาไทย
@@ -21,7 +21,7 @@
     en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'To improve (not started)', sub: 'sub-model',
       yz: 'Yamazumi chart (line balance)', noRound: 'no timing round', swct: '📊 Line SWCT', edit: '✎ Edit table', done: '✓ Done editing', cancel: 'Discard changes', add: '＋ Add station',
       ro: '👁️ Analysis mode (read only) — several teams combined', th: ['Station', 'Team', 'JPH', 'TAKT', 'Max CT', 'Load', 'OIS', 'Advice / steps'],
-      improve: 'Improve', ok: 'OK', wait: 'No data', step: '→ Steps', twoHand: 'SWCT / two-hand' },
+      improve: 'Needs improvement', ok: 'OK', wait: 'No data', step: '→ Steps', twoHand: 'SWCT / two-hand' },
     zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '建议改善（未处理）', sub: '子车型',
       yz: '山积图 (Yamazumi)', noRound: '无计时轮次', swct: '📊 整线 SWCT', edit: '✎ 编辑表格', done: '✓ 完成编辑', cancel: '放弃修改', add: '＋ 添加工位',
       ro: '👁️ 分析模式（只读）— 多个班组汇总', th: ['工位', '班组', 'JPH', 'TAKT', '最大 CT', '负荷', 'OIS', '建议 / 步骤'],
@@ -30,7 +30,7 @@
   const L = k => {
     const l = window.CPSDashI18n ? window.CPSDashI18n.lang : 'th';
     if (l !== 'zhen') return (SBT[l] || SBT.th)[k];
-    const z = SBT.zh[k], e = SBT.en[k], two = (x, y) => x === y || String(x).length > 14 ? x : x + ' / ' + y;   // 中 / EN แบบเดียวกับแดชบอร์ด
+    const z = SBT.zh[k], e = SBT.en[k], two = (x, y) => x === y || String(x).length > 14 || /[/→]/.test(x) ? x : x + ' / ' + y;   // 中 / EN แบบเดียวกับแดชบอร์ด
     return Array.isArray(z) ? z.map((x, i) => two(x, e[i])) : two(z, e);
   };
   const unitN = n => n === 1 && L('unit') === 'stations' ? 'station' : L('unit');
@@ -146,7 +146,7 @@
         <div class="sb-grouphead-r">${list.length} ${esc(unitN(list.length))} · ${esc(L('max'))} <b style="color:${loadColor(max)}">${max > 100 ? '▲ ' : ''}${fmt(max)}%</b>
           <button class="sb-line-swct" type="button" data-key="${esc(key)}">${esc(L('swct'))}</button></div>
       </div>
-      ${lineStrip(lineStats(list.map(r => ({ label: r.station, ct: U().num(r.ct) })), groupTakt(list)), null)}
+      ${lineStrip(lineStats(list.map(r => ({ label: r.station, ct: D().ctOf(r) })), groupTakt(list)), null)}
       <div class="sb-yama">${yamazumi(list)}</div>
       <div class="table-scroll"><table class="sb-table${can ? '' : ' ro'}">
         <thead><tr>${L('th').map(h => `<th>${esc(h)}</th>`).join('')}${can ? '<th></th>' : ''}</tr></thead>
@@ -155,27 +155,33 @@
     </section>`;
   }
 
+  // ที่มาของ CT ที่ใช้ (After ของงานวิเคราะห์ / Time Study / กรอกเอง)
+  function srcNote(ci) {
+    const { fmt } = U();
+    return ci.src === 'after' ? `<small class="sb-rounds">หลังปรับ (After) · ก่อน ${fmt(ci.before)} วิ</small>` : ci.src === 'study' ? `<small class="sb-rounds">สูงสุดจาก ${ci.n} รอบ</small>` : '';
+  }
   function stationRow(r, can) {
     const { esc, fmt, num } = U();
+    const ci = D().ctInfo(r);
     const t = takt(r.jph), p = loadPct(r), col = loadColor(p);
     const bar = `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(p, 100)}%;background:${col}"></i>${p > 100 ? `<i class="over" style="width:${Math.min(p - 100, 40)}%"></i>` : ''}</div><span style="color:${col}">${fmt(p)}%</span></div>`;
     const adv = D().advise(r);
     const chip = adv.status === 'improve' ? `<span class="adv improve" title="${esc(adv.reasons.join(' · '))}">${esc(L('improve'))}</span>` : adv.status === 'ok' ? `<span class="adv ok">${esc(L('ok'))}</span>` : `<span class="adv">${esc(L('wait'))}</span>`;
-    const done = r.wf && r.wf.improve === false ? (loadPct(r) > 100 ? '<span class="adv" style="color:#c0392b">ไม่ปรับปรุง · ยังเกิน TAKT</span>' : '<span class="adv">ไม่ปรับปรุง (ปิดงาน)</span>') : r.wf && r.wf.approval && r.wf.approval.submitted ? '<span class="adv ok">ส่งอนุมัติแล้ว</span>' : chip;
+    const done = r.wf && r.wf.improve === false ? (loadPct(r) > 100 ? '<span class="adv" style="color:#c0392b">ไม่ปรับปรุง · ยังเกิน TAKT</span>' : '<span class="adv">ไม่ปรับปรุง (ปิดงาน)</span>') : r.wf && r.wf.approval && r.wf.approval.submitted ? (() => { const n = Object.values(r.wf.approval.flows || {}).filter(x => x && x.by).length; return n >= 5 ? '<span class="adv ok">อนุมัติครบ 5/5</span>' : `<span class="adv ok">รออนุมัติ ${n}/5</span>`; })() : chip;
     const nR = D().group.roundsOf(r.station).length;
     const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}">${esc(L('step'))}</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
     if (!can) {
       return `<tr>
         <td class="sb-st">${esc(r.station)}</td><td class="sb-team">${esc(r.team)}</td><td class="sb-jph">${esc(r.jph)}</td>
-        <td class="sb-takt">${fmt(t)} s</td><td class="sb-ctv"><b>${fmt(num(r.ct))} s</b></td><td class="sb-load">${bar}</td>
+        <td class="sb-takt">${fmt(t)} วิ</td><td class="sb-ctv"><b>${fmt(ci.ct)} วิ</b>${srcNote(ci)}</td><td class="sb-load">${bar}</td>
         <td class="sb-ois"><b>${esc(r.ois)}</b><small>${U().ud(r.oisDesc)}</small></td>${wfBtn}</tr>`;
     }
     return `<tr data-id="${esc(r.id)}">
       <td><input class="f-station" aria-label="รหัสสถานี" value="${esc(r.station)}" placeholder="CA-01A"></td>
       <td><input class="f-team" aria-label="ทีม" value="${esc(r.team || '')}" placeholder="CA-A"></td>
       <td><input class="f-jph" aria-label="JPH" type="number" min="1" step="1" value="${esc(r.jph)}"></td>
-      <td class="sb-takt">${fmt(t)} s</td>
-      <td><div class="sb-ct"><input class="f-ct" aria-label="CT สูงสุด (วินาที)" type="number" min="0" step="0.1" value="${esc(r.ct)}"><button class="f-pull" title="ดึง CT จาก Time Study" aria-label="ดึง CT จาก Time Study" type="button">↧</button></div>${r.rounds ? `<small class="sb-rounds">สูงสุดจาก ${esc(r.rounds)} รอบ</small>` : ''}</td>
+      <td class="sb-takt">${fmt(t)} วิ</td>
+      <td>${ci.src === 'manual' ? `<div class="sb-ct"><input class="f-ct" aria-label="CT (วินาที)" type="number" min="0" step="0.1" value="${esc(r.ct)}"><button class="f-pull" title="ดึง CT จาก Time Study" aria-label="ดึง CT จาก Time Study" type="button">↧ ดึง CT</button></div>` : `<b>${fmt(ci.ct)} วิ</b>`}${srcNote(ci)}</td>
       <td class="sb-load">${bar}</td>
       <td class="sb-ois-edit"><input class="f-ois" aria-label="รหัส OIS" value="${esc(r.ois)}" placeholder="OIS-..."><input class="f-oisdesc" aria-label="คำอธิบายงาน OIS" value="${esc(r.oisDesc)}" placeholder="คำอธิบายงาน"></td>
       ${wfBtn}<td><button class="f-del r-del" type="button" title="ลบสถานี" aria-label="ลบสถานี ${esc(r.station)}">✕</button></td></tr>`;
@@ -190,16 +196,16 @@
       // text fields: save on input, no rerender
       ['f-station:station', 'f-team:team', 'f-ois:ois', 'f-oisdesc:oisDesc'].forEach(s => { const [cls, f] = s.split(':'); bind('.' + cls, f, false); });
       // numeric fields change TAKT/load -> live update that row only
-      const jph = tr.querySelector('.f-jph'), ct = tr.querySelector('.f-ct');
+      const jph = tr.querySelector('.f-jph'), ct = tr.querySelector('.f-ct') || { value: '' };
       const liveUpdate = () => {
         const r = rec(); if (!r) return;
-        r.jph = jph.value; r.ct = ct.value; D().upsert('stations', r);
+        r.jph = jph.value; if (tr.querySelector('.f-ct')) r.ct = ct.value; D().upsert('stations', r);
         const t = takt(r.jph), p = loadPct(r), col = loadColor(p);
         tr.querySelector('.sb-takt').textContent = U().fmt(t) + ' s';
         refreshYama(tr);
         tr.querySelector('.sb-load').innerHTML = `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(p, 100)}%;background:${col}"></i>${p > 100 ? `<i class="over" style="width:${Math.min(p - 100, 40)}%"></i>` : ''}</div><span style="color:${col}">${U().fmt(p)}%</span></div>`;
       };
-      jph.oninput = liveUpdate; ct.oninput = liveUpdate;
+      jph.oninput = liveUpdate; if (tr.querySelector('.f-ct')) ct.oninput = liveUpdate;
       const pull = tr.querySelector('.f-pull'); if (pull) pull.onclick = () => pullCT(id, tr);
       const del = tr.querySelector('.f-del'); if (del) del.onclick = () => D().removeUndo('stations', id, 'ลบสถานีแล้ว', () => render(host));
     });
@@ -212,7 +218,7 @@
     const { num } = U();
     const rounds = D().group.roundsOf(r.station);
     const top = rounds.reduce((a, x) => (!a || num(x.ct) >= num(a.ct) ? x : a), null);
-    const ct = num(r.ct);
+    const ct = D().ctOf(r);
     if (top && num(top.ct) > 0) {
       const k = ct > 0 ? ct / num(top.ct) : 1; // ปรับสัดส่วนให้ยอดรวม = CT ในตาราง
       return { va: num(top.va) * k, nnva: num(top.nnva) * k, nva: num(top.nva) * k, other: 0, ct: ct || num(top.ct) };
@@ -314,7 +320,7 @@
         `<div class="swct-sum"><span>สถานี <b>${lanes.length}</b></span><span>TAKT <b>${tk ? fmt(tk) : '—'}</b>${tk ? ' วิ' : ''}</span>` +
         `<span>C.T สูงสุด <b>${fmt(slow.ct)}</b> วิ (${esc(slow.label)})</span><span>ต่ำสุด <b>${fmt(fast.ct)}</b> วิ (${esc(fast.label)})</span>` +
         `<span>เฉลี่ย <b>${fmt(avg)}</b> วิ</span>${over.length ? `<span class="swct-over">เกิน TAKT ${over.length} สถานี: ${esc(over.map(g => g.label).join(', '))}</span>` : ''}` +
-        `</div>` + lineStrip(lineStats(list.map(x => ({ label: x.station, ct: num(x.ct) })), tk), r.groups.some(g => g.multi) ? ls : null) +
+        `</div>` + lineStrip(lineStats(list.map(x => ({ label: x.station, ct: D().ctOf(x) })), tk), r.groups.some(g => g.multi) ? ls : null) +
         (missing.length ? `<p class="muted">ยังไม่มีรอบจับเวลา: ${esc(missing.join(', '))}</p>` : '') +
         `<div class="swct-scroll">${r.svg}</div>`;
     };
