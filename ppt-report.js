@@ -30,6 +30,8 @@
       { image: { x: 0.23, y: 0.06, w: 1.75, h: 0.46, path: img('page-logo.png') } },
       { image: { x: 2.93, y: 0.18, w: 6.71, h: 0.18, path: img('tagline-strip.png') } },
       { image: { x: 11.15, y: 0, w: 1.42, h: 0.4, path: img('page-confidential.png') } },
+      // เส้นใต้แถบหัวกระดาษของแม่แบบ (直接连接符 2: y 480509 EMU, 1.5pt, สี lt1 = 00467F)
+      { line: { x: 0, y: 0.5255, w: W, h: 0, line: { color: BRAND, width: 1.5 } } },
       { placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.62, w: 11.57, h: 0.62, fontSize: BI ? 20 : 24, bold: true, color: BRAND, fontFace: FONT, align: 'left', valign: 'middle', margin: 0 }, text: '' } },
       { text: { text: 'CPS IE Studio · ' + R.area + ' · ' + R.rangeText, options: { x: 0.5, y: 6.62, w: 9, h: 0.3, fontSize: 10, color: MUTED, fontFace: FONT, margin: 0 } } },
     ], slideNumber: { x: 11.4, y: 6.62, w: 0.67, h: 0.3, fontSize: 10, color: MUTED, fontFace: FONT, align: 'right' } });
