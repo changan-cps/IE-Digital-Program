@@ -414,15 +414,15 @@
   // ---------- shell language: follows the Dashboard choice (ไทย / EN / 中文 / 中 / EN) ----------
   const SHELL = {
     th: { tabs: ['แดชบอร์ด', 'Time Study', 'สมดุลสถานี', 'วิเคราะห์งาน'], sw: 'เปลี่ยนพื้นที่', out: 'ออกจากระบบ', foot: 'ข้อมูลพื้นที่:', gate: 'เลือกระดับการใช้งาน แล้วเลือกพื้นที่',
-      lv: { factory: 'ระบบโรงงาน', workshop: 'ระดับ Workshop', group: 'ระดับกลุ่ม', team: 'ระดับทีม' }, step1: 'ระดับการใช้งาน', choose: '— เลือก —', addNew: '➕ เพิ่มใหม่…', enter: 'เข้าใช้งาน →', view: 'ดูการวิเคราะห์ →',
+      lv: { factory: 'ระบบโรงงาน', workshop: 'ระดับ Workshop', group: 'ระดับกลุ่ม', team: 'ระดับทีม' }, step1: 'ระดับการใช้งาน', step2: 'Workshop', step3: 'กลุ่ม (Group)', step4: 'ทีม (Team)', back: '← กลับ (ไม่เปลี่ยนพื้นที่)', choose: '— เลือก —', addNew: '➕ เพิ่มใหม่…', enter: 'เข้าใช้งาน →', view: 'ดูการวิเคราะห์ →',
       opts: { team: '🧑‍🔧 ระดับทีม — บันทึก/ทำงาน เห็นเฉพาะทีมตัวเอง', group: '👥 ระดับกลุ่ม — วิเคราะห์รวมทุกทีมในกลุ่ม', workshop: '🏢 ระดับ Workshop — วิเคราะห์รวมทั้ง Workshop', factory: '🏭 ระบบโรงงาน — วิเคราะห์รวมทุกพื้นที่' },
       sync: { ok: 'ซิงค์แล้ว', pending: 'กำลังซิงค์', error: 'ซิงค์ไม่สำเร็จ', off: 'เก็บในเครื่อง' } },
     en: { tabs: ['Dashboard', 'Time Study', 'Station balance', 'Kaizen analysis'], sw: 'Change area', out: 'Sign out', foot: 'Area:', gate: 'Choose your level, then your area',
-      lv: { factory: 'Factory', workshop: 'Workshop level', group: 'Group level', team: 'Team level' }, step1: 'Access level', choose: '— Choose —', addNew: '➕ Add new…', enter: 'Enter →', view: 'View analysis →',
+      lv: { factory: 'Factory', workshop: 'Workshop level', group: 'Group level', team: 'Team level' }, step1: 'Access level', step2: 'Workshop', step3: 'Group', step4: 'Team', back: '← Back (keep this area)', choose: '— Choose —', addNew: '➕ Add new…', enter: 'Enter →', view: 'View analysis →',
       opts: { team: '🧑‍🔧 Team — record and work, own team only', group: '👥 Group — analyse all teams in the group', workshop: '🏢 Workshop — analyse the whole workshop', factory: '🏭 Factory — analyse every area' },
       sync: { ok: 'Synced', pending: 'Syncing', error: 'Sync failed', off: 'This device only' } },
     zh: { tabs: ['仪表板', '工时研究', '工位平衡', '改善分析'], sw: '切换区域', out: '退出', foot: '区域：', gate: '选择使用级别，然后选择区域',
-      lv: { factory: '工厂', workshop: '车间级', group: '组级', team: '班组级' }, step1: '使用级别', choose: '— 请选择 —', addNew: '➕ 新增…', enter: '进入 →', view: '查看分析 →',
+      lv: { factory: '工厂', workshop: '车间级', group: '组级', team: '班组级' }, step1: '使用级别', step2: '车间', step3: '组', step4: '班组', back: '← 返回（不切换区域）', choose: '— 请选择 —', addNew: '➕ 新增…', enter: '进入 →', view: '查看分析 →',
       opts: { team: '🧑‍🔧 班组 — 记录与作业，仅本班组', group: '👥 组 — 分析组内所有班组', workshop: '🏢 车间 — 分析整个车间', factory: '🏭 工厂 — 分析所有区域' },
       sync: { ok: '已同步', pending: '同步中', error: '同步失败', off: '仅本机' } },
   };
@@ -442,12 +442,20 @@
     if ($('#btn-logout')) $('#btn-logout').textContent = pick('out');
     if ($('#foot-label')) $('#foot-label').textContent = pick('foot');
     if ($('#gate-sub')) $('#gate-sub').textContent = pick('gate');
-    const s1 = $('[data-step="level"] .step-head b'); if (s1) s1.textContent = shellPick('step1');
+    [['level', 'step1'], ['workshop', 'step2'], ['group', 'step3'], ['team', 'step4']].forEach(([k, v]) => { const h = $(`[data-step="${k}"] .step-head b`); if (h) h.textContent = shellPick(v); });
+    if ($('#gate-cancel')) $('#gate-cancel').textContent = shellPick('back');
     $$('#sel-level option').forEach(o => { o.textContent = o.value ? shellPick('opts')[o.value] || o.textContent : shellPick('choose'); });
     if ($('#enter')) $('#enter').textContent = shellPick($('#sel-level') && $('#sel-level').value && $('#sel-level').value !== 'team' ? 'view' : 'enter');
     if (scope && $('#scope-crumb')) { $('#scope-crumb').textContent = crumbText(); $('#foot-scope').textContent = crumbText(); }
     setSync(syncState, $('#sync-badge') ? $('#sync-badge').title : '');
     document.documentElement.lang = L === 'zh' || L === 'zhen' ? 'zh-Hans' : L;
+  }
+  // วันที่แบบเดียวทั้งแอป: 24 พ.ย. 2569 (+ เวลา)
+  function dateTxt(v, time) {
+    if (v == null || v === '') return '';
+    const d = typeof v === 'number' ? new Date(v) : /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v + 'T00:00:00') : new Date(v);
+    if (isNaN(d)) return String(v);
+    return d.toLocaleString('th-TH', Object.assign({ day: 'numeric', month: 'short', year: 'numeric' }, time ? { hour: '2-digit', minute: '2-digit' } : {}));
   }
   // ---------- toast ----------
   let toastT;
@@ -548,6 +556,7 @@
   function openGate(prefill) {
     pick.level = prefill?.level || ''; pick.workshop = prefill?.workshop || ''; pick.group = prefill?.group || ''; pick.team = prefill?.team || '';
     $('#app').hidden = true; $('#gate').hidden = false;
+    if ($('#gate-cancel')) $('#gate-cancel').hidden = !scope;
     $('#sel-level').value = pick.level;
     showSteps();
     $('#sel-group').disabled = !pick.workshop; $('#sel-team').disabled = !pick.group;
@@ -690,6 +699,13 @@
     // app events
     $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     $('#btn-switch').onclick = () => guardLeave(() => openGate(scope));
+    if ($('#gate-cancel')) $('#gate-cancel').onclick = () => openApp();
+    // ลูกศรซ้าย/ขวาสลับแท็บ (แบบ tablist มาตรฐาน)
+    $('#tabs').addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const bs = $$('#tabs button'), i = bs.indexOf(document.activeElement); if (i < 0) return;
+      e.preventDefault(); const nx = bs[(i + (e.key === 'ArrowRight' ? 1 : -1) + bs.length) % bs.length]; nx.focus(); nx.click();
+    });
     addEventListener('beforeunload', e => { if (window.CPSTimeStudy?.isDirty?.() || window.CPSAnalysis?.isDirty?.()) { e.preventDefault(); e.returnValue = ''; } });
     const tb = $('.topbar'), setTb = () => { if (tb && tb.offsetHeight) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px'); };
     setTb(); if (window.ResizeObserver && tb) new ResizeObserver(setTb).observe(tb);
@@ -724,7 +740,7 @@
   // ---------- public API for modules ----------
   window.CPS = {
     boot,
-    util: { $, $$, uid, esc, num, round1, fmt, TYPES, totals, toast, ask },
+    util: { $, $$, uid, esc, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
       listStudies, listJobs, listStations, upsert, remove, canEdit,

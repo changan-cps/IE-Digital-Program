@@ -116,6 +116,7 @@
     g += `<line x1="${padL}" x2="${W - padR}" y1="${y(sc.lo)}" y2="${y(sc.lo)}" stroke="${C.base}"/>`;
     const every = Math.ceil(n / Math.max(1, Math.floor(pw / 52)));
     for (let i = 0; i < n; i++) if ((n - 1 - i) % every === 0) g += `<text x="${x(i)}" y="${H - 9}" text-anchor="middle" class="ax">${esc(o.labels[i])}</text>`;
+    (o.empty || []).forEach(i => g += `<text x="${x(i)}" y="${y(sc.lo) - 8}" text-anchor="middle" class="ax">${esc(band >= 60 ? (o.emptyTxt || '–') : '–')}</text>`);
     (o.refs || []).forEach(r => g += `<line x1="${padL}" x2="${W - padR}" y1="${y(r.v)}" y2="${y(r.v)}" stroke="${r.color}" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${padL + 6}" y="${y(r.v) - 5}" text-anchor="start" class="ax" style="fill:${r.color}">${esc(r.label)}</text>`);
     // bars (stacked, 2px gaps, 4px rounded top)
     const bw = Math.min(34, band * 0.62);
@@ -193,11 +194,19 @@
     const levelLabel = t('level_' + (scope.level || 'team'));
     const subT = [scope.workshop, scope.group].filter(x => x && x !== title).join(' / ');
     const trained = P.jobs.reduce((a, j) => a + (j.training || []).reduce((x, r) => x + U().num(r.count), 0), 0);
+    // ต้องดูก่อน: สถานีเกิน TAKT และไลน์ที่ต่ำกว่าเป้า 85%
+    const ldOf = r => { const j = U().num(r.jph); return j ? U().num(r.ct) / (3600 / j) * 100 : 0; };
+    const overSt = D().listStations().filter(r => ldOf(r) > 100).sort((a, b) => ldOf(b) - ldOf(a)), lowL = lb.lines.filter(l => l.lbr < 85);
+    const list = (arr, k) => arr.slice(0, k).join(', ') + (arr.length > k ? '…' : '');
+    const att = overSt.length || lowL.length ? `<section class="dz-att" role="status"><b>${esc(t('attTitle'))}</b>` +
+      (overSt.length ? `<span>▲ ${esc(t('attOver', overSt.length, list(overSt.map(r => r.station + ' ' + fmt(ldOf(r)) + '%'), 4)))}</span>` : '') +
+      (lowL.length ? `<span>▼ ${esc(t('attLow', lowL.length, list(lowL.map(l => l.model + ' / ' + l.sub + ' ' + fmt(l.lbr) + '%'), 3)))}</span>` : '') +
+      `<button type="button" class="ghost" data-goto>${esc(t('attGo'))}</button></section>` : '';
 
     el.innerHTML = `
       <div class="page-head dz-head"><div><p class="eyebrow">${esc(levelLabel)}</p><h1>${esc(title)}</h1>${subT ? `<p class="muted">${esc(subT)}</p>` : ''}</div>
         <div class="dz-actions">
-          <div class="dz-lang" role="group" aria-label="Language">${I().LANGS.map(([k, l]) => `<button type="button" data-lang="${k}" lang="${k === 'zhen' ? 'zh' : k}" class="${I().lang === k ? 'active' : ''}" aria-pressed="${I().lang === k}">${l}</button>`).join('')}</div>
+          <label class="dz-lang" title="${esc(t('repLangTip'))}"><span>${esc(t('repLang'))}</span><select data-langsel>${I().LANGS.map(([k, l]) => `<option value="${k}"${I().lang === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
           <button class="dz-ppt" data-ppt title="${esc(t('pptTip'))}">${esc(t('ppt'))}</button>
           <div class="dz-tabs" role="tablist">${[['week', t('weekly')], ['month', t('monthly')]].map(([k, x]) => `<button role="tab" data-mode="${k}" class="${mode === k ? 'active' : ''}" aria-selected="${mode === k}">${esc(x)}</button>`).join('')}</div>
         </div></div>
@@ -208,10 +217,11 @@
         ${kpi(I().tn('r_ctLatest', mode), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? esc(B[iCt].long) + (same && same.n ? '<br>' + delta(same.cur, same.prev, ' ' + s, true) + ` <small class="dz-same">${esc(t('sameSt', same.n))}</small>` : same ? `<br><small class="dz-same">${esc(t('noSame'))}</small>` : '') : esc(t('noStudy')))}
         ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')), totRed ? '#15856b' : '')}
         ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
-        ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low)), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
+        ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85')), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
         ${kpi(t('trained'), trained, t('people'))}
       </div>
-      <section class="panel"><div class="panelhead"><h2>${esc(t('redTitle', mode))}</h2><small class="muted">${esc(t('redNote', mode))}</small></div><div class="dz-body" data-chart="red"></div></section>
+      ${att}
+      <section class="panel"><div class="panelhead"><h2>${esc(t('redTitle', mode))}</h2><small class="muted">${esc(t('redNote', mode))} · ${esc(t('redZero'))}</small></div><div class="dz-body" data-chart="red"></div></section>
       <div class="dz-grid">
         <section class="panel"><div class="panelhead"><h2>${esc(t('ctTitle'))}</h2><small class="muted">${esc(t('ctNote'))}</small></div><div class="dz-body" data-chart="ct"></div></section>
         <section class="panel"><div class="panelhead"><h2>${esc(t('lbrTitle', mode))}</h2><small class="muted" title="${esc(t('lbrHelp', mode))}">${esc(t('lbrNote', mode))}</small></div><div class="dz-body" data-chart="lbr"></div></section>
@@ -229,7 +239,8 @@
     el.querySelector('[data-ppt]').onclick = e => downloadPpt(e.currentTarget, ctx);
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; try { localStorage.setItem(PKEY, mode); } catch (e) {} render(el, ctx); });
     el.querySelectorAll('[data-sw]').forEach(sl => sl.onchange = () => { if (sl.dataset.sw === 'line') swSel = sl.value; else swPick = sl.value; saveSw(); render(el, ctx); });
-    el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { I().set(b.dataset.lang); render(el, ctx); window.CPS?.applyShell?.(); });
+    const ls = el.querySelector('[data-langsel]'); if (ls) ls.onchange = () => { I().set(ls.value); render(el, ctx); window.CPS?.applyShell?.(); el.querySelector('[data-langsel]')?.focus(); };
+    el.querySelector('[data-goto]')?.addEventListener('click', () => window.CPS.showTab('stations'));
     drawCharts(el, B);
   }
 
@@ -250,7 +261,7 @@
     const TY = U().TYPES, avg = (b, k) => b.st.length ? b[k] / b.st.length : 0;
     const tk = B.map(b => b.tk.length ? b.tk.reduce((a, v) => a + v, 0) / b.tk.length : null);
     if (d) d.innerHTML = B.some(b => b.st.length) ? chart('ct', W, {
-      labels, aria: t('ctTitle'),
+      labels, aria: t('ctTitle'), empty: B.map((b, i) => b.st.length ? -1 : i).filter(i => i >= 0), emptyTxt: t('noDataShort'),
       stack: TY.map(x => ({ name: x.k, color: x.color, vals: B.map(b => avg(b, x.k)) })),
       lines: tk.some(v => v != null) ? [{ name: t('taktAvg'), color: C.ink, vals: tk, dash: true }] : [],
       tip: i => { const b = B[i]; if (!b.st.length) return `<b>${esc(b.long)}</b><div class="tr muted">${esc(t('noStudy'))}</div>`;
@@ -337,6 +348,8 @@
     const r = C.swctLine(lanes, line.tk, Object.assign({ lab: swctLabels() }, opt || {}));
     const G = r.groups, cts = G.map(g => g.ct), n = G.length, sum = cts.reduce((a, b) => a + b, 0), max = Math.max(...cts), min = Math.min(...cts);
     return { lanes, missing, tk: line.tk, r, n, sum, max, min, avg: sum / n, slow: G.find(g => g.ct === max), fast: G.find(g => g.ct === min), multi: G.some(g => g.multi),
+      st: { n: line.n, sum: line.sum, max: line.max, neck: line.neck, lbr: line.lbr, eff: line.eff, tk: line.tk, minSt: line.tk ? Math.ceil(line.sum / line.tk - 1e-9) : 0 },
+      op: G.some(g => g.multi) ? { n, sum, max, neck: '', lbr: sum / (n * max) * 100, eff: line.tk ? sum / (n * line.tk) * 100 : 0, tk: line.tk, minSt: line.tk ? Math.ceil(sum / line.tk - 1e-9) : 0 } : null,
       stLbr: line.lbr, lbr: sum / (n * max) * 100, eff: line.tk ? sum / (n * line.tk) * 100 : 0, minSt: line.tk ? Math.ceil(sum / line.tk - 1e-9) : 0, over: line.tk ? G.filter(g => g.ct > line.tk) : [] };
   }
   const opLabel = g => g.label + (g.multi ? ' ' + swctLabels().person.split('\n')[0] + ' ' + g.op : '');
@@ -344,9 +357,8 @@
     const { fmt } = U(), s = ' ' + t('s');
     const a = [[t('sw_st'), String(x.lanes.length)], ['TAKT', x.tk ? fmt(x.tk) + s : '—'], [t('sw_ctMax'), fmt(x.max) + s + ' (' + opLabel(x.slow) + ')'],
       [t('sw_ctMin'), fmt(x.min) + s + ' (' + opLabel(x.fast) + ')'], [t('sw_avg'), fmt(x.avg) + s]];
-    const b = [['Line Balance Rate', fmt(x.stLbr) + '%'], [t('lbrOp'), fmt(x.lbr) + '%'], [t('sw_loss'), fmt(100 - x.lbr) + '%'], ['ΣCT', fmt(x.sum) + s], [t('sw_neck'), opLabel(x.slow) + ' ' + fmt(x.max) + s]];
-    if (x.tk) b.push([t('sw_eff'), fmt(x.eff) + '%'], [t('sw_min', x.minSt, x.n, x.multi), '']);
-    return { a, b, over: x.over.length ? t('sw_over', x.over.length, x.over.map(g => g.label).join(', ')) : '' };
+    const L = window.CPSLine.facts(x.st, x.op);   // ชุดเดียวกับหน้าสมดุลสถานี
+    return { a, b: L.main, sub: L.sub, over: x.over.length ? t('sw_over', x.over.length, x.over.map(g => g.label).join(', ')) : '' };
   }
   function swctPanel(lb) {
     const { esc, fmt } = U();
@@ -357,7 +369,7 @@
     else {
       const F = swctFacts(x), span = ([k, v], cls) => `<span${cls ? ` class="${cls}"` : ''}>${esc(k)}${v ? ` <b>${esc(v)}</b>` : ''}</span>`;
       body = `<div class="swct-sum">${F.a.map(p => span(p)).join('')}${F.over ? `<span class="swct-over">${esc(F.over)}</span>` : ''}</div>` +
-        `<div class="sb-lbr">${F.b.map((p, i) => i === 0 ? `<span>${esc(p[0])} <b style="color:${lbrColor(x.stLbr)}">${esc(p[1])}</b></span>` : span(p)).join('')}<span class="lbr-f">${esc(t('lbrBoth'))}</span></div>` +
+        window.CPSLine.strip(x.st, x.op) +
         (x.missing.length ? `<p class="muted">${esc(t('swctMissing', x.missing.join(', ')))}</p>` : '') + `<div class="swct-scroll">${x.r.svg}</div>`;
     }
     return `<section class="panel" id="dz-swct"><div class="panelhead"><h2>${esc(t('swctTitle'))}</h2><div class="dz-swct-ctl">
@@ -386,7 +398,7 @@
       const chunks = []; let ch = [], rows = 0, off = 0;
       full.lanes.forEach((ln, i) => { const k = (ln.elements || []).length; if (ch.length && rows + k > 20) { chunks.push({ lanes: ch, off }); ch = []; rows = 0; off = i; } ch.push(ln); rows += k; });
       if (ch.length) chunks.push({ lanes: ch, off });
-      const F = swctFacts(full), stats = line(F.a) + (F.over ? '   ·   ' + F.over : '') + '\n' + line(F.b);
+      const F = swctFacts(full), stats = line(F.a) + (F.over ? '   ·   ' + F.over : '') + '\n' + line(F.b) + (F.sub ? '\n' + t('perOp') + ' ' + line(F.sub) : '');
       const name = areaOf(cur) + ' · ' + cur.model + ' / ' + cur.sub;
       for (let i = 0; i < chunks.length; i++) {
         const c = chunks[i], r = C.swctLine(c.lanes, cur.tk, { lab: swctLabels(), span, laneOffset: c.off });
@@ -449,7 +461,7 @@
         { label: tn('r_ctLatest', mode), value: ctL != null ? f(ctL) + ' ' + s : '—', sub: delta },
         { label: tn('ctReduced'), value: totRed ? '−' + f(totRed) + ' ' + s : '0', sub: t('jobsN', nJob), color: totRed ? '15856B' : null },
         { label: tn('r_vaAvg'), value: sumCt ? f(sumVA / sumCt * 100) + '%' : '—', sub: t('r_vaSub') },
-        { label: 'Line Balance Rate', value: lb.lines.length ? f(lb.lbr) + '%' : '—', sub: lb.lines.length ? t('linesLow', lb.lines.length, lb.low) : null, color: lb.lines.length ? lbrColor(lb.lbr).slice(1).toUpperCase() : null },
+        { label: 'Line Balance Rate', value: lb.lines.length ? f(lb.lbr) + '%' : '—', sub: lb.lines.length ? t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85') : null, color: lb.lines.length ? lbrColor(lb.lbr).slice(1).toUpperCase() : null },
         { label: tn('trained'), value: trained + ' ' + t('people'), sub: null },
       ],
       insights: ins.length ? ins : [tn('ins_none')], bi: I().bilingual,

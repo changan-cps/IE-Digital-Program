@@ -32,7 +32,7 @@
     const jobs = D().listJobs();
     const dr = can ? readDraft() : null;
     host.innerHTML = `
-      ${dr ? `<div class="ts-draft" role="status"><span>มีร่างงานวิเคราะห์ที่ยังไม่ได้บันทึก · ${esc(dr.j.name || 'ไม่มีชื่อ')} · ${new Date(dr.at).toLocaleString('th-TH')}</span><button class="primary" id="an-draft-go">กู้คืนร่าง</button><button id="an-draft-drop">ทิ้งร่าง</button></div>` : ''}
+      ${dr ? `<div class="ts-draft" role="status"><span>มีร่างงานวิเคราะห์ที่ยังไม่ได้บันทึก · ${esc(dr.j.name || 'ไม่มีชื่อ')} · ${U().dateTxt(dr.at, true)}</span><button class="primary" id="an-draft-go">กู้คืนร่าง</button><button id="an-draft-drop">ทิ้งร่าง</button></div>` : ''}
       <div class="page-head"><div><h1>วิเคราะห์งาน Before / After</h1></div>
         ${can ? '<button class="primary" id="an-new">＋ งานใหม่</button>' : ''}</div>
       ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
@@ -40,7 +40,7 @@
         `<section class="panel"><div class="recent">${jobs.map(j => {
           const b = U().totals(j.before), a = U().totals(j.after);
           const saved = b.ct - a.ct, has = a.count > 0;
-          return `<div class="recent-row"><b>${esc(j.name || 'ไม่มีชื่อ')}</b><small>${esc(j.line || '')} · ${esc(j.date || '')}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
+          return `<div class="recent-row"><b>${esc(j.name || 'ไม่มีชื่อ')}</b><small>${esc([j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
             <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}</em>
             <span class="row-btns"><button data-edit="${j.id}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}">ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;

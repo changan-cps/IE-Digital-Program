@@ -65,12 +65,12 @@
       const label = (head.station || head.name || 'ไม่มีชื่อ');
       return `<section class="panel ts-group">
         <div class="sb-grouphead">
-          <div><span class="sb-model">${esc(label)}</span> ${head.station && head.name && head.name !== head.station ? esc(head.name) : ''}${can ? '' : ' · ' + esc([head.workshop, head.group, head.team].filter(Boolean).join('/'))}</div>
+          <div><span class="sb-model">${esc(label)}</span> ${head.station && head.name && !String(head.name).includes(head.station) ? esc(head.name) : ''}${can ? '' : ' · ' + esc([head.workshop, head.group, head.team].filter(Boolean).join('/'))}</div>
           <div class="sb-grouphead-r"><b>${agg.n}</b> รอบ · CT เฉลี่ย <b>${fmt(agg.ctAvg)}</b> วิ · สูงสุด <b>${fmt(agg.ctMax)}</b> · ต่ำสุด <b>${fmt(agg.ctMin)}</b>${can ? ` <button class="mini dark" data-round="${head.id}">＋ จับรอบใหม่</button>` : ''}</div>
         </div>
         <div class="recent">${rounds.map((s, i) => { const t = U().totals(s.elements); return `<div class="recent-row ts-row">
             <span class="tag">รอบ ${i + 1}</span>
-            <small>${esc(s.operator || '')} · ${esc(s.date || '')}</small>
+            <small>${esc([s.operator, U().dateTxt(s.date)].filter(Boolean).join(' · '))}</small>
             <em>${fmt(t.ct)} วิ · VA ${fmt(t.vaPct)}%</em>
             <span class="row-btns"><button data-edit="${s.id}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}">ลบ</button>` : ''}</span>
           </div>`; }).join('')}</div>
@@ -78,7 +78,7 @@
     });
     const dr = can ? readDraft() : null;
     host.innerHTML = `
-      ${dr ? `<div class="ts-draft" role="status"><span>มีร่าง Time Study ที่ยังไม่ได้บันทึก · ${esc(dr.s.station || dr.s.name || 'ไม่มีชื่อ')} · ${(dr.s.elements || []).length} element · ${new Date(dr.at).toLocaleString('th-TH')}</span><button class="primary" id="ts-draft-go">กู้คืนร่าง</button><button id="ts-draft-drop">ทิ้งร่าง</button></div>` : ''}
+      ${dr ? `<div class="ts-draft" role="status"><span>มีร่าง Time Study ที่ยังไม่ได้บันทึก · ${esc(dr.s.station || dr.s.name || 'ไม่มีชื่อ')} · ${(dr.s.elements || []).length} element · ${U().dateTxt(dr.at, true)}</span><button class="primary" id="ts-draft-go">กู้คืนร่าง</button><button id="ts-draft-drop">ทิ้งร่าง</button></div>` : ''}
       <div class="page-head">
         <div><h1>ศึกษางาน & จับเวลา</h1></div>
         ${can ? '<button class="primary" id="ts-new">＋ บันทึกใหม่</button>' : ''}
@@ -87,7 +87,7 @@
       ${!studies.length ? '<div class="blank">ยังไม่มี Time Study ในพื้นที่นี้</div>' : '<p class="hint" style="margin:0 0 12px">รอบจับเวลาที่ใช้รหัสสถานีเดียวกันจะถูกรวมเป็นกลุ่มเดียว และคำนวณค่าเฉลี่ยให้อัตโนมัติ</p>' + blocks.join('')}`;
     const nb = host.querySelector('#ts-new'); if (nb) nb.onclick = () => { editing = blank(); renderEditor(); };
     const dg = host.querySelector('#ts-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.s; snaps.set(editing, ''); laps = []; renderEditor(); U().toast('กู้คืนร่างแล้ว — วิดีโอไม่ถูกเก็บในร่าง ถ้าจะจับเวลาต่อให้เลือกไฟล์วิดีโอเดิมอีกครั้ง', 7000); };
-    const dd = host.querySelector('#ts-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่าง Time Study นี้? ข้อมูลในร่างจะหายถาวร', [])) { dropDraft(); renderList(); } };
+    const dd = host.querySelector('#ts-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่าง Time Study นี้? ข้อมูลในร่างจะหายถาวร', [], { ok: 'ทิ้งร่าง', cancel: 'เก็บไว้' })) { dropDraft(); renderList(); } };
     host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = structuredClone(D().listStudies().find(s => s.id === b.dataset.edit)); renderEditor(); });
     host.querySelectorAll('[data-round]').forEach(b => b.onclick = () => { editing = newRound(D().listStudies().find(s => s.id === b.dataset.round)); renderEditor(); });
     host.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
@@ -178,20 +178,20 @@
         <div id="ts-bar" class="stack"></div>
         <p class="hint">คะแนนความง่าย: 1 = ยากสุด, 5 = ง่ายสุด · คะแนน ≤ 3 ขึ้นสีแดง = จุดต้องปรับปรุง</p>
       </section>
-      <section class="panel"><div class="panelhead"><h2>ตารางงานมาตรฐาน (SWCT)</h2>
+      <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>ตารางงานมาตรฐาน (SWCT)</h2>
         <div class="head-btns"><label class="swct-takt">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
         <div id="ts-swct" class="swct-wrap"></div>
       </section>
-      <section class="panel"><div class="panelhead"><h2>แผนภูมิสองมือ (Two-Handed Process Chart)</h2>
+      <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>แผนภูมิสองมือ (Two-Handed Process Chart)</h2>
         <div class="head-btns"><label class="swct-takt">Proposed เทียบกับ <select id="th-cmp"></select></label><button id="th-print" type="button" class="ghost">พิมพ์</button></div></div>
         <div id="th-table" class="tbl"></div><div id="th-chart" class="swct-wrap"></div><div id="th-sum" class="th-sum"></div>
         <p class="hint">○ ทำงาน · ⇨ เคลื่อนย้าย · D รอ/มือว่าง · ▽ ถือค้าง · □ ตรวจสอบ · แถวละ 1 element · AI ร่างให้ แก้ได้ในตารางด้านบน · Proposed = เลือกรอบหลังปรับปรุงของสถานีเดียวกันมาเทียบ</p></section>
-      <section class="panel"><div class="panelhead"><h2>สรุปคะแนนความง่ายในการทำงาน</h2></div><div id="ts-ease"></div></section>`;
+      <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>สรุปคะแนนความง่ายในการทำงาน</h2></div><div id="ts-ease"></div></section>`;
 
     // field bindings
     host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => { s[inp.dataset.f] = inp.value; if (inp.dataset.f === 'station') renderSwct(); saveDraft(); });
     host.querySelector('#ts-back').onclick = async () => {
-      if (isDirty() && !(await U().ask('ยังไม่ได้บันทึก Time Study นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)', []))) return;
+      if (isDirty() && !(await U().ask('ยังไม่ได้บันทึก Time Study นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)', [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }))) return;
       leave(); renderList();
     };
     host.querySelector('#ts-save').onclick = saveStudy;
@@ -475,6 +475,8 @@
 
   // ---------- element table (shared look) ----------
   function renderTable() {
+    const timed = (editing ? editing.elements : []).some(e => U().num(e.sec) > 0);
+    host.querySelectorAll('.ts-after').forEach(s => s.classList.toggle('is-folded', !timed));
     const { esc, TYPES, fmt, num } = U();
     const list = editing.elements;
     const wrap = host.querySelector('#ts-table');
@@ -509,7 +511,7 @@
   const OP_COLORS = ['#f9c9d6', '#fbe9a6', '#c9ecc9', '#d9c7f0', '#c7e3f6', '#f6d5b5', '#e0e0e0', '#c8efe6', '#f2c7c7'];
   // lanes (optional): [{ station, elements }] — SWCT of a whole line, every station on the same time axis
   // opt (ไม่บังคับ): { lab: ป้ายหัวตาราง (ภาษาอื่น / สองบรรทัดด้วย \n), span: บังคับช่วงแกนเวลา (ให้หลายหน้าใช้สเกลเดียวกัน) }
-  const SW_LAB = { station: 'Station', no: 'ลำดับที่', name: 'ชื่องานที่ทำ', time: 'เวลา', hand: 'มือ', send: 'ส่ง', walk: 'เดิน', total: 'รวม', person: 'คนที่' };
+  const SW_LAB = { station: 'Station', no: 'ลำดับที่', name: 'ชื่องานที่ทำ', time: 'เวลา', hand: 'มือ', send: 'เครื่อง', walk: 'เดิน', total: 'รวม', person: 'คนที่' };
   function swctSvg(list, takt, station, lanes, opt) {
     const { esc, num, fmt } = U();
     const LB = Object.assign({}, SW_LAB, (opt && opt.lab) || {});
@@ -573,7 +575,7 @@
     const svg = `<svg viewBox="0 0 ${W} ${H}" class="swct-svg" xmlns="http://www.w3.org/2000/svg"><style>
       .sw-headbg{fill:#f1f5f9}.sw-g1{stroke:#eef2f6}.sw-g2{stroke:#d9e1e8}.sw-row{stroke:#edf1f4}.sw-sep{stroke:#9fb1c0}.sw-col{stroke:#c9d4de}
       .sw-ax{font:10px sans-serif;fill:#52708a;text-anchor:middle}.sw-h{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.sw-big{font-size:13px}.sw-2l{font-size:10px}
-      .sw-c{font:11px sans-serif;fill:#17324b;text-anchor:middle}.sw-b{font-weight:bold}.sw-name{font:11px sans-serif;fill:#17324b}.sw-op{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}
+      .sw-c{font:11px sans-serif;fill:#17324b;text-anchor:middle}.sw-b{font-weight:bold}.sw-name{font:12px sans-serif;fill:#17324b}.sw-op{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}
       .sw-man{stroke:#111;stroke-width:3}.sw-walk{stroke:#111;stroke-width:1.6;fill:none}.sw-auto{stroke:#111;stroke-width:2;stroke-dasharray:2 3}
       .sw-wait{stroke:#d6338a;stroke-width:3;stroke-dasharray:1 5;stroke-linecap:round}.sw-link{stroke:#555;stroke-width:1}
       .sw-ct{stroke:#1f4fd6;stroke-width:2.5}.sw-ct-t{font:bold 11px sans-serif;fill:#111}.sw-ct-over{fill:#d62020}.sw-takt{stroke:#d62020;stroke-width:3}.sw-takt-t{font:bold 12px sans-serif;fill:#d62020;text-anchor:middle}
@@ -737,7 +739,7 @@
     if (badSec) { badSec.focus(); U().toast('เวลาบางแถวไม่ถูกต้อง (ต้องเป็นตัวเลข 0 ขึ้นไป) — แก้ช่องที่ขึ้นสีแดงก่อนบันทึก', 6000); return; }
     const st = host.querySelector('[data-f="station"]');
     if (!String(editing.station || editing.name || '').trim()) { st.classList.add('bad'); st.setAttribute('aria-invalid', 'true'); st.focus(); U().toast('กรอกรหัสสถานีหรือชื่องานก่อนบันทึก', 6000); return; }
-    if (untyped() && !(await U().ask(`มี ${untyped()} แถวที่ยังไม่ระบุประเภท (VA/NNVA/NVA) — แถวเหล่านี้จะนับใน CT แต่ไม่นับใน VA% · บันทึกต่อ?`, []))) { host.querySelector('.r-type.need')?.focus(); return; }
+    if (untyped() && !(await U().ask(`มี ${untyped()} แถวที่ยังไม่ระบุประเภท (VA/NNVA/NVA) — แถวเหล่านี้จะนับใน CT แต่ไม่นับใน VA% · บันทึกต่อ?`, [], { ok: 'บันทึกต่อ', cancel: 'กลับไประบุประเภท' }))) { host.querySelector('.r-type.need')?.focus(); return; }
     const t = U().totals(editing.elements);
     editing.ct = U().round1(t.ct); editing.va = U().round1(t.VA); editing.nnva = U().round1(t.NNVA); editing.nva = U().round1(t.NVA); editing.vaPct = U().round1(t.vaPct); editing.steps = totalSteps(editing.elements);
     const es = easeSummary(editing.elements);

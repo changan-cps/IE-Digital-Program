@@ -11,6 +11,25 @@
   const takt = jph => { const j = U().num(jph); return j ? 3600 / j : 0; };
   const loadPct = r => { const t = takt(r.jph); return t ? (U().num(r.ct) / t) * 100 : 0; };
   // ไลน์ = ทีม + รุ่น/รุ่นย่อย (คีย์เดียวกับแดชบอร์ด) — คนละทีมที่ใช้รุ่นเดียวกันไม่ถูกรวมเป็นไลน์เดียว
+
+  // ป้ายของหน้าสรุป (ส่วนที่ผู้จัดการเปิดดู) ตามภาษาที่เลือกบนแดชบอร์ด · โหมดแก้ไขตารางยังเป็นภาษาไทย
+  const SBT = {
+    th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'ระบบแนะนำปรับปรุง', sub: 'รุ่นย่อย',
+      yz: 'กราฟ Yamazumi (Line Balance)', noRound: 'ไม่มีรอบจับเวลา', swct: '📊 SWCT ทั้งไลน์', edit: '✎ แก้ไขตาราง', done: '✓ เสร็จสิ้นการแก้ไข', add: '＋ เพิ่มสถานี',
+      ro: '👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม', th: ['STATION', 'TEAM', 'JPH', 'TAKT', 'CT สูงสุด', 'ภาระงาน', 'OIS', 'ระบบแนะนำ / ขั้นตอน'],
+      improve: 'ควรปรับปรุง', ok: 'ปกติ', wait: 'รอข้อมูล', step: '→ ขั้นตอน', twoHand: 'SWCT / สองมือ' },
+    en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'Suggested to improve', sub: 'sub-model',
+      yz: 'Yamazumi chart (line balance)', noRound: 'no timing round', swct: '📊 Line SWCT', edit: '✎ Edit table', done: '✓ Done editing', add: '＋ Add station',
+      ro: '👁️ Analysis mode (read only) — several teams combined', th: ['STATION', 'TEAM', 'JPH', 'TAKT', 'Max CT', 'Load', 'OIS', 'Advice / steps'],
+      improve: 'Improve', ok: 'OK', wait: 'No data', step: '→ Steps', twoHand: 'SWCT / two-hand' },
+    zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '建议改善', sub: '子车型',
+      yz: '山积图 (Yamazumi)', noRound: '无计时轮次', swct: '📊 整线 SWCT', edit: '✎ 编辑表格', done: '✓ 完成编辑', add: '＋ 添加工位',
+      ro: '👁️ 分析模式（只读）— 多个班组汇总', th: ['工位', '班组', 'JPH', 'TAKT', '最大 CT', '负荷', 'OIS', '建议 / 步骤'],
+      improve: '需改善', ok: '正常', wait: '无数据', step: '→ 步骤', twoHand: 'SWCT / 双手' },
+  };
+  const L = k => { const l = window.CPSDashI18n ? window.CPSDashI18n.lang : 'th'; return (SBT[l === 'zhen' ? 'zh' : l] || SBT.th)[k]; };
+  const unitN = n => n === 1 && L('unit') === 'stations' ? 'station' : L('unit');
+  let editMode = false;   // ตารางสถานีอ่านอย่างเดียวจนกว่าจะกด "แก้ไขตาราง" (กันพิมพ์โดนช่องโดยไม่ตั้งใจ)
   const lineKey = r => [r.workshop || '', r.group || '', r.team || '', r.model || '-', r.submodel || '-'].join('§');
   const loadColor = p => p > 100 ? '#c0392b' : p >= 90 ? '#9a5b00' : p >= 75 ? '#1e7a46' : '#15856b';
 
@@ -38,28 +57,29 @@
 
     host.innerHTML = `
       <div class="page-head">
-        <div><h1>สมดุลสถานี</h1>
-          <p class="muted">${esc([sc.workshop, sc.group, sc.team].filter(Boolean).join(' · ') || U().esc('ทุกพื้นที่'))}</p></div>
-        ${can ? '<button class="primary" id="sb-add">＋ เพิ่มสถานี</button>' : ''}
+        <div><h1>${esc(L('title'))}</h1>
+          <p class="muted">${esc([sc.workshop, sc.group, sc.team].filter(Boolean).join(' · ') || L('all'))}</p></div>
+        ${can ? `<div class="head-btns">${rows.length ? `<button class="ghost" id="sb-edit" aria-pressed="${editMode}">${esc(L(editMode ? 'done' : 'edit'))}</button>` : ''}<button class="primary" id="sb-add">${esc(L('add'))}</button></div>` : ''}
       </div>
-      ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
+      ${!can ? `<div class="ro-banner">${esc(L('ro'))}</div>` : ''}
       <div class="sb-summary">
-        ${sumCard('จำนวน Station', rows.length, 'สถานี')}
-        ${sumCard('ภาระสูงสุด', fmt(allMax) + '%', '', loadColor(allMax))}
-        ${sumCard('เกิน TAKT (>100%)', rows.filter(r => loadPct(r) > 100).length, 'สถานี', '#c0392b')}
-        ${(() => { const nAdv = rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))).length; return sumCard('ระบบแนะนำปรับปรุง', nAdv, 'สถานี', nAdv ? '#9a5b00' : ''); })()}
+        ${sumCard(L('n'), rows.length, unitN(rows.length))}
+        ${sumCard(L('max'), (allMax > 100 ? '▲ ' : '') + fmt(allMax) + '%', '', loadColor(allMax))}
+        ${(() => { const nO = rows.filter(r => loadPct(r) > 100).length; return sumCard(L('over'), nO, unitN(nO), nO ? '#c0392b' : ''); })()}
+        ${(() => { const nAdv = rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))).length; return sumCard(L('adv'), nAdv, unitN(nAdv), nAdv ? '#9a5b00' : ''); })()}
       </div>
       ${!rows.length ? `<div class="blank">ยังไม่มีข้อมูลสถานี${can ? ' — กด “＋ เพิ่มสถานี”' : ''}</div>`
-        : Object.keys(groups).sort().map(k => groupBlock(k, groups[k], can)).join('')}`;
+        : Object.keys(groups).sort().map(k => groupBlock(k, groups[k], can && editMode)).join('')}`;
 
     host.querySelectorAll('.wf-open').forEach(b => b.onclick = () => window.CPSWorkflow.open(b.dataset.wf, host, () => render(host)));
     host.querySelectorAll('.sb-chart').forEach(b => b.onclick = () => openCharts(b.dataset.st));
     host.querySelectorAll('.sb-line-swct').forEach(b => b.onclick = () => openLineSwct(b.dataset.key));
     if (can) {
+      const eb = host.querySelector('#sb-edit'); if (eb) eb.onclick = () => { editMode = !editMode; render(host); };
       host.querySelector('#sb-add').onclick = () => {
         const last = rows[rows.length - 1];
         const rec = blank(last); rec.team = sc.team;
-        D().upsert('stations', rec); render(host);
+        D().upsert('stations', rec); editMode = true; render(host);
       };
       wireRows();
     }
@@ -76,20 +96,23 @@
       eff: tk ? sum / (n * tk) * 100 : 0, minSt: tk ? Math.ceil(sum / tk - 1e-9) : 0, tk };
   }
   const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#9a5b00' : '#c0392b';
-  function lbrStrip(st, unit) {
-    unit = unit || 'สถานี';
-    const { fmt, esc } = U();
+  // ตัวเลขสมดุลไลน์ชุดเดียวทั้งแอป (แดชบอร์ด · หน้าสมดุลสถานี · PPT)
+  // ค่าหลักนับตามสถานี (CT ในตารางสถานี) · ถ้าสถานีมีผู้ปฏิบัติงานหลายคน แสดงค่าต่อคนเป็นบรรทัดรอง
+  const LI = () => window.CPSDashI18n;
+  function lineFacts(st, op) {
+    const f = U().fmt, t = (k, ...a) => LI().t(k, ...a), s = ' ' + t('s');
+    const main = [['Line Balance Rate', f(st.lbr) + '%'], [t('sw_loss'), f(100 - st.lbr) + '%'], ['ΣCT', f(st.sum) + s], [t('sw_neck'), st.neck + ' ' + f(st.max) + s]];
+    if (st.tk) main.push([t('sw_eff'), f(st.eff) + '%'], [t('sw_min', st.minSt, st.n, false), '']);
+    const sub = op ? [[t('lbrOp'), f(op.lbr) + '%'], [t('sw_loss'), f(100 - op.lbr) + '%']].concat(op.tk ? [[t('sw_eff'), f(op.eff) + '%'], [t('sw_min', op.minSt, op.n, true), '']] : []) : null;
+    return { main, sub };
+  }
+  function lineStrip(st, op) {
     if (!st) return '';
-    const tip = 'Line Balance Rate = ΣCT ÷ (จำนวน' + unit + ' × CT สูงสุด) × 100';
-    return `<div class="sb-lbr">
-      <span>${unit === 'คน' ? 'LBR ต่อคน (นับคนละช่อง)' : 'Line Balance Rate'} <b style="color:${lbrColor(st.lbr)}">${fmt(st.lbr)}%</b></span>
-      <span title="100 − Line Balance Rate">Balance Loss <b>${fmt(100 - st.lbr)}%</b></span>
-      <span>ΣCT <b>${fmt(st.sum)}</b> วิ</span>
-      <span>คอขวด <b>${esc(st.neck)}</b> ${fmt(st.max)} วิ</span>
-      ${st.tk ? `<span title="ΣCT ÷ (จำนวน${unit} × TAKT) × 100">ประสิทธิภาพเทียบ TAKT <b>${fmt(st.eff)}%</b></span>
-      <span title="⌈ΣCT ÷ TAKT⌉">${unit}ขั้นต่ำตาม TAKT <b>${st.minSt}</b> (ใช้อยู่ ${st.n})</span>` : ''}
-      <span class="lbr-f">สูตร: ${esc(tip.replace('Line Balance Rate', unit === 'คน' ? 'LBR ต่อคน' : 'LBR'))}${unit === 'คน' ? ' · ค่าหลักของไลน์ (Line Balance Rate) นับตามสถานี ดูได้ที่ตารางด้านบน' : ''}</span>
-    </div>`;
+    const { esc } = U(); const F = lineFacts(st, op);
+    const sp = ([k, v], i, color) => `<span>${esc(k)}${v ? ` <b${color && i === 0 ? ` style="color:${color}"` : ''}>${esc(v)}</b>` : ''}</span>`;
+    return `<div class="sb-lbr">${F.main.map((p, i) => sp(p, i, lbrColor(st.lbr))).join('')}` +
+      (F.sub ? `<div class="lbr-op"><small>${esc(LI().t('perOp'))}</small>${F.sub.map((p, i) => sp(p, i)).join('')}</div>` : '') +
+      `<span class="lbr-f">${esc(LI().t('lbrBoth'))}</span></div>`;
   }
   function groupTakt(list) {
     const jphs = list.map(r => U().num(r.jph)).filter(Boolean);
@@ -109,14 +132,14 @@
     const rowsHtml = list.map(r => stationRow(r, can)).join('');
     return `<section class="panel sb-group" data-key="${esc(key)}">
       <div class="sb-grouphead">
-        <div>${team ? `<span class="muted">${esc(team)} · </span>` : ''}<span class="sb-model">${esc(model)}</span> · รุ่นย่อย <b>${esc(submodel)}</b></div>
-        <div class="sb-grouphead-r">${list.length} station · ภาระสูงสุด <b style="color:${loadColor(max)}">${fmt(max)}%</b>
-          <button class="sb-line-swct" type="button" data-key="${esc(key)}">📊 SWCT ทั้งไลน์</button></div>
+        <div>${team ? `<span class="muted">${esc(team)} · </span>` : ''}<span class="sb-model">${esc(model)}</span> · ${esc(L('sub'))} <b>${esc(submodel)}</b></div>
+        <div class="sb-grouphead-r">${list.length} ${esc(unitN(list.length))} · ${esc(L('max'))} <b style="color:${loadColor(max)}">${max > 100 ? '▲ ' : ''}${fmt(max)}%</b>
+          <button class="sb-line-swct" type="button" data-key="${esc(key)}">${esc(L('swct'))}</button></div>
       </div>
-      ${lbrStrip(lineStats(list.map(r => ({ label: r.station, ct: U().num(r.ct) })), groupTakt(list)))}
+      ${lineStrip(lineStats(list.map(r => ({ label: r.station, ct: U().num(r.ct) })), groupTakt(list)), null)}
       <div class="sb-yama">${yamazumi(list)}</div>
-      <div class="table-scroll"><table class="sb-table">
-        <thead><tr><th>STATION</th><th>TEAM</th><th>JPH</th><th>TAKT</th><th>CT สูงสุด</th><th>ภาระงาน</th><th>OIS</th><th>ระบบแนะนำ / ขั้นตอน</th>${can ? '<th></th>' : ''}</tr></thead>
+      <div class="table-scroll"><table class="sb-table${can ? '' : ' ro'}">
+        <thead><tr>${L('th').map(h => `<th>${esc(h)}</th>`).join('')}${can ? '<th></th>' : ''}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table></div>
     </section>`;
@@ -127,14 +150,14 @@
     const t = takt(r.jph), p = loadPct(r), col = loadColor(p);
     const bar = `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(p, 100)}%;background:${col}"></i>${p > 100 ? `<i class="over" style="width:${Math.min(p - 100, 40)}%"></i>` : ''}</div><span style="color:${col}">${fmt(p)}%</span></div>`;
     const adv = D().advise(r);
-    const chip = adv.status === 'improve' ? `<span class="adv improve" title="${esc(adv.reasons.join(' · '))}">ควรปรับปรุง</span>` : adv.status === 'ok' ? '<span class="adv ok">ปกติ</span>' : '<span class="adv">รอข้อมูล</span>';
+    const chip = adv.status === 'improve' ? `<span class="adv improve" title="${esc(adv.reasons.join(' · '))}">${esc(L('improve'))}</span>` : adv.status === 'ok' ? `<span class="adv ok">${esc(L('ok'))}</span>` : `<span class="adv">${esc(L('wait'))}</span>`;
     const done = r.wf && r.wf.improve === false ? (loadPct(r) > 100 ? '<span class="adv" style="color:#c0392b">ไม่ปรับปรุง · ยังเกิน TAKT</span>' : '<span class="adv">ไม่ปรับปรุง (ปิดงาน)</span>') : r.wf && r.wf.approval && r.wf.approval.submitted ? '<span class="adv ok">ส่งอนุมัติแล้ว</span>' : chip;
     const nR = D().group.roundsOf(r.station).length;
-    const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}">→ ขั้นตอน</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
+    const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}">${esc(L('step'))}</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
     if (!can) {
       return `<tr>
-        <td class="sb-st">${esc(r.station)}</td><td>${esc(r.team)}</td><td>${esc(r.jph)}</td>
-        <td>${fmt(t)} s</td><td><b>${fmt(num(r.ct))} s</b></td><td>${bar}</td>
+        <td class="sb-st">${esc(r.station)}</td><td class="sb-team">${esc(r.team)}</td><td class="sb-jph">${esc(r.jph)}</td>
+        <td class="sb-takt">${fmt(t)} s</td><td class="sb-ctv"><b>${fmt(num(r.ct))} s</b></td><td class="sb-load">${bar}</td>
         <td class="sb-ois"><b>${esc(r.ois)}</b><small>${esc(r.oisDesc)}</small></td>${wfBtn}</tr>`;
     }
     return `<tr data-id="${esc(r.id)}">
@@ -142,10 +165,10 @@
       <td><input class="f-team" value="${esc(r.team || '')}" placeholder="CA-A"></td>
       <td><input class="f-jph" type="number" min="1" step="1" value="${esc(r.jph)}"></td>
       <td class="sb-takt">${fmt(t)} s</td>
-      <td><div class="sb-ct"><input class="f-ct" type="number" min="0" step="0.1" value="${esc(r.ct)}"><button class="f-pull" title="ดึง CT จาก Time Study" type="button">↧</button></div>${r.rounds ? `<small class="sb-rounds">สูงสุดจาก ${esc(r.rounds)} รอบ</small>` : ''}</td>
+      <td><div class="sb-ct"><input class="f-ct" type="number" min="0" step="0.1" value="${esc(r.ct)}"><button class="f-pull" title="ดึง CT จาก Time Study" aria-label="ดึง CT จาก Time Study" type="button">↧</button></div>${r.rounds ? `<small class="sb-rounds">สูงสุดจาก ${esc(r.rounds)} รอบ</small>` : ''}</td>
       <td class="sb-load">${bar}</td>
       <td class="sb-ois-edit"><input class="f-ois" value="${esc(r.ois)}" placeholder="OIS-..."><input class="f-oisdesc" value="${esc(r.oisDesc)}" placeholder="คำอธิบายงาน"></td>
-      ${wfBtn}<td><button class="f-del r-del" type="button">✕</button></td></tr>`;
+      ${wfBtn}<td><button class="f-del r-del" type="button" title="ลบสถานี" aria-label="ลบสถานี ${esc(r.station)}">✕</button></td></tr>`;
   }
 
   function wireRows() {
@@ -205,15 +228,15 @@
         g += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${c}"><title>${k.toUpperCase()} ${fmt(v)} วิ</title></rect>`;
       });
       const over = d.t && d.s.ct > d.t;
-      g += `<text x="${x + bw / 2}" y="${Y(d.s.ct) - 5}" class="yz-v${over ? ' yz-over' : ''}">${fmt(d.s.ct)}</text>`;
+      g += `<text x="${x + bw / 2}" y="${Y(d.s.ct) - 5}" class="yz-v${over ? ' yz-over' : ''}">${over ? '▲ ' : ''}${fmt(d.s.ct)}</text>`;
       if (d.t) g += `<line x1="${x - gap / 2}" y1="${Y(d.t)}" x2="${x + bw + gap / 2}" y2="${Y(d.t)}" class="yz-takt"/>`;
       const nm = String(d.r.station || '—');
       g += `<text x="${x + bw / 2}" y="${top + ph + 16}" class="yz-st">${esc(nm.length > 9 ? '…' + nm.slice(-8) : nm)}</text>` +
         `<text x="${x + bw / 2}" y="${top + ph + 30}" class="yz-pct${over ? ' yz-over' : ''}">${d.t ? fmt(d.s.ct / d.t * 100) + '%' : ''}</text>`;
     });
     const t0 = data.find(d => d.t);
-    const legend = `<div class="yz-legend"><span><i style="background:#15856b"></i>VA</span><span><i style="background:#e0a21b"></i>NNVA</span><span><i style="background:#c0507f"></i>NVA</span><span><i style="background:#9aa8b6"></i>ไม่มีรอบจับเวลา</span><span><i class="yz-tk"></i>TAKT${t0 ? ' ' + fmt(t0.t) + ' วิ' : ''}</span></div>`;
-    return `<div class="yz-head"><b>กราฟ Yamazumi (Line Balance)</b>${legend}</div><div class="swct-scroll"><svg viewBox="0 0 ${W} ${H}" class="yz-svg" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><style>.yz-g{stroke:#e6edf3}.yz-ax{font:10px sans-serif;fill:#6b7f92;text-anchor:end}.yz-v{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.yz-st{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.yz-pct{font:10px sans-serif;fill:#4c6378;text-anchor:middle}.yz-over{fill:#c0392b}.yz-takt{stroke:#d62020;stroke-width:2.5}</style><line x1="${left}" y1="${top + ph}" x2="${W - 8}" y2="${top + ph}" stroke="#9fb1c0"/>${g}</svg></div>`;
+    const legend = `<div class="yz-legend"><span><i style="background:#15856b"></i>VA</span><span><i style="background:#e0a21b"></i>NNVA</span><span><i style="background:#c0507f"></i>NVA</span><span><i style="background:#9aa8b6"></i>${esc(L('noRound'))}</span><span><i class="yz-tk"></i>TAKT${t0 ? ' ' + fmt(t0.t) + ' วิ' : ''}</span></div>`;
+    return `<div class="yz-head"><b>${esc(L('yz'))}</b>${legend}</div><div class="swct-scroll"><svg viewBox="0 0 ${W} ${H}" class="yz-svg" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><style>.yz-g{stroke:#e6edf3}.yz-ax{font:10px sans-serif;fill:#6b7f92;text-anchor:end}.yz-v{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.yz-st{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.yz-pct{font:10px sans-serif;fill:#4c6378;text-anchor:middle}.yz-over{fill:#c0392b}.yz-takt{stroke:#d62020;stroke-width:2.5}</style><line x1="${left}" y1="${top + ph}" x2="${W - 8}" y2="${top + ph}" stroke="#9fb1c0"/>${g}</svg></div>`;
   }
   function refreshYama(tr) {
     const sec = tr.closest('.sb-group'); if (!sec) return;
@@ -281,7 +304,7 @@
         `<div class="swct-sum"><span>สถานี <b>${lanes.length}</b></span><span>TAKT <b>${tk ? fmt(tk) : '—'}</b>${tk ? ' วิ' : ''}</span>` +
         `<span>C.T สูงสุด <b>${fmt(slow.ct)}</b> วิ (${esc(slow.label)})</span><span>ต่ำสุด <b>${fmt(fast.ct)}</b> วิ (${esc(fast.label)})</span>` +
         `<span>เฉลี่ย <b>${fmt(avg)}</b> วิ</span>${over.length ? `<span class="swct-over">เกิน TAKT ${over.length} สถานี: ${esc(over.map(g => g.label).join(', '))}</span>` : ''}` +
-        `</div>` + lbrStrip(ls, r.groups.some(g => g.multi) ? 'คน' : 'สถานี') +
+        `</div>` + lineStrip(lineStats(list.map(x => ({ label: x.station, ct: num(x.ct) })), tk), r.groups.some(g => g.multi) ? ls : null) +
         (missing.length ? `<p class="muted">ยังไม่มีรอบจับเวลา: ${esc(missing.join(', '))}</p>` : '') +
         `<div class="swct-scroll">${r.svg}</div>`;
     };
@@ -320,4 +343,5 @@
   }
 
   window.CPSStations = { render };
+  window.CPSLine = { stats: lineStats, facts: lineFacts, strip: lineStrip };
 })();

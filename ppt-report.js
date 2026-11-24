@@ -123,7 +123,8 @@
     // 5b) SWCT ทั้งไลน์ (รูปจากตัววาดในแอป — PowerPoint ไม่มีกราฟชนิดนี้)
     if (R.swct && R.swct.pages.length) R.swct.pages.forEach((p, i) => {
       s = page(p.title, 'Line Balance');
-      T(s, p.stats, { x: 0.5, y: 1.28, w: 11.57, h: BI ? 0.64 : 0.5, fontSize: BI ? 8.5 : 10.5, color: INK, valign: 'top' });
+      const n3 = p.stats.split('\n').length > 2;
+      T(s, p.stats, { x: 0.5, y: 1.28, w: 11.57, h: BI ? 0.7 : 0.56, fontSize: BI ? (n3 ? 7.5 : 8.5) : (n3 ? 9.5 : 10.5), color: INK, valign: 'top' });
       const maxW = 11.57, maxH = BI ? 4.55 : 4.7; let w = maxW, h = w * p.h / p.w; if (h > maxH) { h = maxH; w = h * p.w / p.h; }
       s.addImage({ data: p.data.replace(/^data:/, ''), x: 0.5, y: BI ? 2.0 : 1.85, w, h, altText: p.title });
     });
