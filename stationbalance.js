@@ -52,6 +52,7 @@
 
     host.querySelectorAll('.wf-open').forEach(b => b.onclick = () => window.CPSWorkflow.open(b.dataset.wf, host, () => render(host)));
     host.querySelectorAll('.sb-chart').forEach(b => b.onclick = () => openCharts(b.dataset.st));
+    host.querySelectorAll('.sb-line-swct').forEach(b => b.onclick = () => openLineSwct(b.dataset.key));
     if (can) {
       host.querySelector('#sb-add').onclick = () => {
         const last = rows[rows.length - 1];
@@ -74,7 +75,8 @@
     return `<section class="panel sb-group" data-key="${esc(key)}">
       <div class="sb-grouphead">
         <div><span class="sb-model">${esc(model)}</span> · รุ่นย่อย <b>${esc(submodel)}</b></div>
-        <div class="sb-grouphead-r">${list.length} station · ภาระสูงสุด <b style="color:${loadColor(max)}">${fmt(max)}%</b></div>
+        <div class="sb-grouphead-r">${list.length} station · ภาระสูงสุด <b style="color:${loadColor(max)}">${fmt(max)}%</b>
+          <button class="sb-line-swct" type="button" data-key="${esc(key)}">📊 SWCT ทั้งไลน์</button></div>
       </div>
       <div class="sb-yama">${yamazumi(list)}</div>
       <div class="table-scroll"><table class="sb-table">
@@ -205,6 +207,61 @@
     sel.onchange = () => paint(sel.value);
     dlg.querySelector('#sbd-close').onclick = () => dlg.close();
     paint(sel.value);
+    dlg.showModal();
+  }
+
+  // ---- SWCT ทั้งไลน์: ทุกสถานีในกลุ่มรุ่นเดียวกัน วางต่อกันบนแกนเวลาเดียวกัน เทียบการทำงานช่วงเวลาเดียวกัน ----
+  function openLineSwct(key) {
+    const { esc, fmt, num } = U(); const C = window.CPSTimeStudy && window.CPSTimeStudy.charts;
+    const list = D().listStations().filter(r => ((r.model || '-') + '§' + (r.submodel || '-')) === key);
+    const [model, submodel] = key.split('§');
+    const jphs = list.map(r => num(r.jph)).filter(Boolean);
+    const mode = { pick: 'latest' };
+    const jph = jphs.length ? jphs.sort((a, b) => jphs.filter(x => x === b).length - jphs.filter(x => x === a).length)[0] : 0;
+    const tk = jph ? 3600 / jph : 0;
+    let dlg = document.getElementById('sb-line-dlg');
+    if (!dlg) { dlg = document.createElement('dialog'); dlg.id = 'sb-line-dlg'; dlg.className = 'sb-dlg'; document.body.appendChild(dlg); }
+    let last = null;
+    const build = () => {
+      const lanes = [], missing = [];
+      list.forEach(r => {
+        const rounds = D().group.roundsOf(r.station);
+        if (!rounds.length) { missing.push(r.station); return; }
+        const s = mode.pick === 'max' ? rounds.reduce((a, x) => (num(x.ct) > num(a.ct) ? x : a), rounds[0]) : rounds[rounds.length - 1];
+        lanes.push({ station: r.station, elements: s.elements || [], round: rounds.indexOf(s) + 1, date: s.date || '' });
+      });
+      return { lanes, missing };
+    };
+    const paint = () => {
+      const { lanes, missing } = build();
+      const body = dlg.querySelector('#sbl-body');
+      if (!lanes.length || !C) { body.innerHTML = '<p class="muted">ยังไม่มีรอบจับเวลาของสถานีในไลน์นี้</p>'; return; }
+      const r = C.swctLine(lanes, tk); last = { r, lanes };
+      const cts = r.groups.map(g => g.ct), over = tk ? r.groups.filter(g => g.ct > tk) : [];
+      const slow = r.groups.reduce((a, g) => (g.ct > a.ct ? g : a), r.groups[0]);
+      const fast = r.groups.reduce((a, g) => (g.ct < a.ct ? g : a), r.groups[0]);
+      const avg = cts.reduce((a, b) => a + b, 0) / cts.length;
+      body.innerHTML =
+        `<div class="swct-sum"><span>สถานี <b>${lanes.length}</b></span><span>TAKT <b>${tk ? fmt(tk) : '—'}</b>${tk ? ' วิ' : ''}</span>` +
+        `<span>C.T สูงสุด <b>${fmt(slow.ct)}</b> วิ (${esc(slow.label)})</span><span>ต่ำสุด <b>${fmt(fast.ct)}</b> วิ (${esc(fast.label)})</span>` +
+        `<span>เฉลี่ย <b>${fmt(avg)}</b> วิ</span>${over.length ? `<span class="swct-over">เกิน TAKT ${over.length} สถานี: ${esc(over.map(g => g.label).join(', '))}</span>` : ''}` +
+        `${tk ? `<span>Balance <b>${fmt(avg / slow.ct * 100)}%</b></span>` : ''}</div>` +
+        (missing.length ? `<p class="muted">ยังไม่มีรอบจับเวลา: ${esc(missing.join(', '))}</p>` : '') +
+        `<div class="swct-scroll">${r.svg}</div>`;
+    };
+    dlg.innerHTML = `<div class="sbd-head"><b>SWCT ทั้งไลน์ · ${esc(model)} / ${esc(submodel)}</b>
+      <label>ใช้รอบ <select id="sbl-pick"><option value="latest">ล่าสุดของแต่ละสถานี</option><option value="max">ที่ C.T สูงสุด</option></select></label>
+      <button type="button" id="sbl-print">พิมพ์</button><button type="button" id="sbd-close">ปิด</button></div><div id="sbl-body"></div>`;
+    dlg.querySelector('#sbl-pick').onchange = e => { mode.pick = e.target.value; paint(); };
+    dlg.querySelector('#sbd-close').onclick = () => dlg.close();
+    dlg.querySelector('#sbl-print').onclick = () => {
+      if (!last) return;
+      const w = window.open('', '_blank'); if (!w) { U().toast('เบราว์เซอร์บล็อก popup'); return; }
+      w.document.write(`<!doctype html><meta charset="utf-8"><title>SWCT ทั้งไลน์ · ${esc(model)} ${esc(submodel)}</title><style>body{font-family:system-ui,sans-serif;padding:14px;color:#17324b}h1{font-size:18px;margin:0 0 4px}p{margin:0 0 8px;font-size:12px}svg{width:100%;height:auto}@page{size:A4 landscape;margin:8mm}</style>` +
+        `<h1>ตารางงานมาตรฐาน (SWCT) ทั้งไลน์ · ${esc(model)} / ${esc(submodel)}</h1><p>TAKT ${tk ? fmt(tk) + ' วิ' : '—'} · ${last.lanes.map(l => esc(l.station) + ' รอบ ' + l.round + (l.date ? ' (' + esc(l.date) + ')' : '')).join(' · ')}</p>${last.r.svg}`);
+      w.document.close(); setTimeout(() => w.print(), 300);
+    };
+    paint();
     dlg.showModal();
   }
 

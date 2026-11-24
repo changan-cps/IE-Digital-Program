@@ -341,6 +341,10 @@ dialog.sb-dlg{width:min(1180px,96vw);max-width:96vw;max-height:92vh;border:none;
 .sbd-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;background:#eef4fa;border-bottom:1px solid #dbe7f1}
 .sbd-head label{display:flex;align-items:center;gap:6px;font-size:13px}
 .sbd-head #sbd-close{margin-left:auto}
+.sb-line-swct{margin-left:10px;min-height:32px;padding:4px 12px;font-size:13px;background:#fff;border:1px solid #c5d6e6;border-radius:8px;cursor:pointer;color:#0b4f8a;font-weight:600}
+.sb-line-swct:hover{background:#edf7ff}
+#sbl-body{padding:8px 16px 18px}
+#sbl-print{min-height:34px;padding:4px 12px}
 #sbd-body{padding:8px 16px 18px}
 #sbd-body h3{font-size:15px;margin:14px 0 4px;color:#17324b}
 /* แจ้งเตือน AI Free out of Credit */
