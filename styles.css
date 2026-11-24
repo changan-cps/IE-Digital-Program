@@ -418,3 +418,7 @@ i.k-dash{border-top-style:dashed}
 .dz-lang{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px}
 .dz-lang button{border:0;min-height:40px;padding:6px 12px;border-radius:9px;background:transparent;color:var(--muted);font-size:14px}
 .dz-lang button.active{background:#eaf1f7;color:var(--navy)}
+.dz-swct-ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
+.dz-swct-ctl select{min-height:40px;border:1px solid var(--line);border-radius:9px;padding:4px 8px;max-width:340px}
+#dz-swct .swct-sum,#dz-swct .sb-lbr{border-radius:10px;margin-bottom:8px}
+.dz-swnote{margin:8px 2px 0}

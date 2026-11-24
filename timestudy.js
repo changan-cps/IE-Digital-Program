@@ -455,8 +455,13 @@
   }
   const OP_COLORS = ['#f9c9d6', '#fbe9a6', '#c9ecc9', '#d9c7f0', '#c7e3f6', '#f6d5b5', '#e0e0e0', '#c8efe6', '#f2c7c7'];
   // lanes (optional): [{ station, elements }] — SWCT of a whole line, every station on the same time axis
-  function swctSvg(list, takt, station, lanes) {
+  // opt (ไม่บังคับ): { lab: ป้ายหัวตาราง (ภาษาอื่น / สองบรรทัดด้วย \n), span: บังคับช่วงแกนเวลา (ให้หลายหน้าใช้สเกลเดียวกัน) }
+  const SW_LAB = { station: 'Station', no: 'ลำดับที่', name: 'ชื่องานที่ทำ', time: 'เวลา', hand: 'มือ', send: 'ส่ง', walk: 'เดิน', total: 'รวม', person: 'คนที่' };
+  function swctSvg(list, takt, station, lanes, opt) {
     const { esc, num, fmt } = U();
+    const LB = Object.assign({}, SW_LAB, (opt && opt.lab) || {});
+    const ht = (x, y, s, cls) => { const p = String(s).split('\n'); return p.length < 2 ? `<text x="${x}" y="${y}" class="${cls}">${esc(s)}</text>`
+      : `<text x="${x}" y="${y - 6}" class="${cls} sw-2l">${esc(p[0])}</text><text x="${x}" y="${y + 5}" class="${cls} sw-2l">${esc(p[1])}</text>`; };
     // แยกตามผู้ปฏิบัติงาน (คนที่) — แต่ละคนเริ่มเวลา 0
     function opGroups(els, label, laneIdx) {
       const ops = new Map();
@@ -469,9 +474,9 @@
       return out;
     }
     const single = String((station !== undefined ? station : editing && editing.station) || '—');
-    const groups = lanes ? lanes.flatMap((ln, li) => opGroups(ln.elements, String(ln.station || '—'), li)) : opGroups(list, single, null);
+    const groups = lanes ? lanes.flatMap((ln, li) => opGroups(ln.elements, String(ln.station || '—'), li + ((opt && opt.laneOffset) || 0))) : opGroups(list, single, null);
     const cycle = Math.max(0, ...groups.map(g => g.ct)), machEnd = Math.max(0, ...groups.map(g => g.machEnd));
-    const span = Math.ceil(Math.max(cycle, takt || 0, machEnd, 5) * 1.08 / 5) * 5;
+    const span = (opt && opt.span) || Math.ceil(Math.max(cycle, takt || 0, machEnd, 5) * 1.08 / 5) * 5;
     const cOp = 70, cNo = 40, cName = 210, cNum = 36, L = cOp + cNo + cName + cNum * 3, W = 1100, RH = 24, top = 44;
     const nRows = groups.reduce((a, g) => a + g.rows.length, 0);
     const H = top + nRows * RH + RH + 6, X = v => L + 6 + (v / span) * (W - L - 16);
@@ -480,14 +485,13 @@
     for (let v = 0; v <= span; v += gs) { const major = v % (gs * 2) === 0; g += `<line x1="${X(v)}" y1="${top}" x2="${X(v)}" y2="${H - RH}" class="${major ? 'sw-g2' : 'sw-g1'}"/>${v ? `<text x="${X(v)}" y="${top - 6}" class="sw-ax">${v}"</text>` : ''}`; }
     const hx = [cOp / 2, cOp + cNo / 2, cOp + cNo + cName / 2, cOp + cNo + cName + cNum / 2, cOp + cNo + cName + cNum * 1.5, cOp + cNo + cName + cNum * 2.5];
     let head = `<rect x="0" y="0" width="${W}" height="${top}" class="sw-headbg"/>` +
-      `<text x="${hx[0]}" y="${top - 10}" class="sw-h">Station</text>` +
-      `<text x="${hx[1]}" y="${top - 10}" class="sw-h">ลำดับที่</text><text x="${hx[2]}" y="${top - 10}" class="sw-h sw-big">ชื่องานที่ทำ</text>` +
-      `<text x="${hx[4]}" y="${top - 26}" class="sw-h">เวลา</text><text x="${hx[3]}" y="${top - 8}" class="sw-h">มือ</text><text x="${hx[4]}" y="${top - 8}" class="sw-h">ส่ง</text><text x="${hx[5]}" y="${top - 8}" class="sw-h">เดิน</text>`;
+      ht(hx[0], top - 14, LB.station, 'sw-h') + ht(hx[1], top - 14, LB.no, 'sw-h') + ht(hx[2], top - 14, LB.name, 'sw-h sw-big') +
+      `<text x="${hx[4]}" y="${top - 30}" class="sw-h">${esc(LB.time)}</text>` + ht(hx[3], top - 10, LB.hand, 'sw-h') + ht(hx[4], top - 10, LB.send, 'sw-h') + ht(hx[5], top - 10, LB.walk, 'sw-h');
     let body = '', y0 = top, tot = { man: 0, auto: 0, walk: 0, wait: 0 };
     groups.forEach((gr, gi) => {
       const hgt = gr.rows.length * RH, stTxt = gr.label.length > 10 ? gr.label.slice(0, 10) + '…' : gr.label;
       const over = takt && gr.ct > takt;
-      body += `<rect x="0" y="${y0}" width="${cOp}" height="${hgt}" fill="${OP_COLORS[gr.color % OP_COLORS.length]}"/><text x="${cOp / 2}" y="${y0 + hgt / 2 + 4}" class="sw-op">${esc(stTxt)}</text>${gr.multi ? `<text x="${cOp / 2}" y="${y0 + hgt / 2 + 18}" class="sw-op">คนที่ ${gr.op}</text>` : ''}`;
+      body += `<rect x="0" y="${y0}" width="${cOp}" height="${hgt}" fill="${OP_COLORS[gr.color % OP_COLORS.length]}"/><text x="${cOp / 2}" y="${y0 + hgt / 2 + 4}" class="sw-op">${esc(stTxt)}</text>${gr.multi ? `<text x="${cOp / 2}" y="${y0 + hgt / 2 + 18}" class="sw-op">${esc(LB.person)} ${gr.op}</text>` : ''}`;
       gr.rows.forEach((r, i) => {
         const y = y0 + i * RH + RH / 2, x1 = X(r.start), x2 = X(r.start + r.sec);
         const lbl = r.name.length > 26 ? r.name.slice(0, 26) + '…' : r.name;
@@ -510,12 +514,12 @@
       y0 += hgt;
     });
     const yT = y0 + RH / 2 + 5;
-    body += `<rect x="0" y="${y0}" width="${L}" height="${RH}" class="sw-headbg"/><text x="${cOp + cNo + cName / 2}" y="${yT}" class="sw-h sw-big">รวม</text><text x="${hx[3]}" y="${yT}" class="sw-c sw-b">${fmt(tot.man)}</text><text x="${hx[4]}" y="${yT}" class="sw-c sw-b">${tot.auto ? fmt(tot.auto) : ''}</text><text x="${hx[5]}" y="${yT}" class="sw-c sw-b">${tot.walk ? fmt(tot.walk) : ''}</text>`;
+    body += `<rect x="0" y="${y0}" width="${L}" height="${RH}" class="sw-headbg"/><text x="${cOp + cNo + cName / 2}" y="${yT}" class="sw-h sw-big">${esc(LB.total)}</text><text x="${hx[3]}" y="${yT}" class="sw-c sw-b">${fmt(tot.man)}</text><text x="${hx[4]}" y="${yT}" class="sw-c sw-b">${tot.auto ? fmt(tot.auto) : ''}</text><text x="${hx[5]}" y="${yT}" class="sw-c sw-b">${tot.walk ? fmt(tot.walk) : ''}</text>`;
     const tk = takt ? `<line x1="${X(takt)}" y1="${top - 2}" x2="${X(takt)}" y2="${y0}" class="sw-takt"/><text x="${X(takt)}" y="${top - 30}" class="sw-takt-t">T.T = ${fmt(takt)}"</text>` : '';
     const cols = [cOp, cOp + cNo, cOp + cNo + cName, cOp + cNo + cName + cNum, cOp + cNo + cName + cNum * 2, L].map(x => `<line x1="${x}" y1="0" x2="${x}" y2="${H - 6}" class="sw-col"/>`).join('');
     const svg = `<svg viewBox="0 0 ${W} ${H}" class="swct-svg" xmlns="http://www.w3.org/2000/svg"><style>
       .sw-headbg{fill:#f1f5f9}.sw-g1{stroke:#eef2f6}.sw-g2{stroke:#d9e1e8}.sw-row{stroke:#edf1f4}.sw-sep{stroke:#9fb1c0}.sw-col{stroke:#c9d4de}
-      .sw-ax{font:10px sans-serif;fill:#52708a;text-anchor:middle}.sw-h{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.sw-big{font-size:13px}
+      .sw-ax{font:10px sans-serif;fill:#52708a;text-anchor:middle}.sw-h{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.sw-big{font-size:13px}.sw-2l{font-size:10px}
       .sw-c{font:11px sans-serif;fill:#17324b;text-anchor:middle}.sw-b{font-weight:bold}.sw-name{font:11px sans-serif;fill:#17324b}.sw-op{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}
       .sw-man{stroke:#111;stroke-width:3}.sw-walk{stroke:#111;stroke-width:1.6;fill:none}.sw-auto{stroke:#111;stroke-width:2;stroke-dasharray:2 3}
       .sw-wait{stroke:#d6338a;stroke-width:3;stroke-dasharray:1 5;stroke-linecap:round}.sw-link{stroke:#555;stroke-width:1}
@@ -690,7 +694,7 @@
   // ให้หน้าอื่น (สมดุลสถานี) เรียกวาด SWCT / แผนภูมิสองมือ ของรอบที่บันทึกแล้วได้
   const charts = {
     swct: (study, takt) => swctSvg((study && study.elements) || [], takt, (study && study.station) || ''),
-    swctLine: (lanes, takt) => swctSvg([], takt, '', lanes),
+    swctLine: (lanes, takt, opt) => swctSvg([], takt, '', lanes, opt),
     hands: study => handsSvg((study && study.elements) || []),
     handsSum: study => handsSummary((study && study.elements) || [], '')
   };

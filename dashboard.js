@@ -209,6 +209,7 @@
         <section class="panel"><div class="panelhead"><h2>${esc(t('handsTitle'))}</h2><small class="muted">${esc(t('handsNote', n, mode))}</small></div><div class="dz-body" data-chart="hands"></div></section>
         <section class="panel"><div class="panelhead"><h2>${esc(t('topTitle'))}</h2><small class="muted">${esc(t('topNote', nJob))}</small></div><div class="dz-body dz-top">${topList(P.kaizen)}</div></section>
       </div>
+      ${lb.lines.length ? swctPanel(lb) : ''}
       ${lineBalanceTable(lb)}
       ${D().canEdit() ? `<div class="dash-links">
         <button class="bigbtn" data-go="timestudy"><b>${esc(t('goTs'))}</b><span>${esc(t('goTsSub'))}</span></button>
@@ -218,6 +219,7 @@
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => window.CPS.showTab(b.dataset.go));
     el.querySelector('[data-ppt]').onclick = e => downloadPpt(e.currentTarget, ctx);
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; try { localStorage.setItem(PKEY, mode); } catch (e) {} render(el, ctx); });
+    el.querySelectorAll('[data-sw]').forEach(sl => sl.onchange = () => { if (sl.dataset.sw === 'line') swSel = sl.value; else swPick = sl.value; saveSw(); render(el, ctx); });
     el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { I().set(b.dataset.lang); render(el, ctx); });
     drawCharts(el, B);
   }
@@ -305,6 +307,80 @@
     return `<section class="panel"><div class="panelhead"><h2>${esc(t('recent'))}</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.tg)}</span><b>${esc(r.n || '—')}</b><small>${esc(r.d || '')}</small>${r.ct != null ? `<em>${fmt(r.ct)} ${t('s')}</em>` : ''}</div>`).join('')}</div></section>`;
   }
 
+  // ---------- SWCT ทั้งไลน์ (ใช้ตัววาดเดียวกับหน้าสมดุลสถานี) ----------
+  const SWKEY = 'cps-ie-dash-swct';
+  let swSel = null, swPick = 'latest';
+  try { const v = JSON.parse(localStorage.getItem(SWKEY) || 'null'); if (v) { swSel = v.k || null; swPick = v.p === 'max' ? 'max' : 'latest'; } } catch (e) {}
+  const saveSw = () => { try { localStorage.setItem(SWKEY, JSON.stringify({ k: swSel, p: swPick })); } catch (e) {} };
+  const lineKey = l => [l.ws, l.group, l.team, l.model, l.sub].join('§');
+  function swctLabels() { const L = I().tn('swct'); if (I().bilingual) L.person = 'Op'; return L; }
+  function lineSwct(line, pick, opt) {
+    const { num } = U(); const C = window.CPSTimeStudy && window.CPSTimeStudy.charts; if (!C) return null;
+    const list = D().listStations().filter(r => r.workshop === line.ws && r.group === line.group && r.team === line.team && (r.model || '-') === line.model && (r.submodel || '-') === line.sub);
+    const lanes = [], missing = [];
+    list.forEach(r => {
+      const rounds = D().group.roundsOf(r.station); if (!rounds.length) { missing.push(r.station); return; }
+      const s = pick === 'max' ? rounds.reduce((a, x) => (num(x.ct) > num(a.ct) ? x : a), rounds[0]) : rounds[rounds.length - 1];
+      lanes.push({ station: r.station, elements: s.elements || [] });
+    });
+    if (!lanes.length) return { lanes, missing, tk: line.tk };
+    const r = C.swctLine(lanes, line.tk, Object.assign({ lab: swctLabels() }, opt || {}));
+    const G = r.groups, cts = G.map(g => g.ct), n = G.length, sum = cts.reduce((a, b) => a + b, 0), max = Math.max(...cts), min = Math.min(...cts);
+    return { lanes, missing, tk: line.tk, r, n, sum, max, min, avg: sum / n, slow: G.find(g => g.ct === max), fast: G.find(g => g.ct === min), multi: G.some(g => g.multi),
+      lbr: sum / (n * max) * 100, eff: line.tk ? sum / (n * line.tk) * 100 : 0, minSt: line.tk ? Math.ceil(sum / line.tk - 1e-9) : 0, over: line.tk ? G.filter(g => g.ct > line.tk) : [] };
+  }
+  const opLabel = g => g.label + (g.multi ? ' ' + swctLabels().person.split('\n')[0] + ' ' + g.op : '');
+  function swctFacts(x) {   // [[ป้าย, ค่า], ...] สองแถว: สรุปเวลา · Line Balance
+    const { fmt } = U(), s = ' ' + t('s');
+    const a = [[t('sw_st'), String(x.lanes.length)], ['TAKT', x.tk ? fmt(x.tk) + s : '—'], [t('sw_ctMax'), fmt(x.max) + s + ' (' + opLabel(x.slow) + ')'],
+      [t('sw_ctMin'), fmt(x.min) + s + ' (' + opLabel(x.fast) + ')'], [t('sw_avg'), fmt(x.avg) + s]];
+    const b = [['Line Balance Rate', fmt(x.lbr) + '%'], [t('sw_loss'), fmt(100 - x.lbr) + '%'], ['ΣCT', fmt(x.sum) + s], [t('sw_neck'), opLabel(x.slow) + ' ' + fmt(x.max) + s]];
+    if (x.tk) b.push([t('sw_eff'), fmt(x.eff) + '%'], [t('sw_min', x.minSt, x.n, x.multi), '']);
+    return { a, b, over: x.over.length ? t('sw_over', x.over.length, x.over.map(g => g.label).join(', ')) : '' };
+  }
+  function swctPanel(lb) {
+    const { esc, fmt } = U();
+    const cur = lb.lines.find(l => lineKey(l) === swSel) || lb.lines[0];
+    const x = lineSwct(cur, swPick);
+    let body;
+    if (!x || !x.r) body = `<div class="blank">${esc(t('swctNoRounds'))}</div>`;
+    else {
+      const F = swctFacts(x), span = ([k, v], cls) => `<span${cls ? ` class="${cls}"` : ''}>${esc(k)}${v ? ` <b>${esc(v)}</b>` : ''}</span>`;
+      body = `<div class="swct-sum">${F.a.map(p => span(p)).join('')}${F.over ? `<span class="swct-over">${esc(F.over)}</span>` : ''}</div>` +
+        `<div class="sb-lbr">${F.b.map((p, i) => i === 0 ? `<span>${esc(p[0])} <b style="color:${lbrColor(x.lbr)}">${esc(p[1])}</b></span>` : span(p)).join('')}</div>` +
+        (x.missing.length ? `<p class="muted">${esc(t('swctMissing', x.missing.join(', ')))}</p>` : '') + `<div class="swct-scroll">${x.r.svg}</div>`;
+    }
+    return `<section class="panel" id="dz-swct"><div class="panelhead"><h2>${esc(t('swctTitle'))}</h2><div class="dz-swct-ctl">
+      <label>${esc(t('swctLine'))} <select data-sw="line">${lb.lines.map(l => `<option value="${esc(lineKey(l))}"${l === cur ? ' selected' : ''}>${esc(areaOf(l))} · ${esc(l.model)} / ${esc(l.sub)} · LBR ${fmt(l.lbr)}%</option>`).join('')}</select></label>
+      <label>${esc(t('swctRound'))} <select data-sw="pick"><option value="latest"${swPick === 'latest' ? ' selected' : ''}>${esc(t('pickLatest'))}</option><option value="max"${swPick === 'max' ? ' selected' : ''}>${esc(t('pickMax'))}</option></select></label>
+      </div></div><div class="dz-body">${body}<p class="muted dz-swnote">${esc(t('swctNote'))}</p></div></section>`;
+  }
+  // SWCT → PNG สำหรับสไลด์ (แบ่งหน้าละไม่เกิน 20 แถว ใช้สเกลเวลาเดียวกันทุกหน้า)
+  async function svgToPng(svg, w, h) {
+    const src = svg.replace('<svg ', `<svg width="${w}" height="${h}" `);
+    const url = URL.createObjectURL(new Blob([src], { type: 'image/svg+xml' })), img = new Image();
+    try {
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(new Error('SWCT image')); img.src = url; });
+      const k = 2, c = document.createElement('canvas'); c.width = w * k; c.height = h * k;
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/png');
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function swctReport(lb) {
+    if (!lb.lines.length) return null;
+    const cur = lb.lines.find(l => lineKey(l) === swSel) || lb.lines[0];
+    const full = lineSwct(cur, swPick); if (!full || !full.r) return null;
+    const span = Math.ceil(Math.max(full.r.cycle, cur.tk || 0, full.r.machEnd, 5) * 1.08 / 5) * 5;
+    const chunks = []; let ch = [], rows = 0, off = 0;
+    full.lanes.forEach((ln, i) => { const k = (ln.elements || []).length; if (ch.length && rows + k > 20) { chunks.push({ lanes: ch, off }); ch = []; rows = 0; off = i; } ch.push(ln); rows += k; });
+    if (ch.length) chunks.push({ lanes: ch, off });
+    const C = window.CPSTimeStudy.charts, pages = [];
+    for (const c of chunks) { const r = C.swctLine(c.lanes, cur.tk, { lab: swctLabels(), span, laneOffset: c.off }); pages.push({ data: await svgToPng(r.svg, r.W, r.H), w: r.W, h: r.H }); }
+    const F = swctFacts(full), line = (arr) => arr.map(([k, v]) => k + (v ? ' ' + v : '')).join('   ·   ');
+    const name = areaOf(cur) + ' · ' + cur.model + ' / ' + cur.sub;
+    return { pages, titles: pages.map((p, i) => t('r_swctHead') + ' · ' + name + (pages.length > 1 ? ` (${i + 1}/${pages.length})` : '')), stats: line(F.a) + (F.over ? '   ·   ' + F.over : '') + '\n' + line(F.b), lbr: full.lbr };
+  }
+
   // ---------- PPT report (แม่แบบ CHANGAN Confidential 16:9) ----------
   const PPTX_CDN = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js', JSZIP_CDN = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
   function loadScript(src) {
@@ -378,6 +454,7 @@
     try {
       if (!window.PptxGenJS) await loadScript(PPTX_CDN);
       const R = reportData(ctx);
+      R.swct = await swctReport(ctx.lineBalance());
       const pptx = window.CPSPptReport.build(window.PptxGenJS, R, new URL('ppt/', location.href).href);
       if (!window.JSZip) await loadScript(JSZIP_CDN);
       const blob = await window.CPSPptReport.toBlob(pptx, window.JSZip);
