@@ -18,7 +18,7 @@
     const can = D().canEdit();
     const jobs = D().listJobs();
     host.innerHTML = `
-      <div class="page-head"><div><p class="eyebrow">KAIZEN</p><h1>วิเคราะห์งาน Before / After</h1></div>
+      <div class="page-head"><div><h1>วิเคราะห์งาน Before / After</h1></div>
         ${can ? '<button class="primary" id="an-new">＋ งานใหม่</button>' : ''}</div>
       ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
       ${!jobs.length ? '<div class="blank">ยังไม่มีงานวิเคราะห์ในพื้นที่นี้</div>' :
@@ -37,7 +37,7 @@
   function renderEditor() {
     const { esc } = U(); const j = editing;
     host.innerHTML = `
-      <div class="page-head"><div><p class="eyebrow">KAIZEN</p><h1>วิเคราะห์งาน</h1></div>
+      <div class="page-head"><div><h1>วิเคราะห์งาน</h1></div>
         <div class="head-btns"><button id="an-back" class="ghost">← กลับ</button><button id="an-ai" class="ghost">🤖 AI ร่างข้อเสนอ</button><button id="an-print" class="ghost">พิมพ์/PDF</button><button id="an-save" class="primary">บันทึก</button></div></div>
       <section class="panel"><div class="panelhead"><h2>ข้อมูลงาน</h2></div>
         <div class="field-grid">

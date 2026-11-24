@@ -10,7 +10,7 @@
 
   const takt = jph => { const j = U().num(jph); return j ? 3600 / j : 0; };
   const loadPct = r => { const t = takt(r.jph); return t ? (U().num(r.ct) / t) * 100 : 0; };
-  const loadColor = p => p > 100 ? '#c0392b' : p >= 90 ? '#e08a00' : p >= 75 ? '#2e8b57' : '#15856b';
+  const loadColor = p => p > 100 ? '#c0392b' : p >= 90 ? '#9a5b00' : p >= 75 ? '#1e7a46' : '#15856b';
 
   function blank(prev) {
     return {
@@ -36,7 +36,7 @@
 
     host.innerHTML = `
       <div class="page-head">
-        <div><p class="eyebrow">STATION BALANCE</p><h1>สมดุลสถานี</h1>
+        <div><h1>สมดุลสถานี</h1>
           <p class="muted">${esc([sc.workshop, sc.group, sc.team].filter(Boolean).join(' · ') || U().esc('ทุกพื้นที่'))}</p></div>
         ${can ? '<button class="primary" id="sb-add">＋ เพิ่มสถานี</button>' : ''}
       </div>
@@ -45,7 +45,7 @@
         ${sumCard('จำนวน Station', rows.length, 'สถานี')}
         ${sumCard('ภาระสูงสุด', fmt(allMax) + '%', '', loadColor(allMax))}
         ${sumCard('เกิน TAKT (>100%)', rows.filter(r => loadPct(r) > 100).length, 'สถานี', '#c0392b')}
-        ${sumCard('ระบบแนะนำปรับปรุง', rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))).length, 'สถานี', '#e08a00')}
+        ${sumCard('ระบบแนะนำปรับปรุง', rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))).length, 'สถานี', '#9a5b00')}
       </div>
       ${!rows.length ? `<div class="blank">ยังไม่มีข้อมูลสถานี${can ? ' — กด “＋ เพิ่มสถานี”' : ''}</div>`
         : Object.keys(groups).sort().map(k => groupBlock(k, groups[k], can)).join('')}`;
@@ -73,19 +73,20 @@
     return { n, sum, max, avg: sum / n, neck: neck ? neck.label : '', lbr: sum / (n * max) * 100,
       eff: tk ? sum / (n * tk) * 100 : 0, minSt: tk ? Math.ceil(sum / tk - 1e-9) : 0, tk };
   }
-  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#e08a00' : '#c0392b';
+  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#9a5b00' : '#c0392b';
   function lbrStrip(st, unit) {
     unit = unit || 'สถานี';
     const { fmt, esc } = U();
     if (!st) return '';
     const tip = 'Line Balance Rate = ΣCT ÷ (จำนวน' + unit + ' × CT สูงสุด) × 100';
     return `<div class="sb-lbr">
-      <span title="${esc(tip)}">Line Balance Rate <b style="color:${lbrColor(st.lbr)}">${fmt(st.lbr)}%</b></span>
+      <span>${unit === 'คน' ? 'LBR ต่อคน (นับคนละช่อง)' : 'Line Balance Rate'} <b style="color:${lbrColor(st.lbr)}">${fmt(st.lbr)}%</b></span>
       <span title="100 − Line Balance Rate">Balance Loss <b>${fmt(100 - st.lbr)}%</b></span>
       <span>ΣCT <b>${fmt(st.sum)}</b> วิ</span>
       <span>คอขวด <b>${esc(st.neck)}</b> ${fmt(st.max)} วิ</span>
       ${st.tk ? `<span title="ΣCT ÷ (จำนวน${unit} × TAKT) × 100">ประสิทธิภาพเทียบ TAKT <b>${fmt(st.eff)}%</b></span>
       <span title="⌈ΣCT ÷ TAKT⌉">${unit}ขั้นต่ำตาม TAKT <b>${st.minSt}</b> (ใช้อยู่ ${st.n})</span>` : ''}
+      <span class="lbr-f">สูตร: ${esc(tip.replace('Line Balance Rate', unit === 'คน' ? 'LBR ต่อคน' : 'LBR'))}${unit === 'คน' ? ' · ค่าหลักของไลน์ (Line Balance Rate) นับตามสถานี ดูได้ที่ตารางด้านบน' : ''}</span>
     </div>`;
   }
   function groupTakt(list) {

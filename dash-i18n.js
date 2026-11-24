@@ -178,5 +178,11 @@
     t: (k, ...a) => get(k, a, ' / '),      // บนหน้าเว็บ: 中文 / English
     tn: (k, ...a) => get(k, a, '\n'),      // ในสไลด์: 中文 บรรทัดบน · English บรรทัดล่าง
   };
+  Object.assign(D.th, { lbrOp: 'LBR ต่อคน (นับคนละช่อง)', lbrBoth: 'Line Balance Rate = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) · LBR ต่อคน นับผู้ปฏิบัติงานแต่ละคนเป็น 1 ช่อง', noAreaRo: 'ยังไม่มีข้อมูลในพื้นที่นี้',
+    pptStep1: 'กำลังโหลดเครื่องมือ…', pptStep2: 'กำลังสร้างสไลด์…', pptStep3: 'กำลังบันทึกไฟล์…' });
+  Object.assign(D.en, { lbrOp: 'LBR per operator', lbrBoth: 'Line Balance Rate = ΣCT ÷ (stations × max CT) · LBR per operator counts each operator as one slot', noAreaRo: 'No data in this area yet',
+    pptStep1: 'Loading tools…', pptStep2: 'Building slides…', pptStep3: 'Saving file…' });
+  Object.assign(D.zh, { lbrOp: '按人计 LBR', lbrBoth: 'Line Balance Rate = ΣCT ÷ (工位数 × 最大 CT) · 按人计 LBR 每位作业员算一个位置', noAreaRo: '本区域暂无数据',
+    pptStep1: '正在加载工具…', pptStep2: '正在生成幻灯片…', pptStep3: '正在保存文件…' });
   root.CPSDashI18n = api;
 })(window);

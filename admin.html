@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#102b46">
 <title>CPS IE Studio · ผู้ดูแลระบบ</title>
-<link rel="stylesheet" href="styles.css?v=202611241315">
+<link rel="stylesheet" href="styles.css?v=202611241830">
 <style>
   .adm{max-width:860px;margin:0 auto;padding:18px 16px 40px}
   .adm .panel{padding:16px 18px;margin-bottom:16px}
@@ -20,7 +20,7 @@
   .adm .counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px}
   .adm .warn{background:#fff6e5;border:1px solid #f0d29a;border-radius:10px;padding:10px 12px;font-size:13px;color:#7a5200}
   .adm .linkbox{word-break:break-all;font-size:12px;background:#f1f5f9;border-radius:8px;padding:8px 10px;margin-top:8px}
-</style>
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}.filebtn:focus-within{outline:3px solid #008ff0;outline-offset:2px}</style>
 </head>
 <body>
 <header class="topbar">
@@ -95,7 +95,7 @@
     <div class="row">
       <button id="exp-sheet" class="ghost" type="button">ส่งออกจาก Sheet (JSON)</button>
       <button id="exp-local" class="ghost" type="button">ส่งออกจากเครื่องนี้ (JSON)</button>
-      <label class="filebtn" style="margin:0">นำเข้า JSON ขึ้น Sheet<input id="imp" type="file" accept=".json" hidden></label>
+      <label class="filebtn" style="margin:0">นำเข้า JSON ขึ้น Sheet<input id="imp" class="vh" type="file" accept=".json"></label>
     </div>
     <p id="st-bak" class="muted" role="status"></p>
     <p class="muted">นำเข้า = เพิ่ม/อัปเดตรายการตาม id ขึ้น Sheet (ไม่ลบของเดิม) ทุกเครื่องจะได้รับในการซิงค์รอบถัดไป</p>
@@ -104,6 +104,6 @@
 </div>
 
 <div id="toast" role="status"></div>
-<script src="admin.js?v=202611241315"></script>
+<script src="admin.js?v=202611241830"></script>
 </body>
 </html>

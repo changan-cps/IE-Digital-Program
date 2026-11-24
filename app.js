@@ -335,7 +335,7 @@
   let locked = false;
   function startApp() {
     $('#btn-logout').hidden = !accessCode; $('#gate-logout').hidden = !accessCode;
-    if (scope && scope.workshop) openApp(); else { openGate(); syncPull(true); }
+    if (scope && (scope.workshop || scope.level === 'factory')) openApp(); else { openGate(); syncPull(true); }
   }
   function showLogin(msg) {
     locked = true;
@@ -386,9 +386,50 @@
     } catch (e) { setSync('error', e.message); sheetStatus('อัปโหลดไม่สำเร็จ: ' + e.message); }
   }
 
+  // ---------- labels for assistive tech ----------
+  function autoLabel() {
+    const named = el => el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.closest('label') || (el.id && document.querySelector(`label[for="${CSS.escape(el.id)}"]`));
+    document.querySelectorAll('main input:not([type=hidden]), main select, main textarea, dialog input, dialog select, dialog textarea').forEach(el => {
+      if (named(el)) return;
+      let name = el.getAttribute('placeholder') || el.getAttribute('title') || '';
+      const td = el.closest('td'), table = el.closest('table');
+      if (td && table) {
+        const th = table.querySelectorAll('thead th, tr:first-child th')[td.cellIndex];
+        const col = th ? th.textContent.trim() : '';
+        const tr = td.parentElement, rowNo = tr.querySelector('.idx') ? tr.querySelector('.idx').textContent.trim() : (tr.rowIndex || '');
+        name = [col || name, rowNo ? 'แถว ' + rowNo : ''].filter(Boolean).join(' · ');
+      }
+      if (!name) { const f = el.closest('.field, .dlg label, .panel'); const h = f && f.querySelector('span, h2, b'); name = h ? h.textContent.trim() : ''; }
+      if (name) el.setAttribute('aria-label', name);
+    });
+    document.querySelectorAll('main button, dialog button').forEach(b => {
+      if (b.getAttribute('aria-label')) return;
+      const txt = b.textContent.trim();
+      if (!/^(เปิด|ดู|ลบ|แก้ไข|✕|ดูกราฟ|เปิดงาน)$/.test(txt)) return;
+      const row = b.closest('.recent-row, tr, .wf-flow, .sb-grouphead, .ts-group');
+      const label = row && (row.querySelector('b, .sb-st, .tag') || {}).textContent;
+      if (label) b.setAttribute('aria-label', (txt === '✕' ? 'ลบ' : txt) + ' ' + label.trim());
+    });
+  }
+  // ---------- shell language: follows the Dashboard choice (ไทย / EN / 中文 / 中 / EN) ----------
+  const SHELL = {
+    th: { tabs: ['แดชบอร์ด', 'Time Study', 'สมดุลสถานี', 'วิเคราะห์งาน'], sw: 'เปลี่ยนพื้นที่', out: 'ออกจากระบบ', foot: 'ข้อมูลพื้นที่:', gate: 'เลือกระดับการใช้งาน แล้วเลือกพื้นที่' },
+    en: { tabs: ['Dashboard', 'Time Study', 'Station balance', 'Kaizen analysis'], sw: 'Change area', out: 'Sign out', foot: 'Area:', gate: 'Choose your level, then your area' },
+    zh: { tabs: ['仪表板', '工时研究', '工位平衡', '改善分析'], sw: '切换区域', out: '退出', foot: '区域：', gate: '选择使用级别，然后选择区域' },
+  };
+  function applyShell() {
+    const I = window.CPSDashI18n; const L = I ? I.lang : 'th';
+    const pick = k => L === 'zhen' ? (Array.isArray(SHELL.zh[k]) ? SHELL.zh[k].map((z, i) => z === SHELL.en[k][i] ? z : z + ' / ' + SHELL.en[k][i]) : SHELL.zh[k] + ' / ' + SHELL.en[k]) : (SHELL[L] || SHELL.th)[k];
+    $$('#tabs button').forEach((b, i) => { b.textContent = pick('tabs')[i]; });
+    if ($('#btn-switch')) $('#btn-switch').textContent = pick('sw');
+    if ($('#btn-logout')) $('#btn-logout').textContent = pick('out');
+    if ($('#foot-label')) $('#foot-label').textContent = pick('foot');
+    if ($('#gate-sub')) $('#gate-sub').textContent = pick('gate');
+    document.documentElement.lang = L === 'zh' || L === 'zhen' ? 'zh-Hans' : L;
+  }
   // ---------- toast ----------
   let toastT;
-  function toast(m) { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+  function toast(m, ms) { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms || Math.max(4000, 60 * String(m).length)); }
   // in-page input dialog (replaces prompt): fields = [{name,label,type?,options?}] -> Promise<object|null>
   function ask(title, fields) {
     return new Promise(res => {
@@ -515,9 +556,19 @@
     showTab(currentTab);
     syncPull(true);
   }
+  // leaving an unsaved time study asks first (the draft stays in this browser either way)
+  function guardLeave(go) {
+    if (currentTab === 'timestudy' && window.CPSTimeStudy?.isDirty?.()) {
+      ask('ยังไม่ได้บันทึก Time Study นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้ที่หน้า Time Study)', []).then(ok => { if (ok) { window.CPSTimeStudy.leave(); go(); } });
+      return;
+    }
+    go();
+  }
   function showTab(tab) {
+    if (tab !== currentTab && currentTab === 'timestudy' && window.CPSTimeStudy?.isDirty?.()) return guardLeave(() => showTab(tab));
     currentTab = tab;
-    $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    const tbh = $('.topbar') ? $('.topbar').offsetHeight : 0; if (tbh) document.documentElement.style.setProperty('--topbar-h', tbh + 'px');
+    $$('#tabs button').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
     $$('.tab-page').forEach(p => p.hidden = p.id !== 'tab-' + tab);
     render();
   }
@@ -558,7 +609,7 @@
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => showTab(b.dataset.go));
   }
   // ---- Line Balance Rate: ไลน์ = ทีม + รุ่น/รุ่นย่อย · LBR = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 ----
-  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#e08a00' : '#c0392b';
+  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#9a5b00' : '#c0392b';
   function lineBalance() {
     const map = new Map();
     listStations().forEach(r => {
@@ -613,7 +664,13 @@
 
     // app events
     $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
-    $('#btn-switch').onclick = () => openGate(scope);
+    $('#btn-switch').onclick = () => guardLeave(() => openGate(scope));
+    addEventListener('beforeunload', e => { if (window.CPSTimeStudy?.isDirty?.()) { e.preventDefault(); e.returnValue = ''; } });
+    const tb = $('.topbar'), setTb = () => { if (tb && tb.offsetHeight) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px'); };
+    setTb(); if (window.ResizeObserver && tb) new ResizeObserver(setTb).observe(tb);
+    // every field gets a name screen readers can say; repeated row buttons say which row
+    let lt; new MutationObserver(() => { clearTimeout(lt); lt = setTimeout(autoLabel, 120); }).observe(document.body, { childList: true, subtree: true });
+    autoLabel(); applyShell();
 
     $('#login-form').onsubmit = e => { e.preventDefault(); login(); };
     $('#btn-logout').onclick = logout; $('#gate-logout').onclick = logout;
@@ -643,6 +700,7 @@
   window.CPS = {
     boot,
     util: { $, $$, uid, esc, num, round1, fmt, TYPES, totals, toast, ask },
+    applyShell,
     data: {
       listStudies, listJobs, listStations, upsert, remove, canEdit,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },

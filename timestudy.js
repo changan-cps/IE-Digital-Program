@@ -12,6 +12,15 @@
   let soundEvents = [];    // [{start,end,db}] tool-sound bursts found locally
   let boundary = null;     // currentTime of the open element start
   let host = null;
+  // unsaved work survives back, tab switch and reload: a draft per browser, restored from the list
+  const DRAFT = 'cps-ie-ts-draft-v1';
+  const snaps = new WeakMap();
+  const scopeId = () => { const sc = D().scope || {}; return [sc.workshop, sc.group, sc.team].join('§'); };
+  const isDirty = () => !!editing && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
+  function saveDraft() { if (!isDirty()) return; try { localStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), scope: scopeId(), s: editing })); } catch (e) {} }
+  function readDraft() { try { const d = JSON.parse(localStorage.getItem(DRAFT)); return d && d.s && d.scope === scopeId() ? d : null; } catch (e) { return null; } }
+  const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
+  function leave() { saveDraft(); cleanupVideo(); editing = null; }
 
   // มิติคะแนนความง่ายในการทำงาน (1 = ยากสุด, 5 = ง่ายสุด) — เกณฑ์ตามตัวอย่างอ้างอิงเท่าที่ระบุไว้
   const DIMS = [
@@ -30,7 +39,7 @@
     (list || []).forEach((e, i) => DIMS.forEach(d => { const n = sc(e[d.k]); if (n && n <= 3) out.weak.push({ i: i + 1, name: e.name, dim: d.label, n }); }));
     return out;
   }
-  const easeColor = n => n <= 3 ? '#c0392b' : n < 4 ? '#e08a00' : '#15856b';
+  const easeColor = n => n <= 3 ? '#c0392b' : n < 4 ? '#9a5b00' : '#15856b';
 
   function blank() {
     const { uid } = U();
@@ -67,14 +76,18 @@
           </div>`; }).join('')}</div>
       </section>`;
     });
+    const dr = can ? readDraft() : null;
     host.innerHTML = `
+      ${dr ? `<div class="ts-draft" role="status"><span>มีร่าง Time Study ที่ยังไม่ได้บันทึก · ${esc(dr.s.station || dr.s.name || 'ไม่มีชื่อ')} · ${(dr.s.elements || []).length} element · ${new Date(dr.at).toLocaleString('th-TH')}</span><button class="primary" id="ts-draft-go">กู้คืนร่าง</button><button id="ts-draft-drop">ทิ้งร่าง</button></div>` : ''}
       <div class="page-head">
-        <div><p class="eyebrow">TIME STUDY</p><h1>ศึกษางาน & จับเวลา</h1></div>
+        <div><h1>ศึกษางาน & จับเวลา</h1></div>
         ${can ? '<button class="primary" id="ts-new">＋ บันทึกใหม่</button>' : ''}
       </div>
       ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
       ${!studies.length ? '<div class="blank">ยังไม่มี Time Study ในพื้นที่นี้</div>' : '<p class="hint" style="margin:0 0 12px">รอบจับเวลาที่ใช้รหัสสถานีเดียวกันจะถูกรวมเป็นกลุ่มเดียว และคำนวณค่าเฉลี่ยให้อัตโนมัติ</p>' + blocks.join('')}`;
     const nb = host.querySelector('#ts-new'); if (nb) nb.onclick = () => { editing = blank(); renderEditor(); };
+    const dg = host.querySelector('#ts-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.s; snaps.set(editing, ''); renderEditor(); };
+    const dd = host.querySelector('#ts-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่าง Time Study นี้? ข้อมูลในร่างจะหายถาวร', [])) { dropDraft(); renderList(); } };
     host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = structuredClone(D().listStudies().find(s => s.id === b.dataset.edit)); renderEditor(); });
     host.querySelectorAll('[data-round]').forEach(b => b.onclick = () => { editing = newRound(D().listStudies().find(s => s.id === b.dataset.round)); renderEditor(); });
     host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
@@ -96,9 +109,10 @@
     const { esc } = U();
     const s = editing;
     if (!s.ergo) s.ergo = { risk: '', notes: '', issues: [] };
+    if (!snaps.has(s)) snaps.set(s, JSON.stringify(s));
     host.innerHTML = `
       <div class="page-head">
-        <div><p class="eyebrow">TIME STUDY</p><h1>บันทึก Time Study</h1></div>
+        <div><h1>บันทึก Time Study</h1></div>
         <div class="head-btns"><button id="ts-back" class="ghost">← กลับ</button><button id="ts-save" class="primary">บันทึกค่า</button></div>
       </div>
       <section class="panel"><div class="panelhead"><h2>ข้อมูลงาน</h2></div>
@@ -111,14 +125,16 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel ts-videopanel">
         <div class="panelhead"><h2>วิดีโอ (ในเครื่อง — ไม่ถูกบันทึก)</h2>
-          <label class="filebtn">เลือก/ถ่ายวิดีโอ<input id="ts-file" type="file" accept="video/*" capture="environment" hidden></label>
+          <label class="filebtn">เลือก/ถ่ายวิดีโอ<input id="ts-file" class="vh" type="file" accept="video/*" capture="environment"></label>
         </div>
         <div class="ts-screen"><video id="ts-video" playsinline></video><div id="ts-empty" class="ts-empty">เลือกวิดีโอเพื่อเริ่มจับเวลา</div></div>
         <div class="ts-transport">
           <button id="ts-back5" type="button">⏪ 5วิ</button>
+          <button id="ts-stepb" type="button" aria-label="ย้อน 0.1 วินาที">◀ 0.1</button>
           <button id="ts-play" type="button">▶︎ เล่น</button>
+          <button id="ts-stepf" type="button" aria-label="เดินหน้า 0.1 วินาที">0.1 ▶</button>
           <button id="ts-fwd5" type="button">5วิ ⏩</button>
           <label>ความเร็ว <select id="ts-rate"><option value="0.25">0.25x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
           <span id="ts-time" class="ts-clock">0.0 / 0.0 วิ</span>
@@ -130,9 +146,10 @@
         </div>
         <div id="ts-frames" class="ts-frames"></div>
         <div class="ts-capture">
-          <button id="ts-mark" class="primary" type="button">① มาร์คจุดเริ่ม element</button>
+          <button id="ts-mark" class="primary" type="button" ${videoUrl ? '' : 'disabled'}>① มาร์คจุดเริ่ม element</button>
           <button id="ts-lap" class="dark" type="button" disabled>✂ ตัดจบขั้นตอน (Lap)</button>
-          <span id="ts-open" class="muted"></span>
+          <span id="ts-open" class="muted" aria-live="polite"></span>
+          <span class="ts-keys">คีย์ลัด: <kbd>Space</kbd> ตัดจบขั้นตอน (หรือมาร์คเริ่ม) · <kbd>M</kbd> มาร์คจุดเริ่ม · <kbd>P</kbd> เล่น/หยุด · <kbd>←</kbd><kbd>→</kbd> ทีละ 0.1 วิ (<kbd>Shift</kbd> ทีละ 1 วิ)</span>
         </div>
         <p class="hint">วิธีใช้: เล่นวิดีโอ → กด “มาร์คจุดเริ่ม” ตรงจุดเริ่มงาน → พอจบขั้นตอนกด “ตัดจบขั้นตอน” ระบบจะสร้างแถว element พร้อมเวลาให้อัตโนมัติ แล้วเริ่มจับขั้นถัดไปต่อเนื่อง ตั้งชื่อและเลือกประเภทได้ภายหลัง</p>
         <div class="sound-strip"><button id="ts-sound" type="button" class="ghost">🔊 หาเสียงเครื่องมือ</button><button id="ts-sound-els" type="button" class="ghost" hidden>สร้าง element จากเสียง</button><label class="sound-opt"><input id="ts-speech" type="checkbox"> ใช้เสียงพูดบรรยายช่วย AI (ส่งเสียงให้ Gemini ถอดความ)</label><small id="ts-sound-msg" class="muted">เสียงเครื่องมือวิเคราะห์ในเครื่อง ไม่ส่งออก</small></div><div id="ts-sound-list" class="sound-list"></div>
@@ -171,14 +188,19 @@
       <section class="panel"><div class="panelhead"><h2>สรุปคะแนนความง่ายในการทำงาน</h2></div><div id="ts-ease"></div></section>`;
 
     // field bindings
-    host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => { s[inp.dataset.f] = inp.value; if (inp.dataset.f === 'station') renderSwct(); });
-    host.querySelector('#ts-back').onclick = () => { cleanupVideo(); editing = null; renderList(); };
+    host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => { s[inp.dataset.f] = inp.value; if (inp.dataset.f === 'station') renderSwct(); saveDraft(); });
+    host.querySelector('#ts-back').onclick = async () => {
+      if (isDirty() && !(await U().ask('ยังไม่ได้บันทึก Time Study นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)', []))) return;
+      leave(); renderList();
+    };
     host.querySelector('#ts-save').onclick = saveStudy;
     host.querySelector('#ts-file').onchange = onFile;
     const v = host.querySelector('#ts-video');
     host.querySelector('#ts-play').onclick = () => { v.paused ? v.play() : v.pause(); };
     host.querySelector('#ts-back5').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 5); };
     host.querySelector('#ts-fwd5').onclick = () => { v.currentTime = Math.min(v.duration || 0, v.currentTime + 5); };
+    host.querySelector('#ts-stepb').onclick = () => step(-0.1);
+    host.querySelector('#ts-stepf').onclick = () => step(0.1);
     host.querySelector('#ts-rate').onchange = e => v.playbackRate = parseFloat(e.target.value);
     v.addEventListener('timeupdate', updateClock);
     v.addEventListener('loadedmetadata', updateClock);
@@ -195,7 +217,7 @@
     if (soundEvents.length) paintSounds();
     host.querySelector('#ts-mark').onclick = markStart;
     host.querySelector('#ts-lap').onclick = lap;
-    host.querySelector('#ts-addrow').onclick = () => { s.elements.push({ id: U().uid(), name: '', sec: '', type: 'VA', note: '' }); renderTable(); };
+    host.querySelector('#ts-addrow').onclick = () => { s.elements.push({ id: U().uid(), name: '', sec: '', type: '', note: '' }); renderTable(); };
     host.querySelector('#ts-ai').onclick = aiAnalyze;
     const er = host.querySelector('#ergo-risk'); er.value = s.ergo.risk || ''; er.onchange = () => s.ergo.risk = er.value;
     const en = host.querySelector('#ergo-notes'); en.value = s.ergo.notes || ''; en.oninput = () => s.ergo.notes = en.value;
@@ -215,7 +237,21 @@
     videoUrl = URL.createObjectURL(f); videoFile = f; audioCache = null; soundEvents = [];
     const v = host.querySelector('#ts-video'); v.src = videoUrl;
     host.querySelector('#ts-empty').hidden = true;
+    host.querySelector('#ts-mark').disabled = false;
   }
+  function step(d) { const v = host && host.querySelector('#ts-video'); if (!v || !v.src) return; v.pause(); v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); }
+  // keyboard: timing without reaching for the mouse
+  document.addEventListener('keydown', e => {
+    if (!editing || !host || !host.querySelector('#ts-video') || host.closest('[hidden]') || document.querySelector('dialog[open]')) return;
+    const tg = e.target instanceof Element ? e.target : null;
+    if ((tg && tg.closest('input, select, textarea, [contenteditable]')) || e.ctrlKey || e.metaKey || e.altKey) return;
+    const v = host.querySelector('#ts-video'); if (!v.src) return;
+    const k = e.key;
+    if (k === ' ') { e.preventDefault(); boundary == null ? markStart() : lap(); }
+    else if (k === 'm' || k === 'M') { e.preventDefault(); markStart(); }
+    else if (k === 'p' || k === 'P') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    else if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); step((k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 1 : 0.1)); }
+  });
   function cleanupVideo() { if (videoUrl) { URL.revokeObjectURL(videoUrl); videoUrl = null; } videoFile = null; audioCache = null; soundEvents = []; boundary = null; }
 
   // แตกเฟรมจากวิดีโอเป็นแถบภาพย่อ (อยู่ในหน้าจอเท่านั้น ไม่ถูกบันทึก) — กดภาพเพื่อข้ามไปเวลานั้น
@@ -414,7 +450,7 @@
     if (dur < 0.05) { U().toast('ช่วงเวลาสั้นเกินไป'); return; }
     const sec = Math.round(dur * 10) / 10;
     const empty = editing.elements.find(e => e.sec === '' || e.sec == null);
-    if (empty) empty.sec = sec; else editing.elements.push({ id: U().uid(), name: '', sec, type: 'VA', note: '' });
+    if (empty) empty.sec = sec; else editing.elements.push({ id: U().uid(), name: '', sec, type: '', note: '' });
     boundary = v.currentTime; // chain next element
     renderTable();
     updateClock();
@@ -639,7 +675,7 @@
       <td><input class="r-name" placeholder="ชื่อขั้นตอน"></td>
       <td><input class="r-sec" type="number" min="0" step="0.1" inputmode="decimal"></td>
       <td><input class="r-steps" type="number" min="0" step="1" inputmode="numeric" title="จำนวนก้าวเดิน (AI ประมาณให้ แก้ได้)"></td>
-      <td><select class="r-type">${TYPES.map(ty => `<option value="${ty.k}">${ty.k}</option>`).join('')}</select></td>
+      <td><select class="r-type"><option value="">— ประเภท —</option>${TYPES.map(ty => `<option value="${ty.k}">${ty.k}</option>`).join('')}</select></td>
       <td><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
       <td><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
       ${DIMS.map(d => `<td><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></td>`).join('')}
@@ -652,8 +688,11 @@
     tr.querySelectorAll('.r-dim').forEach(s => { s.value = e[s.dataset.k] || ''; s.onchange = () => { e[s.dataset.k] = s.value; paintRow(); renderEase(); }; });
     paintRow();
     const name = tr.querySelector('.r-name'); name.value = e.name || ''; name.oninput = () => { e.name = name.value; renderSwct(); renderHands(); };
-    const sec = tr.querySelector('.r-sec'); sec.value = e.sec; sec.oninput = () => { e.sec = sec.value; refreshMetrics(); };
-    const type = tr.querySelector('.r-type'); type.value = e.type; type.onchange = () => { e.type = type.value; refreshMetrics(); };
+    const sec = tr.querySelector('.r-sec'); sec.value = e.sec;
+    const checkSec = () => { const bad = sec.validity.badInput || (sec.value !== '' && !(parseFloat(sec.value) >= 0)); sec.classList.toggle('bad', bad); sec.setAttribute('aria-invalid', bad); return !bad; };
+    sec.oninput = () => { e.sec = checkSec() ? sec.value : ''; refreshMetrics(); };
+    const type = tr.querySelector('.r-type'); type.value = e.type || ''; type.classList.toggle('need', !type.value);
+    type.onchange = () => { e.type = type.value; type.classList.toggle('need', !type.value); refreshMetrics(); };
     const stp = tr.querySelector('.r-steps'); stp.value = e.steps ?? ''; stp.oninput = () => { e.steps = stp.value; refreshMetrics(); };
     const op = tr.querySelector('.r-op'); op.value = e.op || 1; op.oninput = () => { e.op = Math.max(1, Math.min(9, parseInt(op.value, 10) || 1)); renderSwct(); };
     const kd = tr.querySelector('.r-kind'), mc = tr.querySelector('.r-mach');
@@ -668,12 +707,20 @@
     const { fmt } = U(); const t = U().totals(editing.elements);
     host.querySelector('#ts-metrics').innerHTML =
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
-      mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว');
+      mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว') +
+      (untyped() ? mini('ยังไม่ระบุประเภท', untyped() + ' แถว', '#c0392b') : '');
     host.querySelector('#ts-bar').innerHTML = stack(t);
     renderSwct();
+    saveDraft();
   }
 
-  function saveStudy() {
+  const untyped = () => (editing ? editing.elements : []).filter(e => U().num(e.sec) > 0 && !e.type).length;
+  async function saveStudy() {
+    const badSec = host.querySelector('.r-sec.bad');
+    if (badSec) { badSec.focus(); U().toast('เวลาบางแถวไม่ใช่ตัวเลข — แก้ช่องที่ขึ้นสีแดงก่อนบันทึก', 6000); return; }
+    const st = host.querySelector('[data-f="station"]');
+    if (!String(editing.station || editing.name || '').trim()) { st.classList.add('bad'); st.setAttribute('aria-invalid', 'true'); st.focus(); U().toast('กรอกรหัสสถานีหรือชื่องานก่อนบันทึก', 6000); return; }
+    if (untyped() && !(await U().ask(`มี ${untyped()} แถวที่ยังไม่ระบุประเภท (VA/NNVA/NVA) — แถวเหล่านี้จะนับใน CT แต่ไม่นับใน VA% · บันทึกต่อ?`, []))) { host.querySelector('.r-type.need')?.focus(); return; }
     const t = U().totals(editing.elements);
     editing.ct = U().round1(t.ct); editing.va = U().round1(t.VA); editing.nnva = U().round1(t.NNVA); editing.nva = U().round1(t.NVA); editing.vaPct = U().round1(t.vaPct); editing.steps = totalSteps(editing.elements);
     const es = easeSummary(editing.elements);
@@ -688,7 +735,7 @@
     if (oldKey && oldKey !== key) G.flow(oldKey);
     const f = G.flow(key); const n = G.roundsOf(key).length;
     U().toast(f ? `บันทึกแล้ว · ${editing.station} รวม ${n} รอบ → อัปเดตสมดุลสถานี${f.job === 'created' ? ' และสร้างงานวิเคราะห์' : f.job === 'updated' ? ' และ Before ของงานวิเคราะห์' : ''}ให้แล้ว` : 'บันทึกค่า Time Study แล้ว (ไม่เก็บวิดีโอ)');
-    cleanupVideo(); editing = null; renderList();
+    dropDraft(); cleanupVideo(); editing = null; renderList();
   }
 
   // ให้หน้าอื่น (สมดุลสถานี) เรียกวาด SWCT / แผนภูมิสองมือ ของรอบที่บันทึกแล้วได้
@@ -698,5 +745,5 @@
     hands: study => handsSvg((study && study.elements) || []),
     handsSum: study => handsSummary((study && study.elements) || [], '')
   };
-  window.CPSTimeStudy = { render, charts };
+  window.CPSTimeStudy = { render, charts, isDirty, leave };
 })();

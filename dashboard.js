@@ -9,7 +9,7 @@
   // categorical slots (validated, fixed order) + ink/grid tokens of the app
   const C = { s1: '#2a78d6', s2: '#eb6834', s3: '#1baf7a', s4: '#eda100', s5: '#e87ba4', ink: '#17324b', muted: '#60788d', grid: '#e6edf3', base: '#c9d6e2' };
   const SYM = [['O', '○', C.s1], ['T', '⇨', C.s2], ['D', 'D', C.s3], ['H', '▽', C.s4], ['I', '□', C.s5]];
-  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#e08a00' : '#c0392b';
+  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#9a5b00' : '#c0392b';
 
   // ---------- periods ----------
   const parseD = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? new Date(+m[1], m[2] - 1, +m[3]) : null; };
@@ -163,7 +163,7 @@
     ctxSaved = ctx;
     const { esc, fmt } = U();
     const scope = D().scope, s = t('s');
-    document.documentElement.lang = I().lang === 'zh' || I().lang === 'zhen' ? 'zh-CN' : I().lang;
+    document.documentElement.lang = I().lang === 'zh' || I().lang === 'zhen' ? 'zh-Hans' : I().lang;
     const P = compute(mode), B = P.B, n = B.length, last = B[n - 1];
     const avg = b => b.st.length ? b.ct / b.st.length : null;
     const lastWith = f => { for (let i = n - 1; i >= 0; i--) if (f(B[i])) return i; return -1; };
@@ -188,7 +188,7 @@
     el.innerHTML = `
       <div class="page-head dz-head"><div><p class="eyebrow">${esc(levelLabel)}</p><h1>${esc(title)}</h1><p class="muted">${esc(subT)}</p></div>
         <div class="dz-actions">
-          <div class="dz-lang" role="group" aria-label="Language">${I().LANGS.map(([k, l]) => `<button type="button" data-lang="${k}" lang="${k}" class="${I().lang === k ? 'active' : ''}" aria-pressed="${I().lang === k}">${l}</button>`).join('')}</div>
+          <div class="dz-lang" role="group" aria-label="Language">${I().LANGS.map(([k, l]) => `<button type="button" data-lang="${k}" lang="${k === 'zhen' ? 'zh' : k}" class="${I().lang === k ? 'active' : ''}" aria-pressed="${I().lang === k}">${l}</button>`).join('')}</div>
           <button class="dz-ppt" data-ppt title="${esc(t('pptTip'))}">${esc(t('ppt'))}</button>
           <div class="dz-tabs" role="tablist">${[['week', t('weekly')], ['month', t('monthly')]].map(([k, x]) => `<button role="tab" data-mode="${k}" class="${mode === k ? 'active' : ''}" aria-selected="${mode === k}">${esc(x)}</button>`).join('')}</div>
         </div></div>
@@ -197,7 +197,7 @@
       <div class="cards dz-cards">
         ${kpi('Time Study', nSt, t('items'), esc(t('latestCount', mode, last.st.length)))}
         ${kpi(t('avgCt'), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? (delta(avg(B[iCt]), iPrev >= 0 ? avg(B[iPrev]) : null, ' ' + s, true) || esc(B[iCt].long)) : esc(t('noStudy')))}
-        ${kpi(t('ctReduced'), totRed ? '−' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')), totRed ? '#15856b' : '')}
+        ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')), totRed ? '#15856b' : '')}
         ${kpi('VA', sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', iCt >= 0 ? delta(vaOf(B[iCt]), iPrev >= 0 ? vaOf(B[iPrev]) : null, '%', false) : '')}
         ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low)), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
         ${kpi(t('trained'), trained, t('people'))}
@@ -220,7 +220,7 @@
     el.querySelector('[data-ppt]').onclick = e => downloadPpt(e.currentTarget, ctx);
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; try { localStorage.setItem(PKEY, mode); } catch (e) {} render(el, ctx); });
     el.querySelectorAll('[data-sw]').forEach(sl => sl.onchange = () => { if (sl.dataset.sw === 'line') swSel = sl.value; else swPick = sl.value; saveSw(); render(el, ctx); });
-    el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { I().set(b.dataset.lang); render(el, ctx); });
+    el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { I().set(b.dataset.lang); render(el, ctx); window.CPS?.applyShell?.(); });
     drawCharts(el, B);
   }
 
@@ -293,7 +293,7 @@
     const { esc, fmt } = U(), c = t('cols'), s = t('s');
     if (!lb.lines.length) return '';
     const show = lb.lines.slice(0, 15);
-    return `<section class="panel"><div class="panelhead"><h2>${esc(t('lbrTable'))}</h2><small class="muted" title="${esc(t('lbrFormula'))}">${esc(t('sortedLow', lb.lines.length))}</small></div>
+    return `<section class="panel"><div class="panelhead"><h2>${esc(t('lbrTable'))}</h2><small class="muted">${esc(t('sortedLow', lb.lines.length))} · ${esc(t('lbrFormula'))}</small></div>
       <div class="table-scroll"><table class="sb-table lbr-table"><thead><tr><th>${c.line}</th><th>${c.model}</th><th>${c.st}</th><th>${c.sum}</th><th>${c.neck}</th><th>${c.over}</th><th>${c.eff}</th><th>${c.lbr}</th></tr></thead><tbody>
       ${show.map(l => `<tr><td><b>${esc(areaOf(l))}</b></td><td>${esc(l.model)} · ${esc(l.sub)}</td><td>${l.n}</td><td>${fmt(l.sum)} ${s}</td>
         <td>${esc(l.neck)} <small class="muted">${fmt(l.max)} ${s}</small></td><td>${l.over ? `<b style="color:#c0392b">${l.over}</b>` : '0'}</td><td>${l.tk ? fmt(l.eff) + '%' : '—'}</td>
@@ -302,8 +302,9 @@
   }
   function recent(studies, jobs) {
     const { esc, fmt } = U();
-    const rows = [...studies.slice(0, 5).map(x => ({ tg: 'Time Study', n: x.name, d: x.date, ct: x.ct })), ...jobs.slice(0, 5).map(j => ({ tg: t('tagJob'), n: j.name, d: j.date }))];
-    if (!rows.length) return `<div class="blank">${esc(t('noArea'))}</div>`;
+    const rows = [...studies.map(x => ({ tg: 'Time Study', n: x.name, d: x.date, ct: x.ct })), ...jobs.map(j => ({ tg: t('tagJob'), n: j.name, d: j.date }))]
+      .sort((a, b) => String(b.d || '').localeCompare(String(a.d || ''))).slice(0, 10);
+    if (!rows.length) return `<div class="blank">${esc(t(D().canEdit() ? 'noArea' : 'noAreaRo'))}</div>`;
     return `<section class="panel"><div class="panelhead"><h2>${esc(t('recent'))}</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.tg)}</span><b>${esc(r.n || '—')}</b><small>${esc(r.d || '')}</small>${r.ct != null ? `<em>${fmt(r.ct)} ${t('s')}</em>` : ''}</div>`).join('')}</div></section>`;
   }
 
@@ -327,14 +328,14 @@
     const r = C.swctLine(lanes, line.tk, Object.assign({ lab: swctLabels() }, opt || {}));
     const G = r.groups, cts = G.map(g => g.ct), n = G.length, sum = cts.reduce((a, b) => a + b, 0), max = Math.max(...cts), min = Math.min(...cts);
     return { lanes, missing, tk: line.tk, r, n, sum, max, min, avg: sum / n, slow: G.find(g => g.ct === max), fast: G.find(g => g.ct === min), multi: G.some(g => g.multi),
-      lbr: sum / (n * max) * 100, eff: line.tk ? sum / (n * line.tk) * 100 : 0, minSt: line.tk ? Math.ceil(sum / line.tk - 1e-9) : 0, over: line.tk ? G.filter(g => g.ct > line.tk) : [] };
+      stLbr: line.lbr, lbr: sum / (n * max) * 100, eff: line.tk ? sum / (n * line.tk) * 100 : 0, minSt: line.tk ? Math.ceil(sum / line.tk - 1e-9) : 0, over: line.tk ? G.filter(g => g.ct > line.tk) : [] };
   }
   const opLabel = g => g.label + (g.multi ? ' ' + swctLabels().person.split('\n')[0] + ' ' + g.op : '');
   function swctFacts(x) {   // [[ป้าย, ค่า], ...] สองแถว: สรุปเวลา · Line Balance
     const { fmt } = U(), s = ' ' + t('s');
     const a = [[t('sw_st'), String(x.lanes.length)], ['TAKT', x.tk ? fmt(x.tk) + s : '—'], [t('sw_ctMax'), fmt(x.max) + s + ' (' + opLabel(x.slow) + ')'],
       [t('sw_ctMin'), fmt(x.min) + s + ' (' + opLabel(x.fast) + ')'], [t('sw_avg'), fmt(x.avg) + s]];
-    const b = [['Line Balance Rate', fmt(x.lbr) + '%'], [t('sw_loss'), fmt(100 - x.lbr) + '%'], ['ΣCT', fmt(x.sum) + s], [t('sw_neck'), opLabel(x.slow) + ' ' + fmt(x.max) + s]];
+    const b = [['Line Balance Rate', fmt(x.stLbr) + '%'], [t('lbrOp'), fmt(x.lbr) + '%'], [t('sw_loss'), fmt(100 - x.lbr) + '%'], ['ΣCT', fmt(x.sum) + s], [t('sw_neck'), opLabel(x.slow) + ' ' + fmt(x.max) + s]];
     if (x.tk) b.push([t('sw_eff'), fmt(x.eff) + '%'], [t('sw_min', x.minSt, x.n, x.multi), '']);
     return { a, b, over: x.over.length ? t('sw_over', x.over.length, x.over.map(g => g.label).join(', ')) : '' };
   }
@@ -347,7 +348,7 @@
     else {
       const F = swctFacts(x), span = ([k, v], cls) => `<span${cls ? ` class="${cls}"` : ''}>${esc(k)}${v ? ` <b>${esc(v)}</b>` : ''}</span>`;
       body = `<div class="swct-sum">${F.a.map(p => span(p)).join('')}${F.over ? `<span class="swct-over">${esc(F.over)}</span>` : ''}</div>` +
-        `<div class="sb-lbr">${F.b.map((p, i) => i === 0 ? `<span>${esc(p[0])} <b style="color:${lbrColor(x.lbr)}">${esc(p[1])}</b></span>` : span(p)).join('')}</div>` +
+        `<div class="sb-lbr">${F.b.map((p, i) => i === 0 ? `<span>${esc(p[0])} <b style="color:${lbrColor(x.stLbr)}">${esc(p[1])}</b></span>` : span(p)).join('')}<span class="lbr-f">${esc(t('lbrBoth'))}</span></div>` +
         (x.missing.length ? `<p class="muted">${esc(t('swctMissing', x.missing.join(', ')))}</p>` : '') + `<div class="swct-scroll">${x.r.svg}</div>`;
     }
     return `<section class="panel" id="dz-swct"><div class="panelhead"><h2>${esc(t('swctTitle'))}</h2><div class="dz-swct-ctl">
@@ -459,16 +460,19 @@
   async function downloadPpt(btn, ctx) {
     const label = btn.textContent; btn.disabled = true; btn.textContent = t('building');
     try {
+      btn.textContent = t('pptStep1');
       if (!window.PptxGenJS) await loadScript(PPTX_CDN);
+      if (!window.JSZip) await loadScript(JSZIP_CDN);
+      btn.textContent = t('pptStep2');
       const R = reportData(ctx);
       R.swct = await swctReport(ctx.lineBalance());
       const pptx = window.CPSPptReport.build(window.PptxGenJS, R, new URL('ppt/', location.href).href);
-      if (!window.JSZip) await loadScript(JSZIP_CDN);
+      btn.textContent = t('pptStep3');
       const blob = await window.CPSPptReport.toBlob(pptx, window.JSZip);
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = window.CPSPptReport.fileName(R);
       document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
-      U().toast(t('pptDone'));
-    } catch (e) { U().toast(t('pptFail', e.message)); }
+      U().toast(t('pptDone'), 6000);
+    } catch (e) { U().toast(t('pptFail', e.message), 9000); }
     finally { btn.disabled = false; btn.textContent = label; }
   }
   window.__cpsReportData = () => reportData(ctxSaved);   // ใช้ทดสอบ
