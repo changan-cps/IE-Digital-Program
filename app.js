@@ -421,7 +421,7 @@
       lv: { factory: 'Factory', workshop: 'Workshop level', group: 'Group level', team: 'Team level' }, step1: 'Access level', step2: 'Workshop', step3: 'Group', step4: 'Team', back: '← Back (keep this area)', choose: '— Choose —', addNew: '➕ Add new…', enter: 'Enter →', view: 'View analysis →',
       opts: { team: '🧑‍🔧 Team — record and work, own team only', group: '👥 Group — analyse all teams in the group', workshop: '🏢 Workshop — analyse the whole workshop', factory: '🏭 Factory — analyse every area' },
       sync: { ok: 'Synced', pending: 'Syncing', error: 'Sync failed', off: 'This device only' } },
-    zh: { tabs: ['仪表板', '工时研究', '工位平衡', '改善分析'], sw: '切换区域', out: '退出', foot: '区域：', gate: '选择使用级别，然后选择区域',
+    zh: { tabs: ['仪表板', '工时研究', '工位平衡', '改善分析'], sw: '切换区域', out: '退出', foot: '区域', gate: '选择使用级别，然后选择区域',
       lv: { factory: '工厂', workshop: '车间级', group: '组级', team: '班组级' }, step1: '使用级别', step2: '车间', step3: '组', step4: '班组', back: '← 返回（不切换区域）', choose: '— 请选择 —', addNew: '➕ 新增…', enter: '进入 →', view: '查看分析 →',
       opts: { team: '🧑‍🔧 班组 — 记录与作业，仅本班组', group: '👥 组 — 分析组内所有班组', workshop: '🏢 车间 — 分析整个车间', factory: '🏭 工厂 — 分析所有区域' },
       sync: { ok: '已同步', pending: '同步中', error: '同步失败', off: '仅本机' } },
@@ -449,17 +449,52 @@
     if (scope && $('#scope-crumb')) { $('#scope-crumb').textContent = crumbText(); $('#foot-scope').textContent = crumbText(); }
     setSync(syncState, $('#sync-badge') ? $('#sync-badge').title : '');
     document.documentElement.lang = L === 'zh' || L === 'zhen' ? 'zh-Hans' : L;
+    if (window.CPSDom) window.CPSDom.apply();
   }
-  // วันที่แบบเดียวทั้งแอป: 24 พ.ย. 2569 (+ เวลา)
+  // ข้อมูลที่ผู้ใช้พิมพ์: ไม่ถูกแปลตามภาษาหน้าจอ
+  const ud = s => `<span translate="no">${esc(s)}</span>`;
+  // วันที่แบบเดียวทั้งแอป: 24 พ.ย. 2569 (+ เวลา) · ตามภาษาที่เลือก
   function dateTxt(v, time) {
     if (v == null || v === '') return '';
     const d = typeof v === 'number' ? new Date(v) : /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v + 'T00:00:00') : new Date(v);
     if (isNaN(d)) return String(v);
-    return d.toLocaleString('th-TH', Object.assign({ day: 'numeric', month: 'short', year: 'numeric' }, time ? { hour: '2-digit', minute: '2-digit' } : {}));
+    const L = (window.CPSDashI18n && window.CPSDashI18n.lang) || 'th';
+    return d.toLocaleString(L === 'en' ? 'en-GB' : L === 'th' ? 'th-TH' : 'zh-CN', Object.assign({ day: 'numeric', month: 'short', year: 'numeric' }, time ? { hour: '2-digit', minute: '2-digit' } : {})).replace('Sept', 'Sep');
+  }
+  // ลบแบบเลิกทำได้ 10 วินาที (แทนการถามยืนยัน)
+  function removeUndo(kind, id, msg, after) {
+    const rec = (store[kind] || []).find(x => x.id === id); if (!rec) return;
+    const copy = JSON.parse(JSON.stringify(rec));
+    remove(kind, id); if (after) after();
+    const t = $('#toast'); if (!t) return;
+    t.innerHTML = `<span>${esc(msg)}</span> <button type="button" class="toast-undo">เลิกทำ</button>`;
+    t.classList.add('show', 'has-action'); clearTimeout(toastT);
+    const hide = () => t.classList.remove('show', 'has-action');
+    t.querySelector('.toast-undo').onclick = () => { hide(); store[kind].push(copy); persist(); upsert(kind, copy); if (after) after(); toast('กู้คืนแล้ว'); };
+    toastT = setTimeout(hide, 10000);
+  }
+  // คู่มือย่อ (ปุ่ม ? บนแถบบน)
+  function openHelp() {
+    let d = $('#help-dlg');
+    if (!d) {
+      d = document.createElement('dialog'); d.id = 'help-dlg'; d.className = 'help-dlg';
+      d.innerHTML = `<div class="dlg"><div class="dlg-head"><h2>วิธีใช้ CPS IE Studio</h2></div>
+        <ol class="help-steps"><li><b>Time Study</b> — เลือกวิดีโอ กด “มาร์คจุดเริ่ม” แล้วกด “ตัดจบขั้นตอน (Lap)” ทุกครั้งที่จบขั้นตอน เลือก VA / NNVA / NVA ให้ทุกแถว แล้วบันทึก</li>
+        <li><b>สมดุลสถานี</b> — ดูภาระงานเทียบ TAKT ของทุกสถานี กด “→ ขั้นตอน” เพื่อทำ Workflow 6 ขั้นของสถานีนั้น</li>
+        <li><b>วิเคราะห์งาน</b> — เทียบ Before / After เลือกสถานีให้ตรงกับ Time Study แล้วระบบจะดึงคะแนนมาให้</li>
+        <li><b>แดชบอร์ด</b> — ดูแนวโน้ม CT, VA และ Line Balance Rate และดาวน์โหลดรายงาน PPT</li></ol>
+        <p><b>คีย์ลัด</b> Space ตัดจบขั้นตอน · M มาร์คจุดเริ่ม · P เล่น/หยุด · Z ย้อน Lap · ← → ทีละ 0.1 วินาที · Ctrl+S บันทึก</p>
+        <p><b>สูตร</b> Line Balance Rate = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 · TAKT = 3600 ÷ JPH</p>
+        <p><b>AI</b> ใช้ Gemini ผ่านเซิร์ฟเวอร์กลาง — ถ้าปุ่ม AI แจ้งว่ายังไม่ได้ตั้งค่า ให้ผู้ดูแลระบบใส่ API key ที่หน้า Admin</p>
+        <div class="dlg-actions"><button type="button" class="primary" data-close>ปิด</button></div></div>`;
+      document.body.appendChild(d);
+      d.querySelector('[data-close]').onclick = () => d.close();
+    }
+    d.showModal();
   }
   // ---------- toast ----------
   let toastT;
-  function toast(m, ms) { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms || Math.max(4000, 60 * String(m).length)); }
+  function toast(m, ms) { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.remove('has-action'); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms || Math.max(4000, 60 * String(m).length)); }
   // in-page input dialog (replaces prompt): fields = [{name,label,type?,options?}] -> Promise<object|null>
   function ask(title, fields, opt) {
     opt = opt || {};
@@ -600,6 +635,7 @@
   }
   function showTab(tab) {
     if (tab !== currentTab && dirtyEditor()) return guardLeave(() => showTab(tab));
+    if (tab !== currentTab) scrollTo(0, 0);
     currentTab = tab;
     const tbh = $('.topbar') ? $('.topbar').offsetHeight : 0; if (tbh) document.documentElement.style.setProperty('--topbar-h', tbh + 'px');
     $$('#tabs button').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
@@ -681,7 +717,7 @@
     const rows = [...studies.slice(0, 5).map(s => ({ t: 'Time Study', n: s.name, d: s.date, ct: s.ct })),
     ...jobs.slice(0, 5).map(j => ({ t: 'วิเคราะห์งาน', n: j.name, d: j.date }))];
     if (!rows.length) return '<div class="blank">ยังไม่มีข้อมูลในพื้นที่นี้ เริ่มจากปุ่มด้านบน</div>';
-    return `<section class="panel"><div class="panelhead"><h2>ล่าสุด</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.t)}</span><b>${esc(r.n || '—')}</b><small>${esc(r.d || '')}</small>${r.ct != null ? `<em>${fmt(r.ct)} วิ</em>` : ''}</div>`).join('')}</div></section>`;
+    return `<section class="panel"><div class="panelhead"><h2>ล่าสุด</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.t)}</span><b>${ud(r.n || '—')}</b><small>${esc(dateTxt(r.d))}</small>${r.ct != null ? `<em>${fmt(r.ct)} วิ</em>` : ''}</div>`).join('')}</div></section>`;
   }
 
   // ================= wire up =================
@@ -700,6 +736,13 @@
     $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     $('#btn-switch').onclick = () => guardLeave(() => openGate(scope));
     if ($('#gate-cancel')) $('#gate-cancel').onclick = () => openApp();
+    if ($('#btn-help')) $('#btn-help').onclick = openHelp;
+    // Ctrl+S / ⌘S บันทึกหน้าที่กำลังแก้
+    addEventListener('keydown', e => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's' || $('#app').hidden || document.querySelector('dialog[open]')) return;
+      const b = $('#tab-' + currentTab + ' #ts-save') || $('#tab-' + currentTab + ' #an-save');
+      if (b) { e.preventDefault(); b.click(); }
+    });
     // ลูกศรซ้าย/ขวาสลับแท็บ (แบบ tablist มาตรฐาน)
     $('#tabs').addEventListener('keydown', e => {
       if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
@@ -740,10 +783,10 @@
   // ---------- public API for modules ----------
   window.CPS = {
     boot,
-    util: { $, $$, uid, esc, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
+    util: { $, $$, uid, esc, ud, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
-      listStudies, listJobs, listStations, upsert, remove, canEdit,
+      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },
       advise, balance, RULES,
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },

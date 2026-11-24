@@ -13,7 +13,7 @@
 
   // ---------- periods ----------
   const parseD = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? new Date(+m[1], m[2] - 1, +m[3]) : null; };
-  const dt = (d, o) => d.toLocaleDateString(I().locale(), o);
+  const dt = (d, o) => d.toLocaleDateString(I().locale(), o).replace('Sept', 'Sep');
   function buckets(m) {
     const out = [], now = new Date(); now.setHours(0, 0, 0, 0);
     if (m === 'week') {
@@ -189,7 +189,7 @@
       const good = goodDown ? d < 0 : d > 0;
       return `<span class="dz-d ${good ? 'up' : 'down'}">${d < 0 ? '▼' : '▲'} ${fmt(Math.abs(d))}${unit} ${t('vsPrev', mode)}</span>`;
     };
-    const kpi = (label, val, unit, sub, color) => `<div class="stat"><small>${esc(label)}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + esc(unit) : ''}</em></strong>${sub ? `<span>${sub}</span>` : ''}</div>`;
+    const kpi = (label, val, unit, sub, color) => `<div class="stat"><small>${esc(label).replace(/\n/g, '<br>')}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + esc(unit) : ''}</em></strong>${sub ? `<span>${sub}</span>` : ''}</div>`;
     const title = scope.team || scope.group || scope.workshop || t('allAreas');
     const levelLabel = t('level_' + (scope.level || 'team'));
     const subT = [scope.workshop, scope.group].filter(x => x && x !== title).join(' / ');
@@ -204,14 +204,13 @@
       `<button type="button" class="ghost" data-goto>${esc(t('attGo'))}</button></section>` : '';
 
     el.innerHTML = `
-      <div class="page-head dz-head"><div><p class="eyebrow">${esc(levelLabel)}</p><h1>${esc(title)}</h1>${subT ? `<p class="muted">${esc(subT)}</p>` : ''}</div>
+      <div class="page-head dz-head"><div class="dz-id"><h1>${esc(title)}</h1><p class="muted dz-meta"><b>${esc(levelLabel)}</b>${subT ? ' · ' + esc(subT) : ''} · ${esc(t('range', n, mode, rangeText(B)))}</p></div>
         <div class="dz-actions">
           <label class="dz-lang" title="${esc(t('repLangTip'))}"><span>${esc(t('repLang'))}</span><select data-langsel>${I().LANGS.map(([k, l]) => `<option value="${k}"${I().lang === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
           <button class="dz-ppt" data-ppt title="${esc(t('pptTip'))}">${esc(t('ppt'))}</button>
           <div class="dz-tabs" role="tablist">${[['week', t('weekly')], ['month', t('monthly')]].map(([k, x]) => `<button role="tab" data-mode="${k}" class="${mode === k ? 'active' : ''}" aria-selected="${mode === k}">${esc(x)}</button>`).join('')}</div>
         </div></div>
       ${!D().canEdit() ? `<div class="ro-banner">${esc(t('roBanner'))}</div>` : ''}
-      <p class="muted dz-range">${esc(t('range', n, mode, rangeText(B)))}</p>
       <div class="cards dz-cards">
         ${kpi('Time Study', nSt, t('items'), esc(t('latestCount', mode, last.st.length)))}
         ${kpi(I().tn('r_ctLatest', mode), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? esc(B[iCt].long) + (same && same.n ? '<br>' + delta(same.cur, same.prev, ' ' + s, true) + ` <small class="dz-same">${esc(t('sameSt', same.n))}</small>` : same ? `<br><small class="dz-same">${esc(t('noSame'))}</small>` : '') : esc(t('noStudy')))}
@@ -303,7 +302,7 @@
     const { esc, fmt } = U(), s = t('s');
     if (!kz.length) return `<div class="blank">${esc(t('noJobsPeriod'))}</div>`;
     const top = kz.slice().sort((a, b) => b.red - a.red).slice(0, 6), mx = Math.max(...top.map(k => k.red), 1);
-    return `<ol class="dz-toplist">${top.map(k => `<li><div><b>${esc(k.j.name || k.j.station || '—')}</b><small class="muted">${esc([k.j.team, k.j.station].filter(Boolean).join(' · '))} · ${esc(k.j.date || '')}</small></div>
+    return `<ol class="dz-toplist">${top.map(k => `<li><div><b>${U().ud(k.j.name || k.j.station || '—')}</b><small class="muted">${esc([k.j.team, k.j.station].filter(Boolean).join(' · '))} · ${esc(k.j.date || '')}</small></div>
       <div class="dz-topbar"><i style="width:${Math.max(2, k.red / mx * 100)}%"></i></div>
       <span><b>−${fmt(k.red)} ${s}</b><small>${fmt(k.bf)} → ${fmt(k.af)} ${s} (−${fmt(k.pct)}%)</small></span></li>`).join('')}</ol>`;
   }
@@ -325,7 +324,7 @@
     const rows = [...studies.map(x => ({ tg: 'Time Study', n: x.name, d: x.date, ct: x.ct })), ...jobs.map(j => ({ tg: t('tagJob'), n: j.name, d: j.date }))]
       .sort((a, b) => String(b.d || '').localeCompare(String(a.d || ''))).slice(0, 10);
     if (!rows.length) return `<div class="blank">${esc(t(D().canEdit() ? 'noArea' : 'noAreaRo'))}</div>`;
-    return `<section class="panel"><div class="panelhead"><h2>${esc(t('recent'))}</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.tg)}</span><b>${esc(r.n || '—')}</b><small>${esc(r.d || '')}</small>${r.ct != null ? `<em>${fmt(r.ct)} ${t('s')}</em>` : ''}</div>`).join('')}</div></section>`;
+    return `<section class="panel"><div class="panelhead"><h2>${esc(t('recent'))}</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.tg)}</span><b>${U().ud(r.n || '—')}</b><small>${esc(r.d || '')}</small>${r.ct != null ? `<em>${fmt(r.ct)} ${t('s')}</em>` : ''}</div>`).join('')}</div></section>`;
   }
 
   // ---------- SWCT ทั้งไลน์ (ใช้ตัววาดเดียวกับหน้าสมดุลสถานี) ----------
@@ -370,7 +369,7 @@
       const F = swctFacts(x), span = ([k, v], cls) => `<span${cls ? ` class="${cls}"` : ''}>${esc(k)}${v ? ` <b>${esc(v)}</b>` : ''}</span>`;
       body = `<div class="swct-sum">${F.a.map(p => span(p)).join('')}${F.over ? `<span class="swct-over">${esc(F.over)}</span>` : ''}</div>` +
         window.CPSLine.strip(x.st, x.op) +
-        (x.missing.length ? `<p class="muted">${esc(t('swctMissing', x.missing.join(', ')))}</p>` : '') + `<div class="swct-scroll">${x.r.svg}</div>`;
+        (x.missing.length ? `<p class="muted">${esc(t('swctMissing', x.missing.join(', ')))}</p>` : '') + `<details class="dz-swct-more"><summary>${esc(t('swctShow'))}</summary><div class="swct-scroll">${x.r.svg}</div></details>`;
     }
     return `<section class="panel" id="dz-swct"><div class="panelhead"><h2>${esc(t('swctTitle'))}</h2><div class="dz-swct-ctl">
       <label>${esc(t('swctLine'))} <select data-sw="line">${lb.lines.map(l => `<option value="${esc(lineKey(l))}"${l === cur ? ' selected' : ''}>${esc(areaOf(l))} · ${esc(l.model)} / ${esc(l.sub)} · LBR ${fmt(l.lbr)}%</option>`).join('')}</select></label>

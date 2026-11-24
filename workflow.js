@@ -103,7 +103,7 @@
     const d = document.createElement('div'); d.className = 'wf-pad';
     if (job) {
       const b = U().totals(job.before), a = U().totals(job.after);
-      d.innerHTML = `<p>งานวิเคราะห์: <b>${esc(job.name)}</b> · Before CT ${fmt(b.ct)} วิ · After ${a.count ? fmt(a.ct) + ' วิ' + (job.autoAfter ? ' (ร่างอัตโนมัติ)' : '') : 'ยังไม่มี'}</p>`;
+      d.innerHTML = `<p>งานวิเคราะห์: <b>${U().ud(job.name)}</b> · Before CT ${fmt(b.ct)} วิ · After ${a.count ? fmt(a.ct) + ' วิ' + (job.autoAfter ? ' (ร่างอัตโนมัติ)' : '') : 'ยังไม่มี'}</p>`;
     } else d.innerHTML = `<p class="muted">ยังไม่มีงานวิเคราะห์ของสถานีนี้ (ระบบจะสร้างให้เองเมื่อบันทึก Time Study ของสถานีนี้)</p>`;
     const b = el('button', st.s2 ? 'ghost' : 'primary', st.s2 ? 'เปิดวิเคราะห์งาน' : 'ไปทำวิเคราะห์งาน');
     b.onclick = () => window.CPS.showTab('analysis');
@@ -167,7 +167,7 @@
     const box = el('div', 'wf-advise ' + (prop.feasible ? 'ok' : 'improve'));
     box.innerHTML = `<b>ข้อเสนอของระบบ</b><p>งานรวม ${fmt(prop.total)} วิ · ${items.length} สถานี · เพดาน ${fmt(prop.limit)} วิ/สถานี · ต้องใช้อย่างน้อย ${prop.minStations} สถานี</p>` +
       (prop.feasible ? '' : `<p><b>เกลี่ยไม่ลงภายใน ${items.length} สถานี</b> ยังเกินอยู่ ${fmt(prop.shortage)} วิ → ต้องลดงานเพิ่ม เพิ่มสถานี/คน หรือปรับ JPH</p>`) +
-      (prop.moves.length ? `<ul>${prop.moves.map(m => `<li>ย้ายงาน <b>${fmt(m.sec)} วิ</b> จาก <b>${esc(m.from)}</b> → <b>${esc(m.to)}</b>${m.pick.names && m.pick.names.length ? ' · ขั้นตอนที่เสนอ: ' + esc(m.pick.names.join(', ')) : m.pick.split ? ' · ต้องแบ่งขั้นตอน “' + esc(m.pick.split) + '” (' + fmt(m.pick.splitSec) + ' วิ)' : ''}</li>`).join('')}</ul>` : '<p>ทุกสถานีอยู่ในเพดานแล้ว ไม่ต้องย้ายงาน</p>');
+      (prop.moves.length ? `<ul>${prop.moves.map(m => `<li>ย้ายงาน <b>${fmt(m.sec)} วิ</b> จาก <b>${esc(m.from)}</b> → <b>${esc(m.to)}</b>${m.pick.names && m.pick.names.length ? ' · ขั้นตอนที่เสนอ: ' + U().ud(m.pick.names.join(', ')) : m.pick.split ? ' · ต้องแบ่งขั้นตอน “' + U().ud(m.pick.split) + '” (' + fmt(m.pick.splitSec) + ' วิ)' : ''}</li>`).join('')}</ul>` : '<p>ทุกสถานีอยู่ในเพดานแล้ว ไม่ต้องย้ายงาน</p>');
     d.appendChild(box);
 
     const tbl = document.createElement('div'); tbl.className = 'table-scroll';
@@ -205,7 +205,7 @@
     if (w.newOis && w.newOis.code) {
       const o = w.newOis;
       d.innerHTML = `<p>รหัส OIS ใหม่: <b>${esc(o.code)}</b> · สร้างเมื่อ ${esc(U().dateTxt(o.generatedAt, true))}</p>
-        <table class="el-table"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วิ</th><th>ประเภท</th></tr></thead><tbody>${(o.steps || []).map((s, i) => `<tr><td class="idx">${i + 1}</td><td>${esc(s.name)}</td><td>${fmt(num(s.sec))}</td><td>${esc(s.type)}</td></tr>`).join('')}</tbody></table>`;
+        <table class="el-table"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วิ</th><th>ประเภท</th></tr></thead><tbody>${(o.steps || []).map((s, i) => `<tr><td class="idx">${i + 1}</td><td>${U().ud(s.name)}</td><td>${fmt(num(s.sec))}</td><td>${esc(s.type)}</td></tr>`).join('')}</tbody></table>`;
       const sent = w.approval && w.approval.submitted;
       if (sent) d.insertAdjacentHTML('beforeend', '<p class="muted">ส่งอนุมัติแล้ว — ถ้าจะแก้ OIS ให้ถอนการส่งในขั้น 6 ก่อน</p>');
       else if (o.reviewed) d.insertAdjacentHTML('beforeend', '<p class="wf-okline">✓ ตรวจแล้ว — ส่งอนุมัติได้ในขั้น 6</p>');

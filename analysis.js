@@ -40,7 +40,7 @@
         `<section class="panel"><div class="recent">${jobs.map(j => {
           const b = U().totals(j.before), a = U().totals(j.after);
           const saved = b.ct - a.ct, has = a.count > 0;
-          return `<div class="recent-row"><b>${esc(j.name || 'ไม่มีชื่อ')}</b><small>${esc([j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
+          return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
             <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}</em>
             <span class="row-btns"><button data-edit="${j.id}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}">ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
@@ -48,7 +48,7 @@
     const dg = host.querySelector('#an-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.j; snaps.set(editing, ''); renderEditor(); };
     const dd = host.querySelector('#an-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่างงานวิเคราะห์นี้? ข้อมูลในร่างจะหายถาวร', [], { ok: 'ทิ้งร่าง', cancel: 'เก็บไว้' })) { dropDraft(); renderList(); } };
     host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = structuredClone(D().listJobs().find(j => j.id === b.dataset.edit)); renderEditor(); });
-    host.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (await U().ask('ลบงานวิเคราะห์นี้? ลบแล้วกู้คืนไม่ได้', [], { ok: 'ลบงาน', cancel: 'ไม่ลบ' })) { D().remove('jobs', b.dataset.del); renderList(); } });
+    host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => D().removeUndo('jobs', b.dataset.del, 'ลบงานวิเคราะห์แล้ว', renderList));
   }
 
   function renderEditor() {
@@ -60,7 +60,8 @@
       <section class="panel"><div class="panelhead"><h2>ข้อมูลงาน</h2></div>
         <div class="field-grid">
           ${fld('ชื่องาน', 'name', j.name, 'เช่น ประกอบฝาปั๊ม')}
-          ${fld('สาย/สถานี', 'line', j.line, 'เช่น GA-TA1A-01')}
+          ${stationPick(j)}
+          ${fld('ทีม / ไลน์', 'line', j.line, 'เช่น CA-A')}
           ${fld('ผู้ปฏิบัติงาน', 'operator', j.operator)}
           ${fld('ผู้วิเคราะห์', 'analyst', j.analyst)}
           ${fld('วันที่', 'date', j.date, '', 'date')}
@@ -76,7 +77,7 @@
       <section id="an-4m" class="panel"></section>
       <section id="an-target" class="panel"></section>
       <section id="an-train" class="panel"></section>`;
-    host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => j[inp.dataset.f] = inp.value);
+    host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = inp.onchange = () => { j[inp.dataset.f] = inp.value; if (inp.dataset.f === 'station' && typeof observe === 'function') observe(); });
     host.querySelector('#an-back').onclick = async () => {
       if (isDirty() && !(await U().ask('ยังไม่ได้บันทึกงานวิเคราะห์นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)', [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }))) return;
       leave(); renderList();
@@ -206,6 +207,13 @@
     }
     el.querySelector('.add').onclick = () => { list.push({ id: U().uid(), cat: 'method', text: '', prio: 'P1' }); suggest(); };
   }
+  // ผูกกับ Time Study ด้วยรหัสสถานีจากรายการ (ไม่ต้องพิมพ์ชื่อให้ตรง)
+  function stationPick(j) {
+    const { esc } = U();
+    const codes = [...new Set([...D().listStations().map(r => r.station), ...D().listStudies().map(s => s.station)].filter(Boolean))].sort();
+    const cur = j.station || '';
+    return `<label class="field"><span>สถานี (ผูกกับ Time Study)</span><select data-f="station"><option value="">— ไม่ผูก (ใช้ชื่องาน) —</option>${codes.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`).join('')}${cur && !codes.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : ''}</select></label>`;
+  }
   function fld(label, key, val, ph, type) {
     const { esc } = U();
     return `<label class="field"><span>${esc(label)}</span><input data-f="${key}" ${type ? `type="${type}"` : ''} value="${esc(val)}" placeholder="${esc(ph || '')}"></label>`;
@@ -326,12 +334,12 @@
     const tr = trainTotals(j.training);
     const win = window.open('', '_blank'); if (!win) { U().toast('เบราว์เซอร์บล็อก popup'); return; }
     const row = (l, bb, aa) => `<tr><th>${l}</th><td>${bb}</td><td>${has ? aa : '—'}</td></tr>`;
-    const elTbl = (list, cap) => !list.length ? '' : `<h3>${cap}</h3><table class="el"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วิ</th><th>ประเภท</th></tr></thead><tbody>${list.map((e, i) => `<tr><td>${i + 1}</td><td>${esc(e.name)}</td><td style="text-align:right">${fmt(num(e.sec))}</td><td>${e.type}</td></tr>`).join('')}</tbody></table>`;
+    const elTbl = (list, cap) => !list.length ? '' : `<h3>${cap}</h3><table class="el"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วิ</th><th>ประเภท</th></tr></thead><tbody>${list.map((e, i) => `<tr><td>${i + 1}</td><td>${U().ud(e.name)}</td><td style="text-align:right">${fmt(num(e.sec))}</td><td>${e.type}</td></tr>`).join('')}</tbody></table>`;
     win.document.write(`<!doctype html><meta charset="utf-8"><title>รายงานวิเคราะห์งาน · ${esc(j.name || '')}</title>
 <style>body{font-family:system-ui,'Segoe UI',sans-serif;color:#17324b;padding:26px;max-width:900px;margin:auto}h1{border-bottom:3px solid #0879d5;padding-bottom:12px}h2{margin:24px 0 8px}table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}th,td{border:1px solid #cbd7e2;padding:7px 9px;text-align:left}th{background:#eef5fb}.meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:14px;margin:14px 0}.concl{line-height:1.8;background:#f3f7fa;padding:12px;border-radius:8px}@media print{@page{size:A4;margin:14mm}}</style>
 <body onload="print()"><h1>รายงานวิเคราะห์งาน (Before / After)</h1>
-<div class="meta"><div><b>งาน:</b> ${esc(j.name || '—')}</div><div><b>สาย/สถานี:</b> ${esc(j.line || '—')}</div><div><b>ผู้ปฏิบัติงาน:</b> ${esc(j.operator || '—')}</div><div><b>ผู้วิเคราะห์:</b> ${esc(j.analyst || '—')}</div><div><b>วันที่:</b> ${esc(j.date || '—')}</div><div><b>ปัญหา:</b> ${esc(j.problem || '—')}</div></div>
-<p><b>เป้าหมาย:</b> ${esc(j.target || '—')}</p>
+<div class="meta"><div><b>งาน:</b> ${U().ud(j.name || '—')}</div><div><b>สาย/สถานี:</b> ${esc(j.line || '—')}</div><div><b>ผู้ปฏิบัติงาน:</b> ${U().ud(j.operator || '—')}</div><div><b>ผู้วิเคราะห์:</b> ${esc(j.analyst || '—')}</div><div><b>วันที่:</b> ${esc(j.date || '—')}</div><div><b>ปัญหา:</b> ${U().ud(j.problem || '—')}</div></div>
+<p><b>เป้าหมาย:</b> ${U().ud(j.target || '—')}</p>
 <h2>สรุปเปรียบเทียบ</h2><table><thead><tr><th>รายการ</th><th>ก่อน</th><th>หลัง</th></tr></thead><tbody>
 ${row('รอบเวลา (วิ)', fmt(b.ct), fmt(a.ct))}${row('VA (วิ)', fmt(b.VA), fmt(a.VA))}${row('NNVA (วิ)', fmt(b.NNVA), fmt(a.NNVA))}${row('NVA (วิ)', fmt(b.NVA), fmt(a.NVA))}${row('VA %', fmt(b.vaPct), fmt(a.vaPct))}
 </tbody></table><p><b>${has ? 'ลดรอบเวลา ' + fmt(saved) + ' วิ (' + fmt(savedPct) + '%)' : 'ยังไม่มีข้อมูลหลังปรับปรุง'}</b></p>

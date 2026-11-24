@@ -14,22 +14,27 @@
 
   // ป้ายของหน้าสรุป (ส่วนที่ผู้จัดการเปิดดู) ตามภาษาที่เลือกบนแดชบอร์ด · โหมดแก้ไขตารางยังเป็นภาษาไทย
   const SBT = {
-    th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'ระบบแนะนำปรับปรุง', sub: 'รุ่นย่อย',
-      yz: 'กราฟ Yamazumi (Line Balance)', noRound: 'ไม่มีรอบจับเวลา', swct: '📊 SWCT ทั้งไลน์', edit: '✎ แก้ไขตาราง', done: '✓ เสร็จสิ้นการแก้ไข', add: '＋ เพิ่มสถานี',
-      ro: '👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม', th: ['STATION', 'TEAM', 'JPH', 'TAKT', 'CT สูงสุด', 'ภาระงาน', 'OIS', 'ระบบแนะนำ / ขั้นตอน'],
+    th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'แนะนำปรับปรุง (ยังไม่ดำเนินการ)', sub: 'รุ่นย่อย',
+      yz: 'กราฟ Yamazumi (Line Balance)', noRound: 'ไม่มีรอบจับเวลา', swct: '📊 SWCT ทั้งไลน์', edit: '✎ แก้ไขตาราง', done: '✓ เสร็จสิ้นการแก้ไข', cancel: 'ยกเลิกการแก้ไข', add: '＋ เพิ่มสถานี',
+      ro: '👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม', th: ['สถานี', 'ทีม', 'JPH', 'TAKT', 'CT สูงสุด', 'ภาระงาน', 'OIS', 'ระบบแนะนำ / ขั้นตอน'],
       improve: 'ควรปรับปรุง', ok: 'ปกติ', wait: 'รอข้อมูล', step: '→ ขั้นตอน', twoHand: 'SWCT / สองมือ' },
-    en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'Suggested to improve', sub: 'sub-model',
-      yz: 'Yamazumi chart (line balance)', noRound: 'no timing round', swct: '📊 Line SWCT', edit: '✎ Edit table', done: '✓ Done editing', add: '＋ Add station',
-      ro: '👁️ Analysis mode (read only) — several teams combined', th: ['STATION', 'TEAM', 'JPH', 'TAKT', 'Max CT', 'Load', 'OIS', 'Advice / steps'],
+    en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'To improve (not started)', sub: 'sub-model',
+      yz: 'Yamazumi chart (line balance)', noRound: 'no timing round', swct: '📊 Line SWCT', edit: '✎ Edit table', done: '✓ Done editing', cancel: 'Discard changes', add: '＋ Add station',
+      ro: '👁️ Analysis mode (read only) — several teams combined', th: ['Station', 'Team', 'JPH', 'TAKT', 'Max CT', 'Load', 'OIS', 'Advice / steps'],
       improve: 'Improve', ok: 'OK', wait: 'No data', step: '→ Steps', twoHand: 'SWCT / two-hand' },
-    zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '建议改善', sub: '子车型',
-      yz: '山积图 (Yamazumi)', noRound: '无计时轮次', swct: '📊 整线 SWCT', edit: '✎ 编辑表格', done: '✓ 完成编辑', add: '＋ 添加工位',
+    zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '建议改善（未处理）', sub: '子车型',
+      yz: '山积图 (Yamazumi)', noRound: '无计时轮次', swct: '📊 整线 SWCT', edit: '✎ 编辑表格', done: '✓ 完成编辑', cancel: '放弃修改', add: '＋ 添加工位',
       ro: '👁️ 分析模式（只读）— 多个班组汇总', th: ['工位', '班组', 'JPH', 'TAKT', '最大 CT', '负荷', 'OIS', '建议 / 步骤'],
       improve: '需改善', ok: '正常', wait: '无数据', step: '→ 步骤', twoHand: 'SWCT / 双手' },
   };
-  const L = k => { const l = window.CPSDashI18n ? window.CPSDashI18n.lang : 'th'; return (SBT[l === 'zhen' ? 'zh' : l] || SBT.th)[k]; };
+  const L = k => {
+    const l = window.CPSDashI18n ? window.CPSDashI18n.lang : 'th';
+    if (l !== 'zhen') return (SBT[l] || SBT.th)[k];
+    const z = SBT.zh[k], e = SBT.en[k], two = (x, y) => x === y || String(x).length > 14 ? x : x + ' / ' + y;   // 中 / EN แบบเดียวกับแดชบอร์ด
+    return Array.isArray(z) ? z.map((x, i) => two(x, e[i])) : two(z, e);
+  };
   const unitN = n => n === 1 && L('unit') === 'stations' ? 'station' : L('unit');
-  let editMode = false;   // ตารางสถานีอ่านอย่างเดียวจนกว่าจะกด "แก้ไขตาราง" (กันพิมพ์โดนช่องโดยไม่ตั้งใจ)
+  let editMode = false, editSnap = null;   // ตารางสถานีอ่านอย่างเดียวจนกว่าจะกด "แก้ไขตาราง" (กันพิมพ์โดนช่องโดยไม่ตั้งใจ)
   const lineKey = r => [r.workshop || '', r.group || '', r.team || '', r.model || '-', r.submodel || '-'].join('§');
   const loadColor = p => p > 100 ? '#c0392b' : p >= 90 ? '#9a5b00' : p >= 75 ? '#1e7a46' : '#15856b';
 
@@ -59,7 +64,7 @@
       <div class="page-head">
         <div><h1>${esc(L('title'))}</h1>
           <p class="muted">${esc([sc.workshop, sc.group, sc.team].filter(Boolean).join(' · ') || L('all'))}</p></div>
-        ${can ? `<div class="head-btns">${rows.length ? `<button class="ghost" id="sb-edit" aria-pressed="${editMode}">${esc(L(editMode ? 'done' : 'edit'))}</button>` : ''}<button class="primary" id="sb-add">${esc(L('add'))}</button></div>` : ''}
+        ${can ? `<div class="head-btns">${editMode ? `<button class="ghost" id="sb-cancel">${esc(L('cancel'))}</button>` : ''}${rows.length ? `<button class="ghost" id="sb-edit" aria-pressed="${editMode}">${esc(L(editMode ? 'done' : 'edit'))}</button>` : ''}<button class="primary" id="sb-add">${esc(L('add'))}</button></div>` : ''}
       </div>
       ${!can ? `<div class="ro-banner">${esc(L('ro'))}</div>` : ''}
       <div class="sb-summary">
@@ -75,10 +80,15 @@
     host.querySelectorAll('.sb-chart').forEach(b => b.onclick = () => openCharts(b.dataset.st));
     host.querySelectorAll('.sb-line-swct').forEach(b => b.onclick = () => openLineSwct(b.dataset.key));
     if (can) {
-      const eb = host.querySelector('#sb-edit'); if (eb) eb.onclick = () => { editMode = !editMode; render(host); };
+      const eb = host.querySelector('#sb-edit'); if (eb) eb.onclick = () => { editMode = !editMode; editSnap = editMode ? JSON.stringify(D().listStations()) : null; render(host); };
+      const cb = host.querySelector('#sb-cancel'); if (cb) cb.onclick = () => {
+        if (editSnap) { const old = JSON.parse(editSnap), ids = new Set(old.map(r => r.id)); D().listStations().filter(r => !ids.has(r.id)).forEach(r => D().remove('stations', r.id)); old.forEach(r => { const cur = D().listStations().find(x => x.id === r.id); if (!cur || JSON.stringify(cur) !== JSON.stringify(r)) D().upsert('stations', r); }); }
+        editMode = false; editSnap = null; render(host); U().toast('ยกเลิกการแก้ไขแล้ว');
+      };
       host.querySelector('#sb-add').onclick = () => {
         const last = rows[rows.length - 1];
         const rec = blank(last); rec.team = sc.team;
+        if (!editMode) editSnap = JSON.stringify(D().listStations());
         D().upsert('stations', rec); editMode = true; render(host);
       };
       wireRows();
@@ -158,16 +168,16 @@
       return `<tr>
         <td class="sb-st">${esc(r.station)}</td><td class="sb-team">${esc(r.team)}</td><td class="sb-jph">${esc(r.jph)}</td>
         <td class="sb-takt">${fmt(t)} s</td><td class="sb-ctv"><b>${fmt(num(r.ct))} s</b></td><td class="sb-load">${bar}</td>
-        <td class="sb-ois"><b>${esc(r.ois)}</b><small>${esc(r.oisDesc)}</small></td>${wfBtn}</tr>`;
+        <td class="sb-ois"><b>${esc(r.ois)}</b><small>${U().ud(r.oisDesc)}</small></td>${wfBtn}</tr>`;
     }
     return `<tr data-id="${esc(r.id)}">
-      <td><input class="f-station" value="${esc(r.station)}" placeholder="CA-01A"></td>
-      <td><input class="f-team" value="${esc(r.team || '')}" placeholder="CA-A"></td>
-      <td><input class="f-jph" type="number" min="1" step="1" value="${esc(r.jph)}"></td>
+      <td><input class="f-station" aria-label="รหัสสถานี" value="${esc(r.station)}" placeholder="CA-01A"></td>
+      <td><input class="f-team" aria-label="ทีม" value="${esc(r.team || '')}" placeholder="CA-A"></td>
+      <td><input class="f-jph" aria-label="JPH" type="number" min="1" step="1" value="${esc(r.jph)}"></td>
       <td class="sb-takt">${fmt(t)} s</td>
-      <td><div class="sb-ct"><input class="f-ct" type="number" min="0" step="0.1" value="${esc(r.ct)}"><button class="f-pull" title="ดึง CT จาก Time Study" aria-label="ดึง CT จาก Time Study" type="button">↧</button></div>${r.rounds ? `<small class="sb-rounds">สูงสุดจาก ${esc(r.rounds)} รอบ</small>` : ''}</td>
+      <td><div class="sb-ct"><input class="f-ct" aria-label="CT สูงสุด (วินาที)" type="number" min="0" step="0.1" value="${esc(r.ct)}"><button class="f-pull" title="ดึง CT จาก Time Study" aria-label="ดึง CT จาก Time Study" type="button">↧</button></div>${r.rounds ? `<small class="sb-rounds">สูงสุดจาก ${esc(r.rounds)} รอบ</small>` : ''}</td>
       <td class="sb-load">${bar}</td>
-      <td class="sb-ois-edit"><input class="f-ois" value="${esc(r.ois)}" placeholder="OIS-..."><input class="f-oisdesc" value="${esc(r.oisDesc)}" placeholder="คำอธิบายงาน"></td>
+      <td class="sb-ois-edit"><input class="f-ois" aria-label="รหัส OIS" value="${esc(r.ois)}" placeholder="OIS-..."><input class="f-oisdesc" aria-label="คำอธิบายงาน OIS" value="${esc(r.oisDesc)}" placeholder="คำอธิบายงาน"></td>
       ${wfBtn}<td><button class="f-del r-del" type="button" title="ลบสถานี" aria-label="ลบสถานี ${esc(r.station)}">✕</button></td></tr>`;
   }
 
@@ -191,7 +201,7 @@
       };
       jph.oninput = liveUpdate; ct.oninput = liveUpdate;
       const pull = tr.querySelector('.f-pull'); if (pull) pull.onclick = () => pullCT(id, tr);
-      const del = tr.querySelector('.f-del'); if (del) del.onclick = async () => { if (await U().ask('ลบสถานีนี้? ลบแล้วกู้คืนไม่ได้', [], { ok: 'ลบสถานี', cancel: 'ไม่ลบ' })) { D().remove('stations', id); render(host); } };
+      const del = tr.querySelector('.f-del'); if (del) del.onclick = () => D().removeUndo('stations', id, 'ลบสถานีแล้ว', () => render(host));
     });
   }
   function docBlur() { return false; }
