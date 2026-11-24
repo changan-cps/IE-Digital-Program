@@ -534,6 +534,7 @@
     const avgCt = studies.length ? studies.reduce((s, x) => s + num(x.ct), 0) / studies.length : 0;
     const trained = jobs.reduce((s, j) => s + (j.training || []).reduce((a, r) => a + num(r.count), 0), 0);
     const improved = jobs.filter(j => (j.after || []).length).length;
+    const lb = lineBalance();
     const title = scope.team || scope.group || scope.workshop || 'ทุกพื้นที่';
     const sub = [scope.workshop, scope.group].filter(Boolean).join(' / ') || LEVEL_LABEL[scope.level];
     const el = $('#tab-dashboard');
@@ -545,7 +546,9 @@
         ${card('รอบเวลาเฉลี่ย', fmt(avgCt), 'วินาที')}
         ${card('งานวิเคราะห์', jobs.length, 'งาน', improved + ' ปรับปรุงแล้ว')}
         ${card('อบรมสะสม', trained, 'คน')}
+        ${lb.lines.length ? card('Line Balance Rate', fmt(lb.lbr) + '%', '', lb.lines.length + ' ไลน์ · ต่ำกว่า 70% ' + lb.low + ' ไลน์', lbrColor(lb.lbr)) : card('Line Balance Rate', '—', '', 'ยังไม่มีข้อมูลสถานี')}
       </div>
+      ${lineBalanceTable(lb)}
       ${canEdit() ? `<div class="dash-links">
         <button class="bigbtn" data-go="timestudy"><b>⏱️ บันทึก Time Study</b><span>จับเวลา element จากวิดีโอ เก็บเฉพาะค่า</span></button>
         <button class="bigbtn" data-go="analysis"><b>🔧 วิเคราะห์งาน Before/After</b><span>เทียบก่อน/หลัง + อบรม + รายงานอัตโนมัติ</span></button>
@@ -553,8 +556,40 @@
       ${recent(studies, jobs)}`;
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => showTab(b.dataset.go));
   }
-  function card(label, val, unit, sub) {
-    return `<div class="stat"><small>${esc(label)}</small><strong>${val}<em>${unit ? ' ' + esc(unit) : ''}</em></strong>${sub ? `<span>${esc(sub)}</span>` : ''}</div>`;
+  // ---- Line Balance Rate: ไลน์ = ทีม + รุ่น/รุ่นย่อย · LBR = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 ----
+  const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#e08a00' : '#c0392b';
+  function lineBalance() {
+    const map = new Map();
+    listStations().forEach(r => {
+      const ct = num(r.ct); if (!ct) return;
+      const k = [r.workshop, r.group, r.team, r.model || '-', r.submodel || '-'].join('§');
+      if (!map.has(k)) map.set(k, { ws: r.workshop, group: r.group, team: r.team, model: r.model || '-', sub: r.submodel || '-', items: [], jph: [] });
+      const g = map.get(k); g.items.push({ st: r.station, ct }); if (num(r.jph)) g.jph.push(num(r.jph));
+    });
+    let S = 0, D = 0;
+    const lines = [...map.values()].map(g => {
+      const n = g.items.length, sum = g.items.reduce((a, x) => a + x.ct, 0), max = Math.max(...g.items.map(x => x.ct));
+      const neck = g.items.find(x => x.ct === max).st;
+      const jph = g.jph.length ? g.jph.slice().sort((a, b) => g.jph.filter(x => x === b).length - g.jph.filter(x => x === a).length)[0] : 0;
+      const tk = jph ? 3600 / jph : 0;
+      S += sum; D += n * max;
+      return { ...g, n, sum, max, neck, tk, lbr: sum / (n * max) * 100, eff: tk ? sum / (n * tk) * 100 : 0, over: tk ? g.items.filter(x => x.ct > tk).length : 0 };
+    }).sort((a, b) => a.lbr - b.lbr);
+    return { lines, lbr: D ? S / D * 100 : 0, low: lines.filter(l => l.lbr < 70).length };
+  }
+  function lineBalanceTable(lb) {
+    if (!lb.lines.length) return '';
+    const show = lb.lines.slice(0, 15);
+    const area = l => [scope.level === 'team' ? '' : l.ws, scope.level === 'team' || scope.level === 'group' ? '' : l.group, scope.level === 'team' ? '' : l.team].filter(Boolean).join(' / ');
+    return `<section class="panel"><div class="panelhead"><h2>Line Balance Rate รายไลน์</h2><small class="muted" title="ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100">เรียงจากต่ำไปสูง · ${lb.lines.length} ไลน์</small></div>
+      <div class="table-scroll"><table class="sb-table lbr-table"><thead><tr><th>ไลน์</th><th>รุ่น</th><th>สถานี</th><th>ΣCT</th><th>คอขวด</th><th>เกิน TAKT</th><th>เทียบ TAKT</th><th>Line Balance Rate</th></tr></thead><tbody>
+      ${show.map(l => `<tr><td><b>${esc(area(l) || l.team || '—')}</b></td><td>${esc(l.model)} · ${esc(l.sub)}</td><td>${l.n}</td><td>${fmt(l.sum)} วิ</td>
+        <td>${esc(l.neck)} <small class="muted">${fmt(l.max)} วิ</small></td><td>${l.over ? `<b style="color:#c0392b">${l.over}</b>` : '0'}</td><td>${l.tk ? fmt(l.eff) + '%' : '—'}</td>
+        <td><div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(100, l.lbr)}%;background:${lbrColor(l.lbr)}"></i></div><span style="color:${lbrColor(l.lbr)}">${fmt(l.lbr)}%</span></div></td></tr>`).join('')}
+      </tbody></table></div>${lb.lines.length > show.length ? `<p class="muted" style="padding:8px 16px">แสดง ${show.length} ไลน์ที่ต่ำสุด จาก ${lb.lines.length} ไลน์</p>` : ''}</section>`;
+  }
+  function card(label, val, unit, sub, color) {
+    return `<div class="stat"><small>${esc(label)}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + esc(unit) : ''}</em></strong>${sub ? `<span>${esc(sub)}</span>` : ''}</div>`;
   }
   function recent(studies, jobs) {
     const rows = [...studies.slice(0, 5).map(s => ({ t: 'Time Study', n: s.name, d: s.date, ct: s.ct })),

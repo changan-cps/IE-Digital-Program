@@ -75,7 +75,9 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:22px}
 .head-btns{display:flex;gap:8px;flex-wrap:wrap}
 
 /* ---------- cards / dashboard ---------- */
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+.lbr-table{min-width:760px}
+.lbr-table .sb-bar{min-width:170px}
 .stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px}
 .stat small{color:var(--muted);font-size:14px}
 .stat strong{display:block;font-size:clamp(24px,4vw,32px);margin-top:6px;font-variant-numeric:tabular-nums}
