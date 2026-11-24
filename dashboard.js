@@ -42,11 +42,12 @@
     const bs = buckets(m);
     const sk = r => [r.workshop, r.group, r.team, r.station].join('§');
     const jphOf = new Map(); stations.forEach(r => { if (num(r.jph)) jphOf.set(sk(r), num(r.jph)); });
-    const B = bs.map(b => ({ ...b, st: [], jobs: [], VA: 0, NNVA: 0, NVA: 0, ct: 0, tk: [], red: 0, before: 0, after: 0, L: {}, R: {}, both: 0, els: 0 }));
+    const B = bs.map(b => ({ ...b, st: [], jobs: [], VA: 0, NNVA: 0, NVA: 0, ct: 0, sc: {}, tk: [], red: 0, before: 0, after: 0, L: {}, R: {}, both: 0, els: 0 }));
     studies.forEach(s => {
       const i = idxOf(bs, s.date); if (i < 0) return;
       const tt = totals(s.elements), b = B[i]; if (!tt.ct) return;
       b.st.push(s); b.VA += tt.VA; b.NNVA += tt.NNVA; b.NVA += tt.NVA; b.ct += tt.ct;
+      const x = b.sc[sk(s)] || (b.sc[sk(s)] = { t: 0, n: 0 }); x.t += tt.ct; x.n++;
       const j = jphOf.get(sk(s)); if (j) b.tk.push(3600 / j);
       (s.elements || []).forEach(e => {
         const l = e.lh && e.lh.s, r = e.rh && e.rh.s; if (!l && !r) return;
@@ -78,6 +79,14 @@
     first = Math.max(0, Math.min(first, B.length - 4));
     kaizen.forEach(k => k.i -= first);
     return { B: B.slice(first), kaizen, studies, jobs };
+  }
+
+  // CT เทียบเฉพาะสถานีที่มีในทั้งสองช่วง (ไม่ปนสถานีใหม่/สถานีที่หายไป)
+  function sameCt(a, b) {
+    if (!a || !b) return null;
+    const ks = Object.keys(a.sc).filter(k => b.sc[k]); if (!ks.length) return { n: 0 };
+    const m = (bk, k) => bk.sc[k].t / bk.sc[k].n;
+    return { n: ks.length, cur: ks.reduce((s, k) => s + m(a, k), 0) / ks.length, prev: ks.reduce((s, k) => s + m(b, k), 0) / ks.length };
   }
 
   // ---------- SVG chart (one y-axis) ----------
@@ -171,7 +180,7 @@
     const totRed = B.reduce((a, b) => a + b.red, 0), totBf = B.reduce((a, b) => a + b.before, 0), nJob = B.reduce((a, b) => a + b.jobs.length, 0);
     const nSt = B.reduce((a, b) => a + b.st.length, 0);
     const sumT = B.reduce((a, b) => ({ VA: a.VA + b.VA, ct: a.ct + b.ct }), { VA: 0, ct: 0 });
-    const vaOf = b => b && b.ct ? b.VA / b.ct * 100 : null;
+    const same = iCt >= 0 && iPrev >= 0 ? sameCt(B[iCt], B[iPrev]) : null;
     const lb = ctx.lineBalance();
     const delta = (cur, prev, unit, goodDown) => {
       if (cur == null || prev == null) return '';
@@ -182,11 +191,11 @@
     const kpi = (label, val, unit, sub, color) => `<div class="stat"><small>${esc(label)}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + esc(unit) : ''}</em></strong>${sub ? `<span>${sub}</span>` : ''}</div>`;
     const title = scope.team || scope.group || scope.workshop || t('allAreas');
     const levelLabel = t('level_' + (scope.level || 'team'));
-    const subT = [scope.workshop, scope.group].filter(Boolean).join(' / ') || levelLabel;
+    const subT = [scope.workshop, scope.group].filter(x => x && x !== title).join(' / ');
     const trained = P.jobs.reduce((a, j) => a + (j.training || []).reduce((x, r) => x + U().num(r.count), 0), 0);
 
     el.innerHTML = `
-      <div class="page-head dz-head"><div><p class="eyebrow">${esc(levelLabel)}</p><h1>${esc(title)}</h1><p class="muted">${esc(subT)}</p></div>
+      <div class="page-head dz-head"><div><p class="eyebrow">${esc(levelLabel)}</p><h1>${esc(title)}</h1>${subT ? `<p class="muted">${esc(subT)}</p>` : ''}</div>
         <div class="dz-actions">
           <div class="dz-lang" role="group" aria-label="Language">${I().LANGS.map(([k, l]) => `<button type="button" data-lang="${k}" lang="${k === 'zhen' ? 'zh' : k}" class="${I().lang === k ? 'active' : ''}" aria-pressed="${I().lang === k}">${l}</button>`).join('')}</div>
           <button class="dz-ppt" data-ppt title="${esc(t('pptTip'))}">${esc(t('ppt'))}</button>
@@ -196,9 +205,9 @@
       <p class="muted dz-range">${esc(t('range', n, mode, rangeText(B)))}</p>
       <div class="cards dz-cards">
         ${kpi('Time Study', nSt, t('items'), esc(t('latestCount', mode, last.st.length)))}
-        ${kpi(t('avgCt'), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? (delta(avg(B[iCt]), iPrev >= 0 ? avg(B[iPrev]) : null, ' ' + s, true) || esc(B[iCt].long)) : esc(t('noStudy')))}
+        ${kpi(I().tn('r_ctLatest', mode), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? esc(B[iCt].long) + (same && same.n ? '<br>' + delta(same.cur, same.prev, ' ' + s, true) + ` <small class="dz-same">${esc(t('sameSt', same.n))}</small>` : same ? `<br><small class="dz-same">${esc(t('noSame'))}</small>` : '') : esc(t('noStudy')))}
         ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')), totRed ? '#15856b' : '')}
-        ${kpi('VA', sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', iCt >= 0 ? delta(vaOf(B[iCt]), iPrev >= 0 ? vaOf(B[iPrev]) : null, '%', false) : '')}
+        ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
         ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low)), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
         ${kpi(t('trained'), trained, t('people'))}
       </div>
@@ -412,11 +421,12 @@
     const now = new Date(), pad = x => String(x).padStart(2, '0');
     const trained = P.jobs.reduce((a, j) => a + (j.training || []).reduce((x, r) => x + num(r.count), 0), 0);
     const kz = P.kaizen.slice().sort((a, b) => b.red - a.red);
-    const delta = ctL != null && ctP != null ? (ctL <= ctP ? '▼ ' : '▲ ') + f(Math.abs(ctL - ctP)) + ' ' + s + ' ' + t('vsPrev', mode) : '';
+    const sm = iL != null && iP != null ? sameCt(B[iL], B[iP]) : null;
+    const delta = sm && sm.n ? (sm.cur <= sm.prev ? '▼ ' : '▲ ') + f(Math.abs(sm.cur - sm.prev)) + ' ' + s + ' ' + t('vsPrev', mode) + ' · ' + t('sameSt', sm.n) : sm ? t('noSame') : '';
     const ins = [];
     if (nJob) ins.push(tn('ins_red', f(totRed), nJob, f(totBf ? totRed / totBf * 100 : 0)));
     if (kz[0]) ins.push(tn('ins_best', kz[0].j.name || kz[0].j.station, f(kz[0].red), f(kz[0].pct)));
-    if (ctL != null) ins.push(tn('ins_ct', mode, f(ctL), ctP != null ? f(Math.abs(ctL - ctP)) : null, ctP != null && ctL <= ctP));
+    if (ctL != null) ins.push(tn('ins_ct', mode, f(ctL), sm && sm.n ? f(Math.abs(sm.cur - sm.prev)) : null, sm && sm.n && sm.cur <= sm.prev, sm ? sm.n : 0));
     if (sumCt) ins.push(tn('ins_va', f(sumVA / sumCt * 100)));
     if (lb.lines.length) ins.push(tn('ins_lbr', f(lb.lbr), lb.lbr >= 85, f(85 - lb.lbr), areaOf(lb.lines[0]), f(lb.lines[0].lbr)));
     if (els) ins.push(tn('ins_hold', f(((L.H || 0) + (Rh.H || 0)) / tH * 100)));
@@ -438,7 +448,7 @@
         { label: 'Time Study', value: nStudy + ' ' + t('items'), sub: t('periods', n, mode) },
         { label: tn('r_ctLatest', mode), value: ctL != null ? f(ctL) + ' ' + s : '—', sub: delta },
         { label: tn('ctReduced'), value: totRed ? '−' + f(totRed) + ' ' + s : '0', sub: t('jobsN', nJob), color: totRed ? '15856B' : null },
-        { label: 'VA', value: sumCt ? f(sumVA / sumCt * 100) + '%' : '—', sub: t('r_vaSub') },
+        { label: tn('r_vaAvg'), value: sumCt ? f(sumVA / sumCt * 100) + '%' : '—', sub: t('r_vaSub') },
         { label: 'Line Balance Rate', value: lb.lines.length ? f(lb.lbr) + '%' : '—', sub: lb.lines.length ? t('linesLow', lb.lines.length, lb.low) : null, color: lb.lines.length ? lbrColor(lb.lbr).slice(1).toUpperCase() : null },
         { label: tn('trained'), value: trained + ' ' + t('people'), sub: null },
       ],

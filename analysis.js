@@ -4,6 +4,15 @@
   const D = () => window.CPS.data;
   let editing = null;
   let host = null;
+  // งานที่ยังไม่บันทึกไม่หาย: ร่างเก็บในเครื่อง กู้คืนได้จากหน้ารายการ (แบบเดียวกับ Time Study)
+  const DRAFT = 'cps-ie-an-draft-v1';
+  const snaps = new WeakMap();
+  const scopeId = () => { const sc = D().scope || {}; return [sc.workshop, sc.group, sc.team].join('§'); };
+  const isDirty = () => !!editing && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
+  function saveDraft() { if (!isDirty()) return; try { localStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), scope: scopeId(), j: editing })); } catch (e) {} }
+  function readDraft() { try { const d = JSON.parse(localStorage.getItem(DRAFT)); return d && d.j && d.scope === scopeId() ? d : null; } catch (e) { return null; } }
+  const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
+  function leave() { saveDraft(); editing = null; }
 
   const thisMonth = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
   function blankEl() { return { id: U().uid(), name: '', sec: '', type: 'VA', note: '' }; }
@@ -11,17 +20,23 @@
     return { id: U().uid(), name: '', line: '', operator: '', analyst: '', date: new Date().toISOString().slice(0, 10), problem: '', target: '', before: [blankEl()], after: [], training: [] };
   }
 
-  function render(container) { host = container; editing ? renderEditor() : renderList(); }
+  function render(container) {
+    host = container;
+    if (!host.dataset.anDraft) { host.dataset.anDraft = '1'; const later = () => setTimeout(saveDraft, 0); host.addEventListener('input', later); host.addEventListener('change', later); host.addEventListener('click', later); }
+    editing ? renderEditor() : renderList();
+  }
 
   function renderList() {
     const { esc, fmt } = U();
     const can = D().canEdit();
     const jobs = D().listJobs();
+    const dr = can ? readDraft() : null;
     host.innerHTML = `
+      ${dr ? `<div class="ts-draft" role="status"><span>มีร่างงานวิเคราะห์ที่ยังไม่ได้บันทึก · ${esc(dr.j.name || 'ไม่มีชื่อ')} · ${new Date(dr.at).toLocaleString('th-TH')}</span><button class="primary" id="an-draft-go">กู้คืนร่าง</button><button id="an-draft-drop">ทิ้งร่าง</button></div>` : ''}
       <div class="page-head"><div><h1>วิเคราะห์งาน Before / After</h1></div>
         ${can ? '<button class="primary" id="an-new">＋ งานใหม่</button>' : ''}</div>
       ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
-      ${!jobs.length ? '<div class="blank">ยังไม่มีงานวิเคราะห์ในพื้นที่นี้</div>' :
+      ${!jobs.length ? `<div class="blank">ยังไม่มีงานวิเคราะห์ในพื้นที่นี้${can ? '<br><small>กด “＋ งานใหม่” เพื่อเริ่มเอง หรือบันทึก Time Study ของสถานี แล้วระบบจะสร้างงานวิเคราะห์ให้อัตโนมัติ</small>' : ''}</div>` :
         `<section class="panel"><div class="recent">${jobs.map(j => {
           const b = U().totals(j.before), a = U().totals(j.after);
           const saved = b.ct - a.ct, has = a.count > 0;
@@ -30,19 +45,22 @@
             <span class="row-btns"><button data-edit="${j.id}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}">ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
+    const dg = host.querySelector('#an-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.j; snaps.set(editing, ''); renderEditor(); };
+    const dd = host.querySelector('#an-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่างงานวิเคราะห์นี้? ข้อมูลในร่างจะหายถาวร', [], { ok: 'ทิ้งร่าง', cancel: 'เก็บไว้' })) { dropDraft(); renderList(); } };
     host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = structuredClone(D().listJobs().find(j => j.id === b.dataset.edit)); renderEditor(); });
-    host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('ลบงานนี้?')) { D().remove('jobs', b.dataset.del); renderList(); } });
+    host.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (await U().ask('ลบงานวิเคราะห์นี้? ลบแล้วกู้คืนไม่ได้', [], { ok: 'ลบงาน', cancel: 'ไม่ลบ' })) { D().remove('jobs', b.dataset.del); renderList(); } });
   }
 
   function renderEditor() {
     const { esc } = U(); const j = editing;
+    if (!snaps.has(j)) snaps.set(j, JSON.stringify(j));
     host.innerHTML = `
       <div class="page-head"><div><h1>วิเคราะห์งาน</h1></div>
         <div class="head-btns"><button id="an-back" class="ghost">← กลับ</button><button id="an-ai" class="ghost">🤖 AI ร่างข้อเสนอ</button><button id="an-print" class="ghost">พิมพ์/PDF</button><button id="an-save" class="primary">บันทึก</button></div></div>
       <section class="panel"><div class="panelhead"><h2>ข้อมูลงาน</h2></div>
         <div class="field-grid">
           ${fld('ชื่องาน', 'name', j.name, 'เช่น ประกอบฝาปั๊ม')}
-          ${fld('สาย/สถานี', 'line', j.line, 'เช่น Line A / OP20')}
+          ${fld('สาย/สถานี', 'line', j.line, 'เช่น GA-TA1A-01')}
           ${fld('ผู้ปฏิบัติงาน', 'operator', j.operator)}
           ${fld('ผู้วิเคราะห์', 'analyst', j.analyst)}
           ${fld('วันที่', 'date', j.date, '', 'date')}
@@ -59,8 +77,11 @@
       <section id="an-target" class="panel"></section>
       <section id="an-train" class="panel"></section>`;
     host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => j[inp.dataset.f] = inp.value);
-    host.querySelector('#an-back').onclick = () => { editing = null; renderList(); };
-    host.querySelector('#an-save').onclick = () => { D().upsert('jobs', editing); U().toast('บันทึกงานแล้ว'); editing = null; renderList(); };
+    host.querySelector('#an-back').onclick = async () => {
+      if (isDirty() && !(await U().ask('ยังไม่ได้บันทึกงานวิเคราะห์นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)', [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }))) return;
+      leave(); renderList();
+    };
+    host.querySelector('#an-save').onclick = () => { D().upsert('jobs', editing); dropDraft(); U().toast('บันทึกงานแล้ว'); editing = null; renderList(); };
     host.querySelector('#an-print').onclick = printReport;
     host.querySelector('#an-ai').onclick = aiDraft;
     phase('before', 'ก่อนปรับปรุง (Before)');
@@ -209,7 +230,7 @@
       const tb = tbl.querySelector('tbody'); list.forEach((e, i) => tb.appendChild(elRow(ph, list, e, i)));
     }
     sec.querySelector('.add').onclick = () => { if (ph === 'before') editing.autoBefore = false; list.push(blankEl()); phase(ph, title); report(); };
-    const copy = sec.querySelector('.copy'); if (copy) copy.onclick = () => { if (editing.after.length && !confirm('แทนที่ After ด้วยสำเนา Before?')) return; editing.after = editing.before.map(e => ({ ...e, id: U().uid() })); phase('after', title); report(); };
+    const copy = sec.querySelector('.copy'); if (copy) copy.onclick = async () => { if (editing.after.length && !(await U().ask('แทนที่ After ทั้งหมดด้วยสำเนา Before?', [], { ok: 'แทนที่ After', cancel: 'ไม่แทนที่' }))) return; editing.after = editing.before.map(e => ({ ...e, id: U().uid() })); phase('after', title); report(); };
   }
   function mini(l, v, c) { return `<div><small>${U().esc(l)}</small><strong${c ? ` style="color:${c}"` : ''}>${v}</strong></div>`; }
   function stack(t) { if (!t.ct) return '<i style="flex:1;background:#e2e8f0"></i>'; return U().TYPES.map(ty => t[ty.k] ? `<i style="flex:${t[ty.k]};background:${ty.color}"></i>` : '').join(''); }
@@ -323,5 +344,5 @@ ${row('รอบเวลา (วิ)', fmt(b.ct), fmt(a.ct))}${row('VA (วิ)
     win.document.close();
   }
 
-  window.CPSAnalysis = { render };
+  window.CPSAnalysis = { render, isDirty, leave };
 })();

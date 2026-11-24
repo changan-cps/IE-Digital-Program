@@ -23,6 +23,7 @@
   function matchStudy() { const g = group(); return g ? g.latest : null; }
   function matchJob() { const r = rec(); const k = String(r.station || '').trim().toLowerCase(); return k ? D().listJobs().find(j => G().key(j) === k) : null; }
 
+  const loadOf = r => { const j = U().num(r.jph); return j ? U().num(r.ct) / (3600 / j) * 100 : 0; };
   function stepStatus() {
     const r = rec(), w = wf();
     const s1 = !!matchStudy();
@@ -52,7 +53,7 @@
       { n: 5, t: 'New OIS', done: st.s5 },
       { n: 6, t: 'ส่งอนุมัติ', done: st.s6 },
     ];
-    const ended = st.s3 && w.improve === false;
+    const ended = st.s3 && w.improve === false, over = loadOf(r) > 100;
     host.innerHTML = `
       <div class="page-head">
         <div><p class="eyebrow">WORKFLOW · ${esc(r.model || '')}/${esc(r.submodel || '')}</p>
@@ -60,7 +61,7 @@
         <button class="ghost" id="wf-back">← กลับตารางสถานี</button>
       </div>
       <div class="wf-steps">${steps.map(s => `<div class="wf-step ${s.done === true ? 'done' : s.done === null ? 'skip' : ''}"><span class="wf-dot">${s.done === true ? '✓' : s.n}</span><small>${esc(s.t)}</small></div>`).join('<i class="wf-sep"></i>')}</div>
-      ${ended ? '<div class="ro-banner" style="background:#e6f5ef;border-color:#bfe6d4;color:#14684e">✓ สรุป: ไม่ปรับปรุง — ปิดงานสถานีนี้แล้ว</div>' : ''}
+      ${ended ? (over ? `<div class="ro-banner" style="background:#fdecea;border-color:#f3c4bd;color:#a12a1d">⚠ บันทึกไว้ว่า “ไม่ปรับปรุง” แต่สถานีนี้ยังเกิน TAKT (ภาระ ${fmt(loadOf(r))}%) — ควรกลับไปเลือก “ปรับปรุง” ในขั้น 3</div>` : '<div class="ro-banner" style="background:#e6f5ef;border-color:#bfe6d4;color:#14684e">✓ สรุป: ไม่ปรับปรุง — ปิดงานสถานีนี้แล้ว (ขั้น 4–6 ไม่ต้องทำ)</div>') : ''}
       <div id="wf-body"></div>`;
     host.querySelector('#wf-back').onclick = () => onBack && onBack();
     const body = host.querySelector('#wf-body');
@@ -127,14 +128,17 @@
       if (job && !(job.after || []).length) { job.after = (job.before || []).filter(e => e.type !== 'NVA').map(e => ({ ...e, id: U().uid() })); job.autoAfter = true; D().upsert('jobs', job); U().toast('ร่าง After ให้แล้ว (ตัดขั้นตอน NVA ออก) — แก้ได้ที่วิเคราะห์งาน'); }
       render();
     };
-    no.onclick = () => { if (confirm('ยืนยันว่าไม่ปรับปรุงและปิดงานสถานีนี้?')) { w.improve = false; saveRec(); render(); } };
+    const over = loadOf(r) > 100;
+    if (over) { no.disabled = true; no.title = 'สถานีนี้ภาระเกิน 100% ของ TAKT — ต้องปรับปรุง ปิดงานแบบไม่ปรับปรุงไม่ได้'; }
+    no.onclick = async () => { if (over) return; if (await U().ask('ยืนยันว่าไม่ปรับปรุงและปิดงานสถานีนี้? (ขั้น 4–6 จะถูกข้าม)', [], { ok: 'ไม่ปรับปรุง · ปิดงาน', cancel: 'ยังไม่ตัดสิน' })) { w.improve = false; saveRec(); render(); } };
     row.append(yes, no); d.appendChild(row);
+    if (over) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'สถานีนี้ภาระเกิน TAKT (' + U().fmt(loadOf(r)) + '%) จึงต้องปรับปรุง — ปุ่ม “ไม่ปรับปรุง” ปิดไว้'; d.appendChild(p); }
     return panel('3 · ยืนยันการปรับปรุง', d, badgeDone(st.s3));
   }
   // ---- Step 4: Line Balance (ระบบเสนอให้ คนตรวจแล้วยืนยัน) ----
   function lbItems() {
     const r = rec(); const job = matchJob();
-    const peers = D().listStations().filter(x => x.model === r.model && x.submodel === r.submodel)
+    const peers = D().listStations().filter(x => x.model === r.model && x.submodel === r.submodel && x.team === r.team && x.group === r.group && x.workshop === r.workshop)
       .sort((x, y) => String(x.station).localeCompare(String(y.station), undefined, { numeric: true }));
     return peers.map(p => {
       const g = G().aggregate(G().roundsOf(p.station));

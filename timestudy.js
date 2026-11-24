@@ -20,7 +20,7 @@
   function saveDraft() { if (!isDirty()) return; try { localStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), scope: scopeId(), s: editing })); } catch (e) {} }
   function readDraft() { try { const d = JSON.parse(localStorage.getItem(DRAFT)); return d && d.s && d.scope === scopeId() ? d : null; } catch (e) { return null; } }
   const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
-  function leave() { saveDraft(); cleanupVideo(); editing = null; }
+  function leave() { saveDraft(); cleanupVideo(); editing = null; laps = []; }
 
   // มิติคะแนนความง่ายในการทำงาน (1 = ยากสุด, 5 = ง่ายสุด) — เกณฑ์ตามตัวอย่างอ้างอิงเท่าที่ระบุไว้
   const DIMS = [
@@ -86,12 +86,12 @@
       ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
       ${!studies.length ? '<div class="blank">ยังไม่มี Time Study ในพื้นที่นี้</div>' : '<p class="hint" style="margin:0 0 12px">รอบจับเวลาที่ใช้รหัสสถานีเดียวกันจะถูกรวมเป็นกลุ่มเดียว และคำนวณค่าเฉลี่ยให้อัตโนมัติ</p>' + blocks.join('')}`;
     const nb = host.querySelector('#ts-new'); if (nb) nb.onclick = () => { editing = blank(); renderEditor(); };
-    const dg = host.querySelector('#ts-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.s; snaps.set(editing, ''); renderEditor(); };
+    const dg = host.querySelector('#ts-draft-go'); if (dg) dg.onclick = () => { const d = readDraft(); if (!d) return renderList(); editing = d.s; snaps.set(editing, ''); laps = []; renderEditor(); U().toast('กู้คืนร่างแล้ว — วิดีโอไม่ถูกเก็บในร่าง ถ้าจะจับเวลาต่อให้เลือกไฟล์วิดีโอเดิมอีกครั้ง', 7000); };
     const dd = host.querySelector('#ts-draft-drop'); if (dd) dd.onclick = async () => { if (await U().ask('ทิ้งร่าง Time Study นี้? ข้อมูลในร่างจะหายถาวร', [])) { dropDraft(); renderList(); } };
     host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = structuredClone(D().listStudies().find(s => s.id === b.dataset.edit)); renderEditor(); });
     host.querySelectorAll('[data-round]').forEach(b => b.onclick = () => { editing = newRound(D().listStudies().find(s => s.id === b.dataset.round)); renderEditor(); });
-    host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
-      if (!confirm('ลบรอบจับเวลานี้?')) return;
+    host.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      if (!(await U().ask('ลบรอบจับเวลานี้? ลบแล้วกู้คืนไม่ได้', [], { ok: 'ลบรอบนี้', cancel: 'ไม่ลบ' }))) return;
       const s = D().listStudies().find(x => x.id === b.dataset.del); const k = s ? G.key(s) : '';
       D().remove('studies', b.dataset.del); if (k) G.flow(k); renderList();
     });
@@ -148,8 +148,9 @@
         <div class="ts-capture">
           <button id="ts-mark" class="primary" type="button" ${videoUrl ? '' : 'disabled'}>① มาร์คจุดเริ่ม element</button>
           <button id="ts-lap" class="dark" type="button" disabled>✂ ตัดจบขั้นตอน (Lap)</button>
+          <button id="ts-undo" class="ghost" type="button" disabled>↶ ย้อน Lap</button>
           <span id="ts-open" class="muted" aria-live="polite"></span>
-          <span class="ts-keys">คีย์ลัด: <kbd>Space</kbd> ตัดจบขั้นตอน (หรือมาร์คเริ่ม) · <kbd>M</kbd> มาร์คจุดเริ่ม · <kbd>P</kbd> เล่น/หยุด · <kbd>←</kbd><kbd>→</kbd> ทีละ 0.1 วิ (<kbd>Shift</kbd> ทีละ 1 วิ)</span>
+          <span class="ts-keys">คีย์ลัด: <kbd>Space</kbd> ตัดจบขั้นตอน (หรือมาร์คเริ่ม) · <kbd>M</kbd> มาร์คจุดเริ่ม · <kbd>P</kbd> เล่น/หยุด · <kbd>Z</kbd> ย้อน Lap · <kbd>←</kbd><kbd>→</kbd> ทีละ 0.1 วิ (<kbd>Shift</kbd> ทีละ 1 วิ)</span>
         </div>
         <p class="hint">วิธีใช้: เล่นวิดีโอ → กด “มาร์คจุดเริ่ม” ตรงจุดเริ่มงาน → พอจบขั้นตอนกด “ตัดจบขั้นตอน” ระบบจะสร้างแถว element พร้อมเวลาให้อัตโนมัติ แล้วเริ่มจับขั้นถัดไปต่อเนื่อง ตั้งชื่อและเลือกประเภทได้ภายหลัง</p>
         <div class="sound-strip"><button id="ts-sound" type="button" class="ghost">🔊 หาเสียงเครื่องมือ</button><button id="ts-sound-els" type="button" class="ghost" hidden>สร้าง element จากเสียง</button><label class="sound-opt"><input id="ts-speech" type="checkbox"> ใช้เสียงพูดบรรยายช่วย AI (ส่งเสียงให้ Gemini ถอดความ)</label><small id="ts-sound-msg" class="muted">เสียงเครื่องมือวิเคราะห์ในเครื่อง ไม่ส่งออก</small></div><div id="ts-sound-list" class="sound-list"></div>
@@ -217,6 +218,7 @@
     if (soundEvents.length) paintSounds();
     host.querySelector('#ts-mark').onclick = markStart;
     host.querySelector('#ts-lap').onclick = lap;
+    host.querySelector('#ts-undo').onclick = undoLap;
     host.querySelector('#ts-addrow').onclick = () => { s.elements.push({ id: U().uid(), name: '', sec: '', type: '', note: '' }); renderTable(); };
     host.querySelector('#ts-ai').onclick = aiAnalyze;
     const er = host.querySelector('#ergo-risk'); er.value = s.ergo.risk || ''; er.onchange = () => s.ergo.risk = er.value;
@@ -246,10 +248,11 @@
     const tg = e.target instanceof Element ? e.target : null;
     if ((tg && tg.closest('input, select, textarea, [contenteditable]')) || e.ctrlKey || e.metaKey || e.altKey) return;
     const v = host.querySelector('#ts-video'); if (!v.src) return;
-    const k = e.key;
-    if (k === ' ') { e.preventDefault(); boundary == null ? markStart() : lap(); }
-    else if (k === 'm' || k === 'M') { e.preventDefault(); markStart(); }
-    else if (k === 'p' || k === 'P') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    const k = e.code; // ปุ่มตามตำแหน่งบนคีย์บอร์ด ใช้ได้ทั้งแป้นไทยและอังกฤษ
+    if (k === 'Space') { e.preventDefault(); boundary == null ? markStart() : lap(); }
+    else if (k === 'KeyM') { e.preventDefault(); markStart(); }
+    else if (k === 'KeyP') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    else if (k === 'KeyZ' || k === 'Backspace') { e.preventDefault(); undoLap(); }
     else if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); step((k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 1 : 0.1)); }
   });
   function cleanupVideo() { if (videoUrl) { URL.revokeObjectURL(videoUrl); videoUrl = null; } videoFile = null; audioCache = null; soundEvents = []; boundary = null; }
@@ -436,6 +439,17 @@
     host.querySelector('#ts-time').textContent = `${v.currentTime.toFixed(1)} / ${(v.duration || 0).toFixed(1)} วิ`;
     if (boundary != null) host.querySelector('#ts-open').textContent = 'กำลังจับ: ' + Math.max(0, v.currentTime - boundary).toFixed(1) + ' วิ';
   }
+  // ย้อน Lap ล่าสุด (กดตัดผิดจังหวะ): คืนแถวและจุดเริ่มเดิม
+  let laps = [];
+  function undoLap() {
+    const l = laps.pop(); if (!l || !editing) { U().toast('ไม่มี Lap ให้ย้อน'); return; }
+    const i = editing.elements.findIndex(e => e.id === l.id);
+    if (i >= 0) { if (l.filled) editing.elements[i].sec = ''; else editing.elements.splice(i, 1); }
+    boundary = l.from;
+    const v = host.querySelector('#ts-video'); if (v && v.src) { v.pause(); v.currentTime = l.from; }
+    const ub = host.querySelector('#ts-undo'); if (ub) ub.disabled = !laps.length;
+    renderTable(); updateClock(); U().toast('ย้อน Lap ล่าสุดแล้ว — วิดีโอกลับไปที่จุดเริ่มของขั้นตอนนั้น');
+  }
   function markStart() {
     const v = host.querySelector('#ts-video'); if (!v.src) { U().toast('เลือกวิดีโอก่อน'); return; }
     boundary = v.currentTime;
@@ -450,8 +464,11 @@
     if (dur < 0.05) { U().toast('ช่วงเวลาสั้นเกินไป'); return; }
     const sec = Math.round(dur * 10) / 10;
     const empty = editing.elements.find(e => e.sec === '' || e.sec == null);
-    if (empty) empty.sec = sec; else editing.elements.push({ id: U().uid(), name: '', sec, type: '', note: '' });
+    const from = boundary;
+    if (empty) { empty.sec = sec; laps.push({ id: empty.id, filled: true, from }); }
+    else { const id = U().uid(); editing.elements.push({ id, name: '', sec, type: '', note: '' }); laps.push({ id, filled: false, from }); }
     boundary = v.currentTime; // chain next element
+    const ub = host.querySelector('#ts-undo'); if (ub) ub.disabled = false;
     renderTable();
     updateClock();
   }
@@ -714,10 +731,10 @@
     saveDraft();
   }
 
-  const untyped = () => (editing ? editing.elements : []).filter(e => U().num(e.sec) > 0 && !e.type).length;
+  const untyped = () => (editing ? editing.elements : []).filter(e => U().num(e.sec) > 0 && !e.type && /^\s*\d+(\.\d+)?\s*$/.test(String(e.sec))).length;
   async function saveStudy() {
     const badSec = host.querySelector('.r-sec.bad');
-    if (badSec) { badSec.focus(); U().toast('เวลาบางแถวไม่ใช่ตัวเลข — แก้ช่องที่ขึ้นสีแดงก่อนบันทึก', 6000); return; }
+    if (badSec) { badSec.focus(); U().toast('เวลาบางแถวไม่ถูกต้อง (ต้องเป็นตัวเลข 0 ขึ้นไป) — แก้ช่องที่ขึ้นสีแดงก่อนบันทึก', 6000); return; }
     const st = host.querySelector('[data-f="station"]');
     if (!String(editing.station || editing.name || '').trim()) { st.classList.add('bad'); st.setAttribute('aria-invalid', 'true'); st.focus(); U().toast('กรอกรหัสสถานีหรือชื่องานก่อนบันทึก', 6000); return; }
     if (untyped() && !(await U().ask(`มี ${untyped()} แถวที่ยังไม่ระบุประเภท (VA/NNVA/NVA) — แถวเหล่านี้จะนับใน CT แต่ไม่นับใน VA% · บันทึกต่อ?`, []))) { host.querySelector('.r-type.need')?.focus(); return; }

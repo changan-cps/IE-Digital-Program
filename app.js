@@ -202,7 +202,7 @@
 
   // ---------- Google Sheet sync (best-effort, offline-first) ----------
   let syncState = 'off'; // off | ok | pending | error
-  function setSync(s, msg) { syncState = s; const b = $('#sync-badge'); if (b) { b.dataset.state = s; b.title = msg || s; } }
+  function setSync(s, msg) { syncState = s; const b = $('#sync-badge'); if (b) { b.dataset.state = s; b.title = msg || s; b.innerHTML = `<i aria-hidden="true">●</i> <span>${esc(shellPick('sync')[s] || s)}</span>`; } }
   async function sheetFetch(params, body) {
     if (!sheetUrl) throw new Error('ยังไม่ได้ตั้งค่า Google Sheet');
     if (accessCode) params = Object.assign({}, params, { key: accessCode });
@@ -357,10 +357,10 @@
     } catch (e) { accessCode = old; $('#login-msg').textContent = 'ตรวจรหัสไม่สำเร็จ (ตรวจอินเทอร์เน็ต): ' + e.message; }
     $('#login-go').disabled = false;
   }
-  function logout() {
+  async function logout() {
     const q = Q(), n = Object.keys(q.up).length + Object.keys(q.del).length;
     const msg = 'ออกจากระบบ?\nข้อมูลที่เก็บไว้ในเครื่องนี้จะถูกล้าง (ข้อมูลกลางใน Sheet ยังอยู่ครบ)' + (n ? `\n\n⚠️ มี ${n} รายการที่ยังส่งขึ้น Sheet ไม่สำเร็จ จะหายไป` : '');
-    if (!confirm(msg)) return;
+    if (!(await ask(msg, [], { ok: 'ออกจากระบบ', cancel: 'อยู่ต่อ' }))) return;
     [CODE_KEY, STORE_KEY, SCOPE_KEY, 'cps-ie-me'].forEach(k => localStorage.removeItem(k));
     location.reload();
   }
@@ -413,10 +413,27 @@
   }
   // ---------- shell language: follows the Dashboard choice (ไทย / EN / 中文 / 中 / EN) ----------
   const SHELL = {
-    th: { tabs: ['แดชบอร์ด', 'Time Study', 'สมดุลสถานี', 'วิเคราะห์งาน'], sw: 'เปลี่ยนพื้นที่', out: 'ออกจากระบบ', foot: 'ข้อมูลพื้นที่:', gate: 'เลือกระดับการใช้งาน แล้วเลือกพื้นที่' },
-    en: { tabs: ['Dashboard', 'Time Study', 'Station balance', 'Kaizen analysis'], sw: 'Change area', out: 'Sign out', foot: 'Area:', gate: 'Choose your level, then your area' },
-    zh: { tabs: ['仪表板', '工时研究', '工位平衡', '改善分析'], sw: '切换区域', out: '退出', foot: '区域：', gate: '选择使用级别，然后选择区域' },
+    th: { tabs: ['แดชบอร์ด', 'Time Study', 'สมดุลสถานี', 'วิเคราะห์งาน'], sw: 'เปลี่ยนพื้นที่', out: 'ออกจากระบบ', foot: 'ข้อมูลพื้นที่:', gate: 'เลือกระดับการใช้งาน แล้วเลือกพื้นที่',
+      lv: { factory: 'ระบบโรงงาน', workshop: 'ระดับ Workshop', group: 'ระดับกลุ่ม', team: 'ระดับทีม' }, step1: 'ระดับการใช้งาน', choose: '— เลือก —', addNew: '➕ เพิ่มใหม่…', enter: 'เข้าใช้งาน →', view: 'ดูการวิเคราะห์ →',
+      opts: { team: '🧑‍🔧 ระดับทีม — บันทึก/ทำงาน เห็นเฉพาะทีมตัวเอง', group: '👥 ระดับกลุ่ม — วิเคราะห์รวมทุกทีมในกลุ่ม', workshop: '🏢 ระดับ Workshop — วิเคราะห์รวมทั้ง Workshop', factory: '🏭 ระบบโรงงาน — วิเคราะห์รวมทุกพื้นที่' },
+      sync: { ok: 'ซิงค์แล้ว', pending: 'กำลังซิงค์', error: 'ซิงค์ไม่สำเร็จ', off: 'เก็บในเครื่อง' } },
+    en: { tabs: ['Dashboard', 'Time Study', 'Station balance', 'Kaizen analysis'], sw: 'Change area', out: 'Sign out', foot: 'Area:', gate: 'Choose your level, then your area',
+      lv: { factory: 'Factory', workshop: 'Workshop level', group: 'Group level', team: 'Team level' }, step1: 'Access level', choose: '— Choose —', addNew: '➕ Add new…', enter: 'Enter →', view: 'View analysis →',
+      opts: { team: '🧑‍🔧 Team — record and work, own team only', group: '👥 Group — analyse all teams in the group', workshop: '🏢 Workshop — analyse the whole workshop', factory: '🏭 Factory — analyse every area' },
+      sync: { ok: 'Synced', pending: 'Syncing', error: 'Sync failed', off: 'This device only' } },
+    zh: { tabs: ['仪表板', '工时研究', '工位平衡', '改善分析'], sw: '切换区域', out: '退出', foot: '区域：', gate: '选择使用级别，然后选择区域',
+      lv: { factory: '工厂', workshop: '车间级', group: '组级', team: '班组级' }, step1: '使用级别', choose: '— 请选择 —', addNew: '➕ 新增…', enter: '进入 →', view: '查看分析 →',
+      opts: { team: '🧑‍🔧 班组 — 记录与作业，仅本班组', group: '👥 组 — 分析组内所有班组', workshop: '🏢 车间 — 分析整个车间', factory: '🏭 工厂 — 分析所有区域' },
+      sync: { ok: '已同步', pending: '同步中', error: '同步失败', off: '仅本机' } },
   };
+  function shellPick(k) {
+    const I = window.CPSDashI18n; const L = I ? I.lang : 'th';
+    const T = SHELL[L === 'zhen' ? 'zh' : L] || SHELL.th; return T[k];
+  }
+  function crumbText() {
+    const parts = scope ? [scope.workshop, scope.group, scope.team].filter(Boolean).join(' / ') : '';
+    return (shellPick('lv')[scope && scope.level] || shellPick('lv').team) + (parts ? ' · ' + parts : '');
+  }
   function applyShell() {
     const I = window.CPSDashI18n; const L = I ? I.lang : 'th';
     const pick = k => L === 'zhen' ? (Array.isArray(SHELL.zh[k]) ? SHELL.zh[k].map((z, i) => z === SHELL.en[k][i] ? z : z + ' / ' + SHELL.en[k][i]) : SHELL.zh[k] + ' / ' + SHELL.en[k]) : (SHELL[L] || SHELL.th)[k];
@@ -425,19 +442,25 @@
     if ($('#btn-logout')) $('#btn-logout').textContent = pick('out');
     if ($('#foot-label')) $('#foot-label').textContent = pick('foot');
     if ($('#gate-sub')) $('#gate-sub').textContent = pick('gate');
+    const s1 = $('[data-step="level"] .step-head b'); if (s1) s1.textContent = shellPick('step1');
+    $$('#sel-level option').forEach(o => { o.textContent = o.value ? shellPick('opts')[o.value] || o.textContent : shellPick('choose'); });
+    if ($('#enter')) $('#enter').textContent = shellPick($('#sel-level') && $('#sel-level').value && $('#sel-level').value !== 'team' ? 'view' : 'enter');
+    if (scope && $('#scope-crumb')) { $('#scope-crumb').textContent = crumbText(); $('#foot-scope').textContent = crumbText(); }
+    setSync(syncState, $('#sync-badge') ? $('#sync-badge').title : '');
     document.documentElement.lang = L === 'zh' || L === 'zhen' ? 'zh-Hans' : L;
   }
   // ---------- toast ----------
   let toastT;
   function toast(m, ms) { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms || Math.max(4000, 60 * String(m).length)); }
   // in-page input dialog (replaces prompt): fields = [{name,label,type?,options?}] -> Promise<object|null>
-  function ask(title, fields) {
+  function ask(title, fields, opt) {
+    opt = opt || {};
     return new Promise(res => {
       const d = document.createElement('dialog');
       d.innerHTML = `<form method="dialog" class="dlg"><div class="dlg-head"><h2>${esc(title)}</h2></div>${fields.map(f => f.options
         ? `<label>${esc(f.label)}<select name="${f.name}">${f.options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</select></label>`
         : `<label>${esc(f.label)}<input name="${f.name}" type="${f.type || 'text'}" autocomplete="off"></label>`).join('')}
-        <div class="dlg-actions"><button value="cancel" class="ghost">ยกเลิก</button><button value="ok" class="primary">ตกลง</button></div></form>`;
+        <div class="dlg-actions"><button value="cancel" class="ghost">${esc(opt.cancel || 'ยกเลิก')}</button><button value="ok" class="primary">${esc(opt.ok || 'ตกลง')}</button></div></form>`;
       document.body.appendChild(d);
       // ปิดและคืนค่าทันทีจากปุ่ม ไม่รอ event 'close' (บางเบราว์เซอร์/แท็บที่ซ่อนอยู่ยิง event นี้ช้า)
       let done = false;
@@ -483,7 +506,7 @@
     // รายการตั้งต้นขึ้นก่อนตามลำดับในตาราง ส่วนที่เพิ่มเองต่อท้าย
     const base = step === 'workshop' ? DEFAULT_WORKSHOPS : step === 'group' ? Object.keys(PRESET_AREAS[pick.workshop] || {}) : ((PRESET_AREAS[pick.workshop] || {})[pick.group] || []);
     opts = [...base, ...opts.filter(o => !base.includes(o)).sort()];
-    sel.innerHTML = '<option value="">— เลือก —</option>' + opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('') + `<option value="${NEW}">➕ เพิ่มใหม่…</option>`;
+    sel.innerHTML = `<option value="">${esc(shellPick('choose'))}</option>` + opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('') + `<option value="${NEW}">${esc(shellPick('addNew'))}</option>`;
     sel.value = pick[step] && opts.includes(pick[step]) ? pick[step] : '';
   }
 
@@ -519,7 +542,7 @@
     if (d >= 2 && !pick.group) ok = false;
     if (d >= 3 && !pick.team) ok = false;
     $('#enter').disabled = !ok;
-    $('#enter').textContent = pick.level === 'team' ? 'เข้าใช้งาน →' : 'ดูการวิเคราะห์ →';
+    $('#enter').textContent = shellPick(pick.level && pick.level !== 'team' ? 'view' : 'enter');
   }
 
   function openGate(prefill) {
@@ -548,8 +571,7 @@
   let currentTab = 'dashboard';
   function openApp() {
     $('#gate').hidden = true; $('#app').hidden = false;
-    const parts = [scope.workshop, scope.group, scope.team].filter(Boolean).join(' / ');
-    const crumb = (LEVEL_LABEL[scope.level] || 'ระดับทีม') + (parts ? ' · ' + parts : '');
+    const crumb = crumbText();
     $('#scope-crumb').textContent = crumb; $('#foot-scope').textContent = crumb;
     document.body.classList.toggle('readonly', !canEdit());
     setSync(sheetUrl ? 'ok' : 'off', sheetUrl ? 'เชื่อมข้อมูลกลางแล้ว' : 'ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ');
@@ -557,15 +579,18 @@
     syncPull(true);
   }
   // leaving an unsaved time study asks first (the draft stays in this browser either way)
+  const dirtyEditor = () => currentTab === 'timestudy' && window.CPSTimeStudy?.isDirty?.() ? ['CPSTimeStudy', 'Time Study', 'Time Study']
+    : currentTab === 'analysis' && window.CPSAnalysis?.isDirty?.() ? ['CPSAnalysis', 'งานวิเคราะห์', 'วิเคราะห์งาน'] : null;
   function guardLeave(go) {
-    if (currentTab === 'timestudy' && window.CPSTimeStudy?.isDirty?.()) {
-      ask('ยังไม่ได้บันทึก Time Study นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้ที่หน้า Time Study)', []).then(ok => { if (ok) { window.CPSTimeStudy.leave(); go(); } });
+    const d = dirtyEditor();
+    if (d) {
+      ask(`ยังไม่ได้บันทึก ${d[1]} นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้ที่หน้า ${d[2]})`, [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }).then(ok => { if (ok) { window[d[0]].leave(); go(); } });
       return;
     }
     go();
   }
   function showTab(tab) {
-    if (tab !== currentTab && currentTab === 'timestudy' && window.CPSTimeStudy?.isDirty?.()) return guardLeave(() => showTab(tab));
+    if (tab !== currentTab && dirtyEditor()) return guardLeave(() => showTab(tab));
     currentTab = tab;
     const tbh = $('.topbar') ? $('.topbar').offsetHeight : 0; if (tbh) document.documentElement.style.setProperty('--topbar-h', tbh + 'px');
     $$('#tabs button').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
@@ -665,7 +690,7 @@
     // app events
     $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     $('#btn-switch').onclick = () => guardLeave(() => openGate(scope));
-    addEventListener('beforeunload', e => { if (window.CPSTimeStudy?.isDirty?.()) { e.preventDefault(); e.returnValue = ''; } });
+    addEventListener('beforeunload', e => { if (window.CPSTimeStudy?.isDirty?.() || window.CPSAnalysis?.isDirty?.()) { e.preventDefault(); e.returnValue = ''; } });
     const tb = $('.topbar'), setTb = () => { if (tb && tb.offsetHeight) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px'); };
     setTb(); if (window.ResizeObserver && tb) new ResizeObserver(setTb).observe(tb);
     // every field gets a name screen readers can say; repeated row buttons say which row

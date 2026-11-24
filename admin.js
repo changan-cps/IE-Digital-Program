@@ -75,14 +75,15 @@
     if (u && !URL_RE.test(u)) { say('#st-url', 'URL ไม่ถูกต้อง ต้องเป็น https://script.google.com/macros/s/…/exec'); return; }
     localStorage.setItem(URL_KEY, u); say('#st-url', u ? 'บันทึกแล้ว' : 'ล้าง URL แล้ว'); $('#link').hidden = true;
   };
+  const urlFirst = () => { if (!$('#url').value.trim()) { say('#st-url', 'ใส่ URL ก่อน (URL ที่บันทึกไว้ยังอยู่)'); $('#url').value = getUrl(); $('#url').focus(); return false; } $('#save').click(); return !!getUrl(); };
   $('#test').onclick = async () => {
-    $('#save').click(); if (!getUrl()) return;
+    if (!urlFirst()) return;
     say('#st-url', 'กำลังทดสอบ…');
     try { const r = await call({ action: 'ping' }); say('#st-url', r.ok ? 'เชื่อมต่อสำเร็จ ✓' : 'ตอบกลับผิดปกติ: ' + (r.error || '')); }
     catch (e) { say('#st-url', 'เชื่อมต่อไม่สำเร็จ: ' + e.message); }
   };
   $('#copy').onclick = async () => {
-    $('#save').click(); const u = getUrl(); if (!u) return;
+    if (!urlFirst()) return; const u = getUrl();
     const link = teamLink(u); $('#link').textContent = link; $('#link').hidden = false;
     try { await navigator.clipboard.writeText(link); say('#st-url', 'คัดลอกลิงก์สำหรับทีมแล้ว'); }
     catch { say('#st-url', 'คัดลอกอัตโนมัติไม่ได้ — คัดลอกจากกล่องด้านบนเอง'); }

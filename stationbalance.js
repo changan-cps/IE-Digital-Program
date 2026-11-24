@@ -10,6 +10,8 @@
 
   const takt = jph => { const j = U().num(jph); return j ? 3600 / j : 0; };
   const loadPct = r => { const t = takt(r.jph); return t ? (U().num(r.ct) / t) * 100 : 0; };
+  // ไลน์ = ทีม + รุ่น/รุ่นย่อย (คีย์เดียวกับแดชบอร์ด) — คนละทีมที่ใช้รุ่นเดียวกันไม่ถูกรวมเป็นไลน์เดียว
+  const lineKey = r => [r.workshop || '', r.group || '', r.team || '', r.model || '-', r.submodel || '-'].join('§');
   const loadColor = p => p > 100 ? '#c0392b' : p >= 90 ? '#9a5b00' : p >= 75 ? '#1e7a46' : '#15856b';
 
   function blank(prev) {
@@ -29,7 +31,7 @@
     // group by model -> submodel
     const groups = {};
     for (const r of rows) {
-      const key = (r.model || '-') + '§' + (r.submodel || '-');
+      const key = lineKey(r);
       (groups[key] = groups[key] || []).push(r);
     }
     const allMax = rows.length ? Math.max(...rows.map(loadPct)) : 0;
@@ -45,7 +47,7 @@
         ${sumCard('จำนวน Station', rows.length, 'สถานี')}
         ${sumCard('ภาระสูงสุด', fmt(allMax) + '%', '', loadColor(allMax))}
         ${sumCard('เกิน TAKT (>100%)', rows.filter(r => loadPct(r) > 100).length, 'สถานี', '#c0392b')}
-        ${sumCard('ระบบแนะนำปรับปรุง', rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))).length, 'สถานี', '#9a5b00')}
+        ${(() => { const nAdv = rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))).length; return sumCard('ระบบแนะนำปรับปรุง', nAdv, 'สถานี', nAdv ? '#9a5b00' : ''); })()}
       </div>
       ${!rows.length ? `<div class="blank">ยังไม่มีข้อมูลสถานี${can ? ' — กด “＋ เพิ่มสถานี”' : ''}</div>`
         : Object.keys(groups).sort().map(k => groupBlock(k, groups[k], can)).join('')}`;
@@ -102,12 +104,12 @@
 
   function groupBlock(key, list, can) {
     const { esc, fmt } = U();
-    const [model, submodel] = key.split('§');
+    const [, , team, model, submodel] = key.split('§');
     const max = Math.max(...list.map(loadPct));
     const rowsHtml = list.map(r => stationRow(r, can)).join('');
     return `<section class="panel sb-group" data-key="${esc(key)}">
       <div class="sb-grouphead">
-        <div><span class="sb-model">${esc(model)}</span> · รุ่นย่อย <b>${esc(submodel)}</b></div>
+        <div>${team ? `<span class="muted">${esc(team)} · </span>` : ''}<span class="sb-model">${esc(model)}</span> · รุ่นย่อย <b>${esc(submodel)}</b></div>
         <div class="sb-grouphead-r">${list.length} station · ภาระสูงสุด <b style="color:${loadColor(max)}">${fmt(max)}%</b>
           <button class="sb-line-swct" type="button" data-key="${esc(key)}">📊 SWCT ทั้งไลน์</button></div>
       </div>
@@ -126,7 +128,7 @@
     const bar = `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(p, 100)}%;background:${col}"></i>${p > 100 ? `<i class="over" style="width:${Math.min(p - 100, 40)}%"></i>` : ''}</div><span style="color:${col}">${fmt(p)}%</span></div>`;
     const adv = D().advise(r);
     const chip = adv.status === 'improve' ? `<span class="adv improve" title="${esc(adv.reasons.join(' · '))}">ควรปรับปรุง</span>` : adv.status === 'ok' ? '<span class="adv ok">ปกติ</span>' : '<span class="adv">รอข้อมูล</span>';
-    const done = r.wf && r.wf.improve === false ? '<span class="adv">ปิดงานแล้ว</span>' : r.wf && r.wf.approval && r.wf.approval.submitted ? '<span class="adv ok">ส่งอนุมัติแล้ว</span>' : chip;
+    const done = r.wf && r.wf.improve === false ? (loadPct(r) > 100 ? '<span class="adv" style="color:#c0392b">ไม่ปรับปรุง · ยังเกิน TAKT</span>' : '<span class="adv">ไม่ปรับปรุง (ปิดงาน)</span>') : r.wf && r.wf.approval && r.wf.approval.submitted ? '<span class="adv ok">ส่งอนุมัติแล้ว</span>' : chip;
     const nR = D().group.roundsOf(r.station).length;
     const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}">→ ขั้นตอน</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
     if (!can) {
@@ -166,7 +168,7 @@
       };
       jph.oninput = liveUpdate; ct.oninput = liveUpdate;
       const pull = tr.querySelector('.f-pull'); if (pull) pull.onclick = () => pullCT(id, tr);
-      const del = tr.querySelector('.f-del'); if (del) del.onclick = () => { if (confirm('ลบสถานีนี้?')) { D().remove('stations', id); render(host); } };
+      const del = tr.querySelector('.f-del'); if (del) del.onclick = async () => { if (await U().ask('ลบสถานีนี้? ลบแล้วกู้คืนไม่ได้', [], { ok: 'ลบสถานี', cancel: 'ไม่ลบ' })) { D().remove('stations', id); render(host); } };
     });
   }
   function docBlur() { return false; }
@@ -206,7 +208,7 @@
       g += `<text x="${x + bw / 2}" y="${Y(d.s.ct) - 5}" class="yz-v${over ? ' yz-over' : ''}">${fmt(d.s.ct)}</text>`;
       if (d.t) g += `<line x1="${x - gap / 2}" y1="${Y(d.t)}" x2="${x + bw + gap / 2}" y2="${Y(d.t)}" class="yz-takt"/>`;
       const nm = String(d.r.station || '—');
-      g += `<text x="${x + bw / 2}" y="${top + ph + 16}" class="yz-st">${esc(nm.length > 9 ? nm.slice(0, 9) + '…' : nm)}</text>` +
+      g += `<text x="${x + bw / 2}" y="${top + ph + 16}" class="yz-st">${esc(nm.length > 9 ? '…' + nm.slice(-8) : nm)}</text>` +
         `<text x="${x + bw / 2}" y="${top + ph + 30}" class="yz-pct${over ? ' yz-over' : ''}">${d.t ? fmt(d.s.ct / d.t * 100) + '%' : ''}</text>`;
     });
     const t0 = data.find(d => d.t);
@@ -216,7 +218,7 @@
   function refreshYama(tr) {
     const sec = tr.closest('.sb-group'); if (!sec) return;
     const key = sec.dataset.key;
-    const list = D().listStations().filter(r => ((r.model || '-') + '§' + (r.submodel || '-')) === key);
+    const list = D().listStations().filter(r => lineKey(r) === key);
     sec.querySelector('.sb-yama').innerHTML = yamazumi(list);
   }
 
@@ -247,8 +249,8 @@
   // ---- SWCT ทั้งไลน์: ทุกสถานีในกลุ่มรุ่นเดียวกัน วางต่อกันบนแกนเวลาเดียวกัน เทียบการทำงานช่วงเวลาเดียวกัน ----
   function openLineSwct(key) {
     const { esc, fmt, num } = U(); const C = window.CPSTimeStudy && window.CPSTimeStudy.charts;
-    const list = D().listStations().filter(r => ((r.model || '-') + '§' + (r.submodel || '-')) === key);
-    const [model, submodel] = key.split('§');
+    const list = D().listStations().filter(r => lineKey(r) === key);
+    const [, , , model, submodel] = key.split('§');
     const jphs = list.map(r => num(r.jph)).filter(Boolean);
     const mode = { pick: 'latest' };
     const tk = groupTakt(list);

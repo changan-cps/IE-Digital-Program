@@ -287,8 +287,11 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   .field-grid{grid-template-columns:1fr;padding:14px}
   .mini-metrics{grid-template-columns:1fr 1fr}
   .cards{grid-template-columns:1fr 1fr}
-  .tabs{flex-wrap:wrap}
+  .tabs{flex-wrap:nowrap;padding:6px 10px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{min-height:40px;padding:6px 12px}
   .brand small{display:none}
+  .badge span{display:none}
   .recent-row em{margin-left:0;width:100%}
   .ts-capture .primary,.ts-capture .dark{min-width:0}
 }
@@ -433,3 +436,14 @@ i.k-dash{border-top-style:dashed}
 .dz-swct-ctl select{min-height:40px;border:1px solid var(--line);border-radius:9px;padding:4px 8px;max-width:340px}
 #dz-swct .swct-sum,#dz-swct .sb-lbr{border-radius:10px;margin-bottom:8px}
 .dz-swnote{margin:8px 2px 0}
+
+/* round 2: touch targets, phone chrome, shortcuts legend */
+.panel,.page-head,[id]{scroll-margin-top:calc(var(--topbar-h,56px) + 64px)}
+.badge{display:inline-flex;align-items:center;gap:5px}
+.badge i{font-style:normal}
+.badge span{color:#d5e2ee;font-size:12px}
+.dz-same{color:var(--muted);font-size:12px;font-weight:500}
+@media (pointer:coarse){
+  .ts-keys{display:none}
+  .sb-line-swct,.sound-chip,.wf-open,.r-del,.el-table .r-del,.dz-tabs button,.dz-lang button{min-height:44px}
+}
