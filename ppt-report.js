@@ -12,7 +12,8 @@
   function build(PptxGenJS, R, base) {
     const img = n => base + n, X = R.tx;
     // ไทย/English: Leelawadee UI (มีใน Windows ทุกเครื่อง) · 中文: Microsoft YaHei เหมือนแม่แบบ
-    const FONT = R.lang === 'zh' ? 'Microsoft YaHei' : 'Leelawadee UI', LANG = R.lang === 'zh' ? 'zh-CN' : R.lang === 'en' ? 'en-US' : 'th-TH';
+    const ZH = R.lang === 'zh' || R.lang === 'zhen', BI = !!R.bi;
+    const FONT = ZH ? 'Microsoft YaHei' : 'Leelawadee UI', LANG = ZH ? 'zh-CN' : R.lang === 'en' ? 'en-US' : 'th-TH';
     const pptx = new PptxGenJS();
     pptx.defineLayout({ name: 'CHANGAN_16x9', width: W, height: H });
     pptx.layout = 'CHANGAN_16x9';
@@ -29,7 +30,7 @@
       { image: { x: 0.23, y: 0.06, w: 1.75, h: 0.46, path: img('page-logo.png') } },
       { image: { x: 2.93, y: 0.18, w: 6.71, h: 0.18, path: img('tagline-strip.png') } },
       { image: { x: 11.15, y: 0, w: 1.42, h: 0.4, path: img('page-confidential.png') } },
-      { placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.62, w: 11.57, h: 0.62, fontSize: 24, bold: true, color: BRAND, fontFace: FONT, align: 'left', valign: 'middle', margin: 0 }, text: '' } },
+      { placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.62, w: 11.57, h: 0.62, fontSize: BI ? 20 : 24, bold: true, color: BRAND, fontFace: FONT, align: 'left', valign: 'middle', margin: 0 }, text: '' } },
       { text: { text: 'CPS IE Studio · ' + R.area + ' · ' + R.rangeText, options: { x: 0.5, y: 6.62, w: 9, h: 0.3, fontSize: 10, color: MUTED, fontFace: FONT, margin: 0 } } },
     ], slideNumber: { x: 11.4, y: 6.62, w: 0.67, h: 0.3, fontSize: 10, color: MUTED, fontFace: FONT, align: 'right' } });
     pptx.defineSlideMaster({ title: 'BACK', background: { color: 'FFFFFF' }, objects: [
@@ -46,9 +47,10 @@
     });
     const callout = (s, x, y, w, label, value, sub, color) => {
       s.addShape(pptx.ShapeType.roundRect, { x, y, w, h: 1.25, fill: { color: CARD }, line: { color: CARD }, rectRadius: 0.08, objectName: 'card ' + label });
-      T(s, label, { x: x + 0.22, y: y + 0.14, w: w - 0.44, h: 0.3, fontSize: 12, color: MUTED });
-      T(s, value, { x: x + 0.22, y: y + 0.42, w: w - 0.44, h: 0.5, fontSize: 26, bold: true, color: color || INK });
-      if (sub) T(s, sub, { x: x + 0.22, y: y + 0.9, w: w - 0.44, h: 0.26, fontSize: 10, color: MUTED });
+      // สองภาษา: ป้ายชื่อ 2 บรรทัด (中文 / English) ตัวเลขเลื่อนลงเล็กน้อย
+      T(s, label, { x: x + 0.22, y: y + 0.1, w: w - 0.44, h: BI ? 0.42 : 0.3, fontSize: BI ? 10 : 12, color: MUTED, valign: 'top', lineSpacingMultiple: 0.95 });
+      T(s, value, { x: x + 0.22, y: y + (BI ? 0.5 : 0.42), w: w - 0.44, h: BI ? 0.44 : 0.5, fontSize: BI ? 24 : 26, bold: true, color: color || INK });
+      if (sub) T(s, sub, { x: x + 0.22, y: y + (BI ? 0.96 : 0.9), w: w - 0.44, h: 0.24, fontSize: BI ? 9 : 10, color: MUTED });
     };
     const empty = (s, msg) => T(s, msg, { x: 0.5, y: 3, w: 11.57, h: 0.6, fontSize: 16, color: MUTED, align: 'center' });
 
@@ -67,7 +69,7 @@
     s.addShape(pptx.ShapeType.roundRect, { x: 7.55, y: 1.5, w: 4.52, h: 4.25, fill: { color: 'FFFFFF' }, line: { color: 'D8E2EC', width: 1 }, rectRadius: 0.08, objectName: 'key points' });
     T(s, X.key, { x: 7.8, y: 1.68, w: 4.0, h: 0.4, fontSize: 16, bold: true, color: BRAND });
     T(s, R.insights.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < R.insights.length - 1 } })),
-      { x: 7.8, y: 2.15, w: 4.05, h: 3.45, fontSize: 13, valign: 'top', paraSpaceAfter: 8 });
+      { x: 7.8, y: 2.15, w: 4.05, h: 3.45, fontSize: BI ? 10 : 13, valign: 'top', paraSpaceAfter: BI ? 5 : 8 });
 
     // 3) การลด CT (combination: แท่ง + เส้น แกนเดียว หน่วยวินาที)
     pptx.addSection({ title: 'CT' });

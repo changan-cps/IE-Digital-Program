@@ -18,7 +18,7 @@
       redSeries: m => `CT ที่ลดได้ใน${W.th[m]}นั้น (วินาที)`, cumSeries: 'ลดสะสม (วินาที)', cumLabel: v => `สะสม −${v} วิ`,
       reduced: 'ลดได้', cumulative: 'ลดสะสม', jobsN: n => `${n} งาน`, reducePct: p => ` · ลด ${p}%`,
       noJobsPeriod: 'ยังไม่มีงานวิเคราะห์ Before/After ในช่วงนี้',
-      ctTitle: 'CT เฉลี่ย & VA / NNVA / NVA', ctTitleBy: m => 'CT เฉลี่ย & VA / NNVA / NVA ราย' + W.th[m], ctNote: 'เฉลี่ยต่อ Time Study · เส้นประ = TAKT เฉลี่ย',
+      ctTitle: 'CT เฉลี่ย & VA / NNVA / NVA', ctTitleBy: m => 'CT เฉลี่ย & VA/NNVA/NVA ราย' + W.th[m], ctNote: 'เฉลี่ยต่อ Time Study · เส้นประ = TAKT เฉลี่ย',
       taktAvg: 'TAKT เฉลี่ย', noStudyPeriod: 'ยังไม่มี Time Study ในช่วงนี้',
       lbrTitle: m => 'Line Balance Rate ราย' + W.th[m], lbrNote: m => `ณ สิ้น${W.th[m]} · เป้า ≥ 85%`,
       lbrHelp: m => `ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 จาก Time Study ล่าสุดของแต่ละสถานี ณ สิ้น${W.th[m]}`,
@@ -59,7 +59,7 @@
       redSeries: m => `CT reduced in the ${W.en[m]} (s)`, cumSeries: 'Cumulative reduction (s)', cumLabel: v => `Cumulative −${v} s`,
       reduced: 'Reduced', cumulative: 'Cumulative', jobsN: n => `${n} jobs`, reducePct: p => ` · −${p}%`,
       noJobsPeriod: 'No Before/After analyses in this period',
-      ctTitle: 'Average CT & VA / NNVA / NVA', ctTitleBy: m => 'Average CT & VA / NNVA / NVA by ' + W.en[m], ctNote: 'Average per Time Study · dashed = average TAKT',
+      ctTitle: 'Average CT & VA / NNVA / NVA', ctTitleBy: m => 'Average CT & VA/NNVA/NVA by ' + W.en[m], ctNote: 'Average per Time Study · dashed = average TAKT',
       taktAvg: 'Average TAKT', noStudyPeriod: 'No Time Study in this period',
       lbrTitle: m => 'Line Balance Rate by ' + W.en[m], lbrNote: m => `At end of each ${W.en[m]} · target ≥ 85%`,
       lbrHelp: m => `ΣCT ÷ (stations × max CT) × 100, using each station's latest Time Study at the end of the ${W.en[m]}`,
@@ -99,7 +99,7 @@
       redSeries: m => `当${W.zh[m]}降低 CT（秒）`, cumSeries: '累计降低（秒）', cumLabel: v => `累计 −${v} 秒`,
       reduced: '降低', cumulative: '累计降低', jobsN: n => `${n} 项`, reducePct: p => ` · 降低 ${p}%`,
       noJobsPeriod: '本期暂无改善前后（Before/After）分析',
-      ctTitle: '平均 CT 与 VA / NNVA / NVA', ctTitleBy: m => (m === 'week' ? '每周' : '每月') + '平均 CT 与 VA / NNVA / NVA', ctNote: '每个 Time Study 的平均值 · 虚线 = 平均 TAKT',
+      ctTitle: '平均 CT 与 VA / NNVA / NVA', ctTitleBy: m => (m === 'week' ? '每周' : '每月') + '平均 CT 与 VA/NNVA/NVA', ctNote: '每个 Time Study 的平均值 · 虚线 = 平均 TAKT',
       taktAvg: '平均 TAKT', noStudyPeriod: '本期暂无 Time Study',
       lbrTitle: m => (m === 'week' ? '每周' : '每月') + ' Line Balance Rate', lbrNote: m => `每${W.zh[m]}末 · 目标 ≥ 85%`,
       lbrHelp: m => `ΣCT ÷ (工位数 × 最大 CT) × 100，取每${W.zh[m]}末各工位最新的 Time Study`,
@@ -127,16 +127,30 @@
       ins_hold: p => `手持握 ▽ 占要素 ${p}% — 可考虑使用夹具`, ins_none: '本期暂无数据',
     },
   };
-  const LOCALE = { th: 'th-TH', en: 'en-GB', zh: 'zh-CN' };
+  // 'zhen' = 中文 + English ในหน้าเดียว (สองภาษาคู่กัน) — เก็บแยกใน 'cps-ie-lang' เพราะ Portal มีแค่ zh / en / th
+  const BI = 'zhen', OWN = 'cps-ie-lang';
+  const EN_ONLY = ['s', 'sec', 'items', 'people', 'weekOf', 'periods', 'ppt', 'cumLabel'];   // หน่วย/วันที่ใช้ภาษาอังกฤษอย่างเดียวให้สั้น
+  const LOCALE = { th: 'th-TH', en: 'en-GB', zh: 'zh-CN', zhen: 'en-GB' };
   let lang = 'th';
-  try { const v = localStorage.getItem(KEY); if (D[v]) lang = v; } catch (e) {}
+  try { const v = localStorage.getItem(KEY); if (D[v]) lang = v; if (localStorage.getItem(OWN) === BI) lang = BI; } catch (e) {}
+  const raw = (L, k, a) => { const v = D[L][k] !== undefined ? D[L][k] : D.en[k]; return typeof v === 'function' ? v(...a) : v; };
+  function pair(z, e, sep) {
+    if (Array.isArray(z)) return z.map((x, i) => pair(x, e[i], sep));
+    if (z && typeof z === 'object') { const o = {}; Object.keys(z).forEach(k => o[k] = pair(z[k], e[k], sep)); return o; }
+    return z === e ? z : z + sep + e;
+  }
+  const get = (k, a, sep) => lang !== BI ? raw(lang, k, a) : EN_ONLY.includes(k) ? raw('en', k, a) : pair(raw('zh', k, a), raw('en', k, a), sep);
   const api = {
-    LANGS,
+    LANGS: [...LANGS, [BI, '中 / EN']],
     get lang() { return lang; },
-    set(v) { if (!D[v]) return; lang = v; try { localStorage.setItem(KEY, v); } catch (e) {} },
+    get bilingual() { return lang === BI; },
+    set(v) {
+      if (v !== BI && !D[v]) return; lang = v;
+      try { if (v === BI) localStorage.setItem(OWN, BI); else { localStorage.removeItem(OWN); localStorage.setItem(KEY, v); } } catch (e) {}
+    },
     locale: () => LOCALE[lang],
-    t(k, ...a) { const v = D[lang][k] !== undefined ? D[lang][k] : D.en[k]; return typeof v === 'function' ? v(...a) : v; },
-    dict: () => D[lang],
+    t: (k, ...a) => get(k, a, ' / '),      // บนหน้าเว็บ: 中文 / English
+    tn: (k, ...a) => get(k, a, '\n'),      // ในสไลด์: 中文 บรรทัดบน · English บรรทัดล่าง
   };
   root.CPSDashI18n = api;
 })(window);

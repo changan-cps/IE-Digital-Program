@@ -2,7 +2,7 @@
 // กราฟทุกตัวใช้แกน Y เดียว (หน่วยเดียวกัน) — กราฟ combination = แท่ง + เส้นในหน่วยเดียวกัน ไม่ใช้สองแกน
 (function () {
   const U = () => window.CPS.util, D = () => window.CPS.data, I = () => window.CPSDashI18n;
-  const t = (k, ...a) => I().t(k, ...a);
+  const t = (k, ...a) => I().t(k, ...a), tn = (k, ...a) => I().tn(k, ...a);
   const PKEY = 'cps-ie-dash-period';
   let mode = 'week';
   try { mode = localStorage.getItem(PKEY) === 'month' ? 'month' : 'week'; } catch (e) {}
@@ -127,7 +127,7 @@
       for (let i = 0; i < n; i++) { const v = l.vals[i]; if (v == null) { pen = false; continue; } d += (pen ? 'L' : 'M') + x(i) + ',' + y(v); pen = true; }
       g += `<path d="${d}" fill="none" stroke="${l.color}" stroke-width="2" ${l.dash ? 'stroke-dasharray="6 4"' : ''} stroke-linejoin="round"/>`;
       if (!l.dash) for (let i = 0; i < n; i++) if (l.vals[i] != null) g += `<circle cx="${x(i)}" cy="${y(l.vals[i])}" r="4" fill="${l.color}" stroke="#fff" stroke-width="2"/>`;
-      if (l.endLabel) { let k = n - 1; while (k >= 0 && l.vals[k] == null) k--; if (k >= 0) g += `<text x="${Math.min(x(k), W - padR - 2)}" y="${y(l.vals[k]) - 10}" text-anchor="${x(k) > W - padR - 40 ? 'end' : 'middle'}" class="dl">${esc(l.endLabel(l.vals[k]))}</text>`; }
+      if (l.endLabel) { let k = n - 1; while (k >= 0 && l.vals[k] == null) k--; if (k >= 0) g += `<text x="${Math.min(x(k), W - padR - 2)}" y="${y(l.vals[k]) - 10}" text-anchor="${k >= n - 2 || x(k) > W - padR - 40 ? 'end' : 'middle'}" class="dl">${esc(l.endLabel(l.vals[k]))}</text>`; }
     });
     // hover bands
     g += `<line class="xh" x1="0" x2="0" y1="${padT}" y2="${padT + ph}" stroke="${C.muted}" stroke-width="1" visibility="hidden"/>`;
@@ -163,7 +163,7 @@
     ctxSaved = ctx;
     const { esc, fmt } = U();
     const scope = D().scope, s = t('s');
-    document.documentElement.lang = I().lang === 'zh' ? 'zh-CN' : I().lang;
+    document.documentElement.lang = I().lang === 'zh' || I().lang === 'zhen' ? 'zh-CN' : I().lang;
     const P = compute(mode), B = P.B, n = B.length, last = B[n - 1];
     const avg = b => b.st.length ? b.ct / b.st.length : null;
     const lastWith = f => { for (let i = n - 1; i >= 0; i--) if (f(B[i])) return i; return -1; };
@@ -330,12 +330,12 @@
     const kz = P.kaizen.slice().sort((a, b) => b.red - a.red);
     const delta = ctL != null && ctP != null ? (ctL <= ctP ? '▼ ' : '▲ ') + f(Math.abs(ctL - ctP)) + ' ' + s + ' ' + t('vsPrev', mode) : '';
     const ins = [];
-    if (nJob) ins.push(t('ins_red', f(totRed), nJob, f(totBf ? totRed / totBf * 100 : 0)));
-    if (kz[0]) ins.push(t('ins_best', kz[0].j.name || kz[0].j.station, f(kz[0].red), f(kz[0].pct)));
-    if (ctL != null) ins.push(t('ins_ct', mode, f(ctL), ctP != null ? f(Math.abs(ctL - ctP)) : null, ctP != null && ctL <= ctP));
-    if (sumCt) ins.push(t('ins_va', f(sumVA / sumCt * 100)));
-    if (lb.lines.length) ins.push(t('ins_lbr', f(lb.lbr), lb.lbr >= 85, f(85 - lb.lbr), areaOf(lb.lines[0]), f(lb.lines[0].lbr)));
-    if (els) ins.push(t('ins_hold', f(((L.H || 0) + (Rh.H || 0)) / tH * 100)));
+    if (nJob) ins.push(tn('ins_red', f(totRed), nJob, f(totBf ? totRed / totBf * 100 : 0)));
+    if (kz[0]) ins.push(tn('ins_best', kz[0].j.name || kz[0].j.station, f(kz[0].red), f(kz[0].pct)));
+    if (ctL != null) ins.push(tn('ins_ct', mode, f(ctL), ctP != null ? f(Math.abs(ctL - ctP)) : null, ctP != null && ctL <= ctP));
+    if (sumCt) ins.push(tn('ins_va', f(sumVA / sumCt * 100)));
+    if (lb.lines.length) ins.push(tn('ins_lbr', f(lb.lbr), lb.lbr >= 85, f(85 - lb.lbr), areaOf(lb.lines[0]), f(lb.lines[0].lbr)));
+    if (els) ins.push(tn('ins_hold', f(((L.H || 0) + (Rh.H || 0)) / tH * 100)));
     const sym = t('sym');
     return {
       lang: I().lang, mode, area, levelLabel: t('level_' + (scope.level || 'team')), modeTitle: t(mode === 'week' ? 'weekly' : 'monthly'),
@@ -352,24 +352,24 @@
       top: kz.map(k => ({ name: k.j.name || k.j.station || '—', where: [k.j.team, k.j.station].filter(Boolean).join(' · '), date: k.j.date || '', bf: k.bf, af: k.af, red: k.red, pct: k.pct })),
       kpis: [
         { label: 'Time Study', value: nStudy + ' ' + t('items'), sub: t('periods', n, mode) },
-        { label: t('r_ctLatest', mode), value: ctL != null ? f(ctL) + ' ' + s : '—', sub: delta },
-        { label: t('ctReduced'), value: totRed ? '−' + f(totRed) + ' ' + s : '0', sub: t('jobsN', nJob), color: totRed ? '15856B' : null },
+        { label: tn('r_ctLatest', mode), value: ctL != null ? f(ctL) + ' ' + s : '—', sub: delta },
+        { label: tn('ctReduced'), value: totRed ? '−' + f(totRed) + ' ' + s : '0', sub: t('jobsN', nJob), color: totRed ? '15856B' : null },
         { label: 'VA', value: sumCt ? f(sumVA / sumCt * 100) + '%' : '—', sub: t('r_vaSub') },
         { label: 'Line Balance Rate', value: lb.lines.length ? f(lb.lbr) + '%' : '—', sub: lb.lines.length ? t('linesLow', lb.lines.length, lb.low) : null, color: lb.lines.length ? lbrColor(lb.lbr).slice(1).toUpperCase() : null },
-        { label: t('trained'), value: trained + ' ' + t('people'), sub: null },
+        { label: tn('trained'), value: trained + ' ' + t('people'), sub: null },
       ],
-      insights: ins.length ? ins : [t('ins_none')],
+      insights: ins.length ? ins : [tn('ins_none')], bi: I().bilingual,
       // ข้อความคงที่ของสไลด์ในภาษาที่เลือก
       tx: {
         s, sec: t('sec'), generated: t('r_generated', ''), summary: t('r_summary', mode), key: t('r_key'),
-        redTitle: t('redTitle', mode), redSeries: t('redSeries', mode), cumSeries: t('cumSeries'), totRed: t('r_totRed'), jobsN: t('jobsN', nJob),
-        avgJob: t('r_avgJob'), vsBefore: t('r_vsBefore'), best: t('r_best', mode), noJobs: t('noJobsPeriod'),
-        ctTitle: t('ctTitleBy', mode), takt: t('taktAvg') + ' (' + t('sec') + ')', ctLatest: t('r_ctLatest', mode), vaAvg: t('r_vaAvg'), vaSub: t('r_vaSub'), inPeriod: t('r_inPeriod'), noStudy: t('noStudyPeriod'),
-        target: t('target85'), lbrCols: t('r_lbrCols'), overall: t('r_overall', f(lb.lbr), lb.lines.length), noStation: t('noStation'),
-        handsTitle: t('handsTitle'), symbol: t('symbol'), left: t('left'), right: t('right'),
+        redTitle: t('redTitle', mode), redSeries: t('redSeries', mode), cumSeries: t('cumSeries'), totRed: tn('r_totRed'), jobsN: t('jobsN', nJob),
+        avgJob: tn('r_avgJob'), vsBefore: t('r_vsBefore'), best: tn('r_best', mode), noJobs: t('noJobsPeriod'),
+        ctTitle: t('ctTitleBy', mode), takt: t('taktAvg') + ' (' + t('sec') + ')', ctLatest: tn('r_ctLatest', mode), vaAvg: tn('r_vaAvg'), vaSub: t('r_vaSub'), inPeriod: t('r_inPeriod'), noStudy: t('noStudyPeriod'),
+        target: t('target85'), lbrCols: tn('r_lbrCols'), overall: t('r_overall', f(lb.lbr), lb.lines.length), noStation: t('noStation'),
+        handsTitle: t('handsTitle'), symbol: tn('symbol'), left: t('left'), right: t('right'),
         sym: { O: '○ ' + sym.O, T: '→ ' + sym.T, D: 'D ' + sym.D, H: '▽ ' + sym.H, I: '□ ' + sym.I },
-        both: t('both'), hold: t('hold'), wait: t('wait'), holdSub: t('r_holdSub'), waitSub: t('r_waitSub'), elements: t('elsNote', els.toLocaleString('en-US')), noHands: t('noHands'),
-        topTitle: t('topTitle'), topCols: t('r_topCols'),
+        both: tn('both'), hold: tn('hold'), wait: tn('wait'), holdSub: t('r_holdSub'), waitSub: t('r_waitSub'), elements: t('elsNote', els.toLocaleString('en-US')), noHands: t('noHands'),
+        topTitle: t('topTitle'), topCols: tn('r_topCols'),
       },
     };
   }
