@@ -536,3 +536,15 @@ button:disabled{opacity:.45}
   .lang-global select{max-width:92px}
   #tab-timestudy .page-head:has(#ts-save),#tab-analysis .page-head:has(#an-save){top:calc(var(--topbar-h,56px) + 52px)}
 }
+
+/* phone top bar: one row */
+@media(max-width:560px){
+  .topbar{padding:8px 10px;gap:6px}
+  .brand{gap:6px;font-size:15px;white-space:nowrap;min-width:0}
+  .brand .mark{font-size:20px}
+  .top-actions{gap:6px;flex-wrap:nowrap}
+  .lang-global select{max-width:none;width:auto;min-height:38px;padding:2px 4px;font-size:13px}
+  .help-btn{min-width:38px;min-height:38px;padding:0}
+  #btn-switch,#btn-logout{min-height:38px;padding:4px 10px;font-size:13px;white-space:nowrap}
+}
+@media(max-width:380px){ .brand>div{font-size:14px} .badge{display:none} }
