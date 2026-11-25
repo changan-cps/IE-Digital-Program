@@ -14,15 +14,15 @@
 
   // ป้ายของหน้าสรุป (ส่วนที่ผู้จัดการเปิดดู) ตามภาษาที่เลือกบนแดชบอร์ด · โหมดแก้ไขตารางยังเป็นภาษาไทย
   const SBT = {
-    th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'แนะนำปรับปรุง (ยังไม่ดำเนินการ)', sub: 'รุ่นย่อย',
+    th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'ต้องตัดสินใจ / ยังเกิน TAKT', sub: 'รุ่นย่อย',
       yz: 'กราฟ Yamazumi (Line Balance)', noRound: 'ไม่มีรอบจับเวลา', swct: '📊 SWCT ทั้งไลน์', edit: '✎ แก้ไขตาราง', done: '✓ เสร็จสิ้นการแก้ไข', cancel: 'ยกเลิกการแก้ไข', add: '＋ เพิ่มสถานี',
       ro: '👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม', th: ['สถานี', 'ทีม', 'JPH', 'TAKT', 'CT ที่ใช้', 'ภาระงาน', 'OIS', 'ระบบแนะนำ / ขั้นตอน'],
       improve: 'ควรปรับปรุง', ok: 'ปกติ', wait: 'รอข้อมูล', step: '→ ขั้นตอน', twoHand: 'SWCT / สองมือ' },
-    en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'To improve (not started)', sub: 'sub-model',
+    en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'Needs decision / still over TAKT', sub: 'sub-model',
       yz: 'Yamazumi chart (line balance)', noRound: 'no timing round', swct: '📊 Line SWCT', edit: '✎ Edit table', done: '✓ Done editing', cancel: 'Discard changes', add: '＋ Add station',
       ro: '👁️ Analysis mode (read only) — several teams combined', th: ['Station', 'Team', 'JPH', 'TAKT', 'CT in use', 'Load', 'OIS', 'Advice / steps'],
       improve: 'Needs improvement', ok: 'OK', wait: 'No data', step: '→ Steps', twoHand: 'SWCT / two-hand' },
-    zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '建议改善（未处理）', sub: '子车型',
+    zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '待决定 / 仍超出 TAKT', sub: '子车型',
       yz: '山积图 (Yamazumi)', noRound: '无计时轮次', swct: '📊 整线 SWCT', edit: '✎ 编辑表格', done: '✓ 完成编辑', cancel: '放弃修改', add: '＋ 添加工位',
       ro: '👁️ 分析模式（只读）— 多个班组汇总', th: ['工位', '班组', 'JPH', 'TAKT', '使用的 CT', '负荷', 'OIS', '建议 / 步骤'],
       improve: '需改善', ok: '正常', wait: '无数据', step: '→ 步骤', twoHand: 'SWCT / 双手' },
@@ -71,7 +71,7 @@
         ${sumCard(L('n'), rows.length, unitN(rows.length))}
         ${sumCard(L('max'), (allMax > 100 ? '▲ ' : '') + fmt(allMax) + '%', '', loadColor(allMax))}
         ${(() => { const nO = rows.filter(r => loadPct(r) > 100).length; return sumCard(L('over'), nO, unitN(nO), nO ? '#c0392b' : ''); })()}
-        ${(() => { const adv = rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))); return sumCard(L('adv'), adv.length, unitN(adv.length) + (adv.length ? ' · ' + adv.slice(0, 3).map(r => r.station).join(', ') : ''), adv.length ? '#9a5b00' : ''); })()}
+        ${(() => { const adv = rows.filter(r => ['decide', 'closedOver'].includes(D().statusOf(r).key)); return sumCard(L('adv'), adv.length, unitN(adv.length) + (adv.length ? ' · ' + adv.slice(0, 3).map(r => r.station).join(', ') : ''), adv.length ? '#9a5b00' : ''); })()}
       </div>
       ${!rows.length ? `<div class="blank">ยังไม่มีข้อมูลสถานี${can ? ' — กด “＋ เพิ่มสถานี”' : ''}</div>`
         : Object.keys(groups).sort().map(k => groupBlock(k, groups[k], can && editMode)).join('')}`;
@@ -158,7 +158,7 @@
   // ที่มาของ CT ที่ใช้ (After ของงานวิเคราะห์ / Time Study / กรอกเอง)
   function srcNote(ci) {
     const { fmt } = U();
-    return ci.src === 'after' ? `<small class="sb-rounds">หลังปรับ (After) · ก่อน ${fmt(ci.before)} วิ</small>` : ci.src === 'study' ? `<small class="sb-rounds">สูงสุดจาก ${ci.n} รอบ</small>` : '';
+    return ci.src === 'after' ? `<small class="sb-rounds">หลังปรับ (After) · ก่อน (เฉลี่ย) ${fmt(ci.before)} วิ</small>` : ci.src === 'study' ? `<small class="sb-rounds">สูงสุดจาก ${ci.n} รอบ</small>` : '';
   }
   function stationRow(r, can) {
     const { esc, fmt, num } = U();
@@ -166,8 +166,9 @@
     const t = takt(r.jph), p = loadPct(r), col = loadColor(p);
     const bar = `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(p, 100)}%;background:${col}"></i>${p > 100 ? `<i class="over" style="width:${Math.min(p - 100, 40)}%"></i>` : ''}</div><span style="color:${col}">${fmt(p)}%</span></div>`;
     const adv = D().advise(r);
-    const chip = adv.status === 'improve' ? `<span class="adv improve" title="${esc(adv.reasons.join(' · '))}">${esc(L('improve'))}</span>` : adv.status === 'ok' ? `<span class="adv ok">${esc(L('ok'))}</span>` : `<span class="adv">${esc(L('wait'))}</span>`;
-    const done = r.wf && r.wf.improve === false ? (loadPct(r) > 100 ? '<span class="adv" style="color:#c0392b">ไม่ปรับปรุง · ยังเกิน TAKT</span>' : '<span class="adv">ไม่ปรับปรุง (ปิดงาน)</span>') : r.wf && r.wf.approval && r.wf.approval.submitted ? (() => { const n = Object.values(r.wf.approval.flows || {}).filter(x => x && x.by).length; return n >= 5 ? '<span class="adv ok">อนุมัติครบ 5/5</span>' : `<span class="adv ok">รออนุมัติ ${n}/5</span>`; })() : chip;
+    const stt = D().statusOf(r);
+    const cls = { ok: 'adv ok', approved: 'adv ok', pending: 'adv ok', progress: 'adv prog', decide: 'adv improve', closedOver: 'adv alarm', closed: 'adv', nodata: 'adv' }[stt.key];
+    const done = `<span class="${cls}"${stt.reasons ? ` title="${esc(stt.reasons.join(' · '))}"` : ''}>${stt.alarm ? '▲ ' : ''}${esc(stt.label)}</span>`;
     const nR = D().group.roundsOf(r.station).length;
     const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}">${esc(L('step'))}</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
     if (!can) {

@@ -185,7 +185,7 @@
         <p class="hint">คะแนนความง่าย: 1 = ยากสุด, 5 = ง่ายสุด · คะแนน ≤ 3 ขึ้นสีแดง = จุดต้องปรับปรุง</p>
       </section>
       <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>ตารางงานมาตรฐาน (SWCT)</h2>
-        <div class="head-btns"><label class="swct-takt">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
+        <div class="head-btns"><label class="swct-takt" title="ว่าง = ใช้ TAKT ของสถานี">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
         <div id="ts-swct" class="swct-wrap"></div>
       </section>
       <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>แผนภูมิสองมือ (Two-Handed Process Chart)</h2>

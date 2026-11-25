@@ -490,7 +490,7 @@
     let d = $('#help-dlg');
     if (!d) {
       d = document.createElement('dialog'); d.id = 'help-dlg'; d.className = 'help-dlg';
-      d.innerHTML = `<div class="dlg"><div class="dlg-head"><h2>วิธีใช้ CPS IE Studio</h2></div>
+      d.innerHTML = `<div class="dlg"><div class="dlg-head"><h2>วิธีใช้ CPS IE Studio</h2><button type="button" class="ghost dlg-x" data-close aria-label="ปิด">✕</button></div>
         <ol class="help-steps"><li><b>Time Study</b> — เลือกวิดีโอ กด “มาร์คจุดเริ่ม” แล้วกด “ตัดจบขั้นตอน (Lap)” ทุกครั้งที่จบขั้นตอน เลือก VA / NNVA / NVA ให้ทุกแถว แล้วบันทึก</li>
         <li><b>สมดุลสถานี</b> — ดูภาระงานเทียบ TAKT ของทุกสถานี กด “→ ขั้นตอน” เพื่อทำ Workflow 6 ขั้นของสถานีนั้น</li>
         <li><b>วิเคราะห์งาน</b> — เทียบ Before / After เลือกสถานีให้ตรงกับ Time Study แล้วระบบจะดึงคะแนนมาให้</li>
@@ -506,7 +506,7 @@
         <p><b>AI</b> ช่วยร่าง element และข้อเสนอให้ แล้วคนตรวจแก้ — ถ้าปุ่ม AI แจ้งว่ายังไม่พร้อม ให้ติดต่อผู้ดูแลระบบ</p>
         <div class="dlg-actions"><button type="button" class="primary" data-close>ปิด</button></div></div>`;
       document.body.appendChild(d);
-      d.querySelector('[data-close]').onclick = () => d.close();
+      d.querySelectorAll('[data-close]').forEach(b => b.onclick = () => d.close());
     }
     d.showModal();
   }
@@ -519,8 +519,8 @@
     return new Promise(res => {
       const d = document.createElement('dialog');
       d.innerHTML = `<form method="dialog" class="dlg"><div class="dlg-head"><h2>${esc(title)}</h2></div>${fields.map(f => f.options
-        ? `<label>${esc(f.label)}<select name="${f.name}">${f.options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</select></label>`
-        : `<label>${esc(f.label)}<input name="${f.name}" type="${f.type || 'text'}" autocomplete="off"></label>`).join('')}
+        ? `<label>${esc(f.label)}<select name="${f.name}">${f.options.map(o => `<option value="${esc(o.value)}"${f.value === o.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>`
+        : `<label>${esc(f.label)}<input name="${f.name}" type="${f.type || 'text'}" autocomplete="off" value="${esc(f.value || '')}"></label>`).join('')}
         <div class="dlg-actions"><button value="cancel" class="ghost">${esc(opt.cancel || 'ยกเลิก')}</button><button value="ok" class="${opt.danger ? 'danger' : 'primary'}">${esc(opt.ok || 'ตกลง')}</button></div></form>`;
       document.body.appendChild(d);
       // ปิดและคืนค่าทันทีจากปุ่ม ไม่รอ event 'close' (บางเบราว์เซอร์/แท็บที่ซ่อนอยู่ยิง event นี้ช้า)
@@ -664,7 +664,7 @@
     if ($('#app').hidden) return;
     if (currentTab === 'dashboard') renderDashboard();
     else if (currentTab === 'timestudy') window.CPSTimeStudy?.render($('#tab-timestudy'));
-    else if (currentTab === 'stations') window.CPSStations?.render($('#tab-stations'));
+    else if (currentTab === 'stations') { if (window.CPSWorkflow?.isOpen?.()) window.CPSWorkflow.refresh(); else window.CPSStations?.render($('#tab-stations')); }
     else if (currentTab === 'analysis') window.CPSAnalysis?.render($('#tab-analysis'));
   }
 
@@ -695,6 +695,16 @@
       </div>` : ''}
       ${recent(studies, jobs)}`;
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => showTab(b.dataset.go));
+  }
+  // สถานะของสถานีชุดเดียวทั้งแอป (ชิปในตาราง · การ์ดสรุป · แดชบอร์ด)
+  function statusOf(r) {
+    const w = r.wf || {}, ap = w.approval || {};
+    const j = num(r.jph), load = j ? ctOf(r) / (3600 / j) * 100 : 0;
+    if (w.improve === false) return load > 100 ? { key: 'closedOver', label: 'ปิดแล้วแต่ยังเกิน TAKT', alarm: true, load } : { key: 'closed', label: 'ปิด – ไม่ปรับปรุง', load };
+    if (ap.submitted) { const n = Object.values(ap.flows || {}).filter(x => x && x.by).length; return n >= 5 ? { key: 'approved', label: 'อนุมัติครบ 5/5', load } : { key: 'pending', label: `รออนุมัติ ${n}/5`, load }; }
+    if (w.improve === true) { const step = 4 + (w.lineBalance && w.lineBalance.saved ? 1 : 0) + (w.newOis && w.newOis.reviewed ? 1 : 0); return { key: 'progress', label: `กำลังทำ ขั้น ${step}/6`, load }; }
+    const adv = advise(r);
+    return adv.status === 'improve' ? { key: 'decide', label: 'ต้องตัดสินใจ', alarm: load > 100, reasons: adv.reasons, load } : adv.status === 'ok' ? { key: 'ok', label: 'ปกติ', load } : { key: 'nodata', label: 'รอข้อมูล', load };
   }
   // ---- Line Balance Rate: ไลน์ = ทีม + รุ่น/รุ่นย่อย · LBR = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 ----
   const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#9a5b00' : '#c0392b';
@@ -811,7 +821,7 @@
     util: { $, $$, uid, esc, ud, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
-      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf,
+      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },
       advise, balance, RULES,
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },

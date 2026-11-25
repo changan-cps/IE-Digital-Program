@@ -580,3 +580,31 @@ button:disabled{opacity:.45}
 }
 
 @media(max-width:720px){ #ts-table.tbl{max-height:none;overflow:visible} }
+
+/* round 7: status chips, contrast, phone save bar, tabs, wrapping */
+.adv.prog{background:#e8f1fb;color:#00467f}
+.adv.alarm{background:#fdecea;color:#a12a1d}
+.adv.improve{color:#8a4b00}
+.wf-dot{color:#3d5a73}
+.wf-badge{color:#6b4700}
+.seg button.on[data-ty=NNVA]{background:#8a5a00}
+.wf-sub{margin:2px 0 0;font-size:13px}
+.dz-neck{flex-basis:100%;color:#5b2a22}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dlg-x{min-height:40px;min-width:40px;padding:0}
+#swct-takt::placeholder{color:var(--ink);opacity:.75}
+.tabs button{transition:none}
+.tbl{max-height:none}
+h1,h2{text-wrap:balance}
+.hint,.muted{text-wrap:pretty}
+html[lang^=zh] .sb-table th{white-space:normal}
+@media(max-width:560px){
+  .page-head h1{font-size:22px}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;-webkit-mask-image:none;mask-image:none}
+  .tabs button{padding:6px 2px;font-size:13px;white-space:normal;line-height:1.2;min-height:44px}
+  #tab-timestudy .page-head:has(#ts-save) .head-btns,#tab-analysis .page-head:has(#an-save) .head-btns{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding:8px 10px;display:flex;gap:8px;box-shadow:0 -6px 16px rgba(16,43,70,.08)}
+  #tab-timestudy .page-head:has(#ts-save) .head-btns button,#tab-analysis .page-head:has(#an-save) .head-btns button{flex:1;min-height:48px}
+  #tab-timestudy:has(#ts-save),#tab-analysis:has(#an-save){padding-bottom:72px}
+  #tab-timestudy:has(#ts-save) .ts-capture{bottom:66px}
+  .ease-table td input.r-sec,.ease-table td input.r-steps{margin-right:6px}
+}

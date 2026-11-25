@@ -202,6 +202,7 @@
     const att = overSt.length || lowL.length ? `<section class="dz-att" role="status"><b>${esc(t('attTitle'))}</b>` +
       (overSt.length ? `<span>▲ ${esc(t('attOver', overSt.length, list(overSt.map(r => r.station + ' ' + fmt(ldOf(r)) + '%'), 4)))}</span>` : '') +
       (lowL.length ? `<span>▼ ${esc(t('attLow', lowL.length, list(lowL.map(l => l.model + ' / ' + l.sub + ' ' + fmt(l.lbr) + '%'), 3)))}</span>` : '') +
+      lowL.map(l => { const nr = D().listStations().find(r => r.station === l.neck); return nr && D().ctInfo(nr).src !== 'after' ? `<span class="dz-neck">● ${esc(t('attNeck', l.neck, fmt(l.max)))}</span>` : ''; }).join('') +
       `<button type="button" class="ghost" data-goto>${esc(t('attGo'))}</button></section>` : '';
 
     el.innerHTML = `
