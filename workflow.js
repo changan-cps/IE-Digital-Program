@@ -151,6 +151,8 @@
   function panelStep4(st, can) {
     const { esc, fmt, num } = U(); const w = wf(); const r = rec();
     const d = document.createElement('div'); d.className = 'wf-pad';
+    const locked = !!(w.approval && w.approval.submitted);   // ส่งอนุมัติแล้ว: Line Balance ล็อกให้ตรงกับ OIS ที่ส่ง
+    if (locked) { can = false; d.insertAdjacentHTML('beforeend', '<p class="wf-lock">🔒 ล็อกแล้ว — OIS ส่งอนุมัติไปแล้ว แก้ Line Balance ได้เมื่อถอนการส่งหรือถูกส่งกลับแก้ไข</p>'); }
     const lb = w.lineBalance || (w.lineBalance = { targetJph: r.jph || 22, limit: 90, rows: {}, auto: true });
     if (lb.limit == null) lb.limit = 90;
     const items = lbItems();
@@ -165,7 +167,7 @@
     d.appendChild(head);
 
     const box = el('div', 'wf-advise ' + (prop.feasible ? 'ok' : 'improve'));
-    box.innerHTML = `<b>ข้อเสนอของระบบ</b><p>งานรวม ${fmt(prop.total)} วิ · ${items.length} สถานี · เพดาน ${fmt(prop.limit)} วิ/สถานี · ต้องใช้อย่างน้อย ${prop.minStations} สถานี</p>` +
+    box.innerHTML = `<b>ข้อเสนอของระบบ</b><p>งานรวม ${fmt(prop.total)} วิ · ${items.length} สถานี · เพดาน ${fmt(prop.limit)} วิ/สถานี · ต้องใช้อย่างน้อย ${prop.minStations} สถานีที่เพดานนี้</p>` +
       (prop.feasible ? '' : `<p><b>เกลี่ยไม่ลงภายใน ${items.length} สถานี</b> ยังเกินอยู่ ${fmt(prop.shortage)} วิ → ต้องลดงานเพิ่ม เพิ่มสถานี/คน หรือปรับ JPH</p>`) +
       (prop.moves.length ? `<ul>${prop.moves.map(m => `<li>ย้ายงาน <b>${fmt(m.sec)} วิ</b> จาก <b>${esc(m.from)}</b> → <b>${esc(m.to)}</b>${m.pick.names && m.pick.names.length ? ' · ขั้นตอนที่เสนอ: ' + U().ud(m.pick.names.join(', ')) : m.pick.split ? ' · ต้องแบ่งขั้นตอน “' + U().ud(m.pick.split) + '” (' + fmt(m.pick.splitSec) + ' วิ)' : ''}</li>`).join('')}</ul>` : '<p>ทุกสถานีอยู่ในเพดานแล้ว ไม่ต้องย้ายงาน</p>');
     d.appendChild(box);
@@ -207,7 +209,7 @@
       d.innerHTML = `<p>รหัส OIS ใหม่: <b>${esc(o.code)}</b> · สร้างเมื่อ ${esc(U().dateTxt(o.generatedAt, true))}</p>
         <table class="el-table"><thead><tr><th>#</th><th>ขั้นตอน</th><th>วิ</th><th>ประเภท</th></tr></thead><tbody>${(o.steps || []).map((s, i) => `<tr><td class="idx">${i + 1}</td><td>${U().ud(s.name)}</td><td>${fmt(num(s.sec))}</td><td>${esc(s.type)}</td></tr>`).join('')}</tbody></table>`;
       const sent = w.approval && w.approval.submitted;
-      if (sent) d.insertAdjacentHTML('beforeend', '<p class="muted">ส่งอนุมัติแล้ว — ถ้าจะแก้ OIS ให้ถอนการส่งในขั้น 6 ก่อน</p>');
+      if (sent) d.insertAdjacentHTML('beforeend', '<p class="muted">ส่งอนุมัติแล้ว — แก้ OIS ไม่ได้ระหว่างรออนุมัติ (ถอนการส่งได้ถ้ายังไม่มีใครอนุมัติ หรือให้ฝ่ายอนุมัติกด “ส่งกลับแก้ไข”)</p>');
       else if (o.reviewed) d.insertAdjacentHTML('beforeend', '<p class="wf-okline">✓ ตรวจแล้ว — ส่งอนุมัติได้ในขั้น 6</p>');
       else d.insertAdjacentHTML('beforeend', '<p class="wf-todo">ตรวจขั้นตอนและเวลาในร่าง OIS ด้านบน แล้วกด “ตรวจแล้ว” ก่อนส่งอนุมัติ</p>');
       if (can && !sent) { const row = el('div', 'wf-btnrow');
@@ -222,7 +224,8 @@
   function makeOis() {
     const r = rec(), w = wf(); const job = matchJob(); const study = matchStudy();
     const g = group(); const src = job && (job.after || []).length ? job.after : (g ? g.elements : []);
-    const code = ['OIS', 'CATH', r.workshop, r.model, r.team, r.station].filter(Boolean).join('-').toUpperCase();
+    const cur = String(r.ois || ''), m = cur.match(/-R(\d+)$/i);
+    const code = (cur ? cur.replace(/-R\d+$/i, '') : 'OIS-' + String(r.station || '').toUpperCase()) + '-R' + (m ? Number(m[1]) + 1 : 2);   // แก้ไขครั้งถัดไปของ OIS เดิม
     w.newOis = { code, generatedAt: Date.now(), steps: (src || []).map(e => ({ name: e.name, sec: U().round1(U().num(e.sec)), type: e.type })) };
     return w.newOis;
   }
@@ -233,7 +236,9 @@
     const d = document.createElement('div'); d.className = 'wf-pad';
     if (!st.s5) { d.innerHTML = '<p class="muted">ตรวจร่าง OIS (ขั้น 5) ให้เสร็จก่อนจึงส่งอนุมัติได้</p>'; return panel('6 · ส่งอนุมัติ', d, badgeDone(false)); }
     if (!ap.submitted) {
-      d.innerHTML = `<p>ส่งเอกสาร OIS <b>${esc(w.newOis.code)}</b> เข้าสู่ขั้นตอนอนุมัติ 5 ฝ่าย</p>`;
+      const back = (ap.history || []).filter(h => h.type === 'return').slice(-1)[0];
+      d.innerHTML = (back ? `<div class="wf-advise improve"><b>↩ ถูกส่งกลับแก้ไข</b><p>${esc(back.flowName)} · ${U().ud(back.by)} · ${esc(U().dateTxt(back.at, true))}</p><p>เหตุผล: ${U().ud(back.reason)}</p></div>` : '') +
+        `<p>ส่งเอกสาร OIS <b>${esc(w.newOis.code)}</b> เข้าสู่ขั้นตอนอนุมัติ 5 ฝ่าย</p>`;
       if (can) { const b = el('button', 'primary', '📤 ส่งอนุมัติ'); b.onclick = async () => {
         let me = ssoName();
         const a = await U().ask(`ส่ง OIS ${w.newOis.code} (${(w.newOis.steps || []).length} ขั้นตอน) ให้ 5 ฝ่ายอนุมัติ${me ? ' ในชื่อ ' + me : ''}?`, me ? [] : [{ name: 'by', label: 'ชื่อผู้จัดทำ (ผู้ส่งอนุมัติ)' }], { ok: 'ส่งอนุมัติ', cancel: 'ยังไม่ส่ง' });
@@ -242,7 +247,8 @@
       return panel('6 · ส่งอนุมัติ', d, badgeDone(false));
     }
     const flowsWrap = el('div', 'wf-flows');
-    flowsWrap.innerHTML = `<div class="wf-maker">👤 ผู้จัดทำ: <b>${esc(ap.by)}</b></div>` + FLOWS.map((f, i) => {
+    const waiting = FLOWS.filter(f => !(ap.flows[f.key] && ap.flows[f.key].by)).map(f => f.name.split('·').pop().trim());
+    flowsWrap.innerHTML = `<div class="wf-maker">👤 ผู้จัดทำ: <b>${U().ud(ap.by)}</b>${waiting.length ? ` · รอ: ${esc(waiting.join(', '))}` : ''}</div>` + FLOWS.map((f, i) => {
       const s = ap.flows[f.key];
       return `<div class="wf-flow ${s && s.by ? 'approved' : ''}"><div class="wf-flow-no">${s && s.by ? '✓' : i + 1}</div>
         <div class="wf-flow-body"><b>${esc(f.name)}</b>${s && s.by ? `<small>อนุมัติโดย ${esc(s.by)} · ${esc(U().dateTxt(s.at, true))}</small>` : '<small class="muted">ยังไม่อนุมัติ</small>'}</div>
@@ -250,6 +256,8 @@
     }).join('');
     d.appendChild(flowsWrap);
     if (can) flowsWrap.querySelectorAll('.wf-approve').forEach(b => b.onclick = () => approve(b.dataset.flow));
+    if (can && !st.approved) { const rb = el('button', 'ghost', '↩ ส่งกลับแก้ไข (ฝ่ายอนุมัติ)'); rb.onclick = returnForRevision; d.appendChild(rb); }
+    if ((ap.history || []).length) d.insertAdjacentHTML('beforeend', `<details class="wf-hist"><summary>ประวัติการส่งกลับ (${ap.history.length})</summary><ul>${ap.history.map(h => `<li>${esc(U().dateTxt(h.at, true))} · ${esc(h.flowName)} · ${U().ud(h.by)} — ${U().ud(h.reason)}</li>`).join('')}</ul></details>`);
     if (can && !Object.values(ap.flows || {}).some(x => x && x.by)) {
       const wd = el('button', 'ghost', '↶ ถอนการส่ง (ยังไม่มีใครอนุมัติ)');
       wd.onclick = async () => { if (await U().ask('ถอนการส่งอนุมัติ OIS นี้? แก้ OIS แล้วค่อยส่งใหม่ได้', [], { ok: 'ถอนการส่ง', cancel: 'ไม่ถอน', danger: true })) { ap.submitted = false; ap.by = ''; if (w.newOis) w.newOis.reviewed = false; saveRec(); render(); } };
@@ -263,9 +271,12 @@
     const S = window.CPS.sheet;
     if (!S.configured()) { U().toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     const f = FLOWS.find(x => x.key === flowKey);
-    const sn = ssoName();
-    const a = await U().ask('อนุมัติ · ' + f.name + (sn ? ' (ในชื่อ ' + sn + ')' : ''), (sn ? [] : [{ name: 'by', label: 'ชื่อผู้อนุมัติ' }]).concat([{ name: 'pin', label: 'PIN ของฝ่าย', type: 'password' }]), { ok: 'อนุมัติ', cancel: 'ยกเลิก' });
+    const sn = ssoName(), w0 = wf(), ci = D().ctInfo(rec());
+    const what = `${w0.newOis ? w0.newOis.code + ' · ' + (w0.newOis.steps || []).length + ' ขั้นตอน · ' : ''}CT ${ci.src === 'after' ? U().fmt(ci.before) + ' → ' : ''}${U().fmt(ci.ct)} วิ`;
+    const a = await U().ask('อนุมัติ · ' + f.name + ' — ' + what + (sn ? ' (ในชื่อ ' + sn + ')' : ''), (sn ? [] : [{ name: 'by', label: 'ชื่อผู้อนุมัติ' }]).concat([{ name: 'pin', label: 'PIN ของฝ่าย', type: 'password' }]), { ok: 'อนุมัติ', cancel: 'ยกเลิก' });
     if (!a) return; a.by = sn || String(a.by || '').trim(); if (!a.by.trim()) return;
+    const dup = FLOWS.find(x => x.key !== flowKey && w0.approval.flows[x.key] && w0.approval.flows[x.key].by === a.by);
+    if (dup && !(await U().ask(`${a.by} อนุมัติ ${dup.name} ไปแล้ว — ยืนยันอนุมัติอีกฝ่ายในชื่อเดียวกัน?`, [], { ok: 'ยืนยัน', cancel: 'ยกเลิก' }))) return;
     let r;
     try { r = await S.call({ action: 'approve' }, { flow: flowKey, pin: String(a.pin || '') }); }
     catch (e) { U().toast('ตรวจ PIN ไม่สำเร็จ: ' + e.message); return; }
@@ -277,6 +288,21 @@
     saveRec(); U().toast('อนุมัติแล้ว'); render();
   }
 
+  // ฝ่ายใดก็ส่งกลับแก้ไขได้ (PIN ของฝ่าย + เหตุผล): ล้างการอนุมัติทุกฝ่าย เก็บเหตุผลในประวัติ
+  async function returnForRevision() {
+    const S = window.CPS.sheet;
+    if (!S.configured()) { U().toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
+    const sn = ssoName();
+    const a = await U().ask('ส่งกลับแก้ไข — การอนุมัติทุกฝ่ายจะถูกล้าง ผู้จัดทำแก้แล้วส่งใหม่', [{ name: 'flow', label: 'ฝ่ายที่ส่งกลับ', options: FLOWS.map(f => ({ value: f.key, label: f.name })) }].concat(sn ? [] : [{ name: 'by', label: 'ชื่อผู้ส่งกลับ' }]).concat([{ name: 'reason', label: 'เหตุผล / สิ่งที่ต้องแก้' }, { name: 'pin', label: 'PIN ของฝ่าย', type: 'password' }]), { ok: 'ส่งกลับแก้ไข', cancel: 'ยกเลิก', danger: true });
+    if (!a) return; const by = sn || String(a.by || '').trim(), reason = String(a.reason || '').trim();
+    if (!by || !reason) { U().toast('ใส่ชื่อและเหตุผลก่อนส่งกลับ'); return; }
+    let r; try { r = await S.call({ action: 'approve' }, { flow: a.flow, pin: String(a.pin || '') }); } catch (e) { U().toast('ตรวจ PIN ไม่สำเร็จ: ' + e.message); return; }
+    if (!r || !r.ok || !r.set || r.locked || !r.valid) { U().toast(r && r.locked ? 'ใส่ PIN ผิดหลายครั้ง — ล็อกฝ่ายนี้ 10 นาที' : 'PIN ไม่ถูกต้อง'); return; }
+    const w = wf(), ap = w.approval, f = FLOWS.find(x => x.key === a.flow);
+    ap.history = (ap.history || []).concat({ type: 'return', flow: a.flow, flowName: f ? f.name : a.flow, by, reason, at: Date.now() });
+    ap.flows = {}; ap.submitted = false; ap.by = ''; if (w.newOis) w.newOis.reviewed = false;
+    saveRec(); U().toast('ส่งกลับแก้ไขแล้ว — ผู้จัดทำแก้แล้วส่งใหม่ได้'); render();
+  }
   function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; if (tag === 'button') e.type = 'button'; return e; }
 
   window.CPSWorkflow = { open };

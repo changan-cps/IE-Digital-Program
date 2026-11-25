@@ -497,6 +497,12 @@
         <li><b>แดชบอร์ด</b> — ดูแนวโน้ม CT, VA และ Line Balance Rate และดาวน์โหลดรายงาน PPT</li></ol>
         <p><b>คีย์ลัด</b> Space ตัดจบขั้นตอน · M มาร์คจุดเริ่ม · P เล่น/หยุด · Z ย้อน Lap · ← → ทีละ 0.1 วินาที · Ctrl+S บันทึก</p>
         <p><b>สูตร</b> Line Balance Rate = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 · TAKT = 3600 ÷ JPH</p>
+        <dl class="help-gloss"><dt>CT ที่ใช้</dt><dd>CT ของสถานีที่ทุกหน้าใช้: After ของงานวิเคราะห์ (ถ้ามี) → CT สูงสุดจาก Time Study → ค่าที่กรอกเอง</dd>
+        <dt>VA / NNVA / NVA</dt><dd>เพิ่มคุณค่า / จำเป็นแต่ไม่เพิ่มคุณค่า / สูญเปล่า</dd>
+        <dt>TAKT</dt><dd>เวลาที่ต้องผลิตได้ 1 คัน = 3600 ÷ JPH</dd>
+        <dt>OIS</dt><dd>เอกสารมาตรฐานการทำงานของสถานี (ต้องอนุมัติครบ 5 ฝ่าย)</dd>
+        <dt>4M1E</dt><dd>คน · เครื่อง · วัสดุ · วิธี · สภาพแวดล้อม</dd>
+        <dt>คะแนนความง่าย</dt><dd>1 = ยากสุด, 5 = ง่ายสุด · ≤ 3 = จุดต้องปรับปรุง</dd></dl>
         <p><b>AI</b> ช่วยร่าง element และข้อเสนอให้ แล้วคนตรวจแก้ — ถ้าปุ่ม AI แจ้งว่ายังไม่พร้อม ให้ติดต่อผู้ดูแลระบบ</p>
         <div class="dlg-actions"><button type="button" class="primary" data-close>ปิด</button></div></div>`;
       document.body.appendChild(d);
@@ -647,7 +653,7 @@
   }
   function showTab(tab) {
     if (tab !== currentTab && dirtyEditor()) return guardLeave(() => showTab(tab));
-    if (tab !== currentTab) scrollTo(0, 0);
+    if (tab !== currentTab) { scrollTo(0, 0); const tt = $('#toast'); if (tt && !tt.classList.contains('has-action')) tt.classList.remove('show'); }
     currentTab = tab;
     const tbh = $('.topbar') ? $('.topbar').offsetHeight : 0; if (tbh) document.documentElement.style.setProperty('--topbar-h', tbh + 'px');
     $$('#tabs button').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });

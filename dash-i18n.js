@@ -133,7 +133,7 @@
   // ---- SWCT ทั้งไลน์ ----
   Object.assign(D.th, {
     swctTitle: 'SWCT ทั้งไลน์', swctNote: 'ทุกสถานีในไลน์บนแกนเวลาเดียวกัน · เส้นแดง = TAKT', swctLine: 'ไลน์', swctRound: 'ใช้รอบ',
-    pickLatest: 'ล่าสุดของแต่ละสถานี', pickMax: 'ที่ C.T สูงสุด', swctNoRounds: 'ยังไม่มีรอบจับเวลาของสถานีในไลน์นี้', swctMissing: l => 'ยังไม่มีรอบจับเวลา: ' + l,
+    pickOfficial: 'ตาม CT ที่ใช้ (After / รอบสูงสุด)', pickLatest: 'รอบล่าสุดของแต่ละสถานี (ดูเทียบ)', pickMax: 'รอบที่ C.T สูงสุด (ดูเทียบ)', bandTrend: 'แนวโน้ม', bandDetail: 'รายละเอียดไลน์', swctNoRounds: 'ยังไม่มีรอบจับเวลาของสถานีในไลน์นี้', swctMissing: l => 'ยังไม่มีรอบจับเวลา: ' + l,
     sw_st: 'สถานี', sw_ctMax: 'C.T สูงสุด', sw_ctMin: 'ต่ำสุด', sw_avg: 'เฉลี่ย', sw_over: (n, l) => `เกิน TAKT ${n} สถานี: ${l}`,
     sw_loss: 'Balance Loss', sw_neck: 'คอขวด', sw_eff: 'ประสิทธิภาพเทียบ TAKT', sw_min: (m, n, mu) => `${mu ? 'คน' : 'สถานี'}ขั้นต่ำตาม TAKT ${m} (ใช้อยู่ ${n})`,
     swct: { station: 'Station', no: 'ลำดับที่', name: 'ชื่องานที่ทำ', time: 'เวลา', hand: 'มือ', send: 'เครื่อง', walk: 'เดิน', total: 'รวม', person: 'คนที่' },
@@ -141,7 +141,7 @@
   });
   Object.assign(D.en, {
     swctTitle: 'Line SWCT', swctNote: 'All stations of the line on one time axis · red line = TAKT', swctLine: 'Line', swctRound: 'Round',
-    pickLatest: 'Latest per station', pickMax: 'Highest C.T', swctNoRounds: 'No timed rounds for this line yet', swctMissing: l => 'No timed rounds: ' + l,
+    pickOfficial: 'CT in use (After / max round)', pickLatest: 'Latest round per station (compare)', pickMax: 'Highest C.T round (compare)', bandTrend: 'Trends', bandDetail: 'Line detail', swctNoRounds: 'No timed rounds for this line yet', swctMissing: l => 'No timed rounds: ' + l,
     sw_st: 'Stations', sw_ctMax: 'Max C.T', sw_ctMin: 'Min', sw_avg: 'Average', sw_over: (n, l) => `${n} over TAKT: ${l}`,
     sw_loss: 'Balance Loss', sw_neck: 'Bottleneck', sw_eff: 'Efficiency vs TAKT', sw_min: (m, n, mu) => `Min ${mu ? 'operators' : 'stations'} by TAKT ${m} (using ${n})`,
     swct: { station: 'Station', no: 'No.', name: 'Work element', time: 'Time', hand: 'Man', send: 'Auto', walk: 'Walk', total: 'Total', person: 'Op' },
@@ -149,7 +149,7 @@
   });
   Object.assign(D.zh, {
     swctTitle: '整线标准作业组合票 (SWCT)', swctNote: '全线工位同一时间轴 · 红线 = TAKT', swctLine: '产线', swctRound: '轮次',
-    pickLatest: '各工位最新一轮', pickMax: 'C.T 最高的一轮', swctNoRounds: '本产线工位暂无测时记录', swctMissing: l => '暂无测时：' + l,
+    pickOfficial: '使用的 CT（After / 最大轮）', pickLatest: '各工位最新一轮（对比）', pickMax: 'C.T 最高的一轮（对比）', bandTrend: '趋势', bandDetail: '产线明细', swctNoRounds: '本产线工位暂无测时记录', swctMissing: l => '暂无测时：' + l,
     sw_st: '工位', sw_ctMax: '最大 C.T', sw_ctMin: '最小', sw_avg: '平均', sw_over: (n, l) => `${n} 个工位超 TAKT：${l}`,
     sw_loss: 'Balance Loss', sw_neck: '瓶颈', sw_eff: '对比 TAKT 效率', sw_min: (m, n, mu) => `按 TAKT 最少${mu ? '人数' : '工位'} ${m}（现用 ${n}）`,
     swct: { station: '工位', no: '序号', name: '作业内容', time: '时间', hand: '手工', send: '自动', walk: '步行', total: '合计', person: '作业员' },

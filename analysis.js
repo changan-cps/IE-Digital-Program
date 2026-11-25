@@ -43,7 +43,7 @@
           const saved = b.ct - a.ct, has = a.count > 0;
           return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
             <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}</em>
-            <span class="row-btns"><button data-edit="${j.id}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}">ลบ</button>` : ''}</span></div>`;
+            <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}">ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
     const q = host.querySelector('#an-q'); if (q) q.oninput = () => { const v = q.value.trim().toLowerCase(); host.querySelectorAll('.recent-row').forEach(r => r.hidden = !!v && !r.textContent.toLowerCase().includes(v)); };
@@ -143,7 +143,7 @@
   function observe() {
     const list = editing.observe || (editing.observe = []);
     const el = host.querySelector('#an-obs');
-    el.innerHTML = `<div class="panelhead"><h2>สังเกตหน้างาน <span>${list.length}</span></h2><button class="add dark" type="button">＋ ข้อสังเกต</button></div><div class="tbl"></div>`;
+    el.innerHTML = `<div class="panelhead"><h2>สังเกตหน้างาน <span>${list.length}</span></h2><button class="add ghost" type="button">＋ ข้อสังเกต</button></div><div class="tbl"></div>`;
     const tbl = el.querySelector('.tbl');
     if (!list.length) tbl.innerHTML = '<div class="empty-row"><p>กด ＋ ข้อสังเกต เพื่อบันทึกสภาพหน้างาน เช่น การวางชิ้นส่วน ชั้นวางงาน อุปกรณ์สถานี ความปลอดภัย การจัดงาน</p></div>';
     else {
@@ -171,7 +171,7 @@
     const el = host.querySelector('#an-target');
     el.innerHTML = `<div class="panelhead"><h2>เป้าหมายคะแนนความง่าย (ก่อน → หลัง)</h2><button class="pull ghost" type="button">ดึงคะแนนปัจจุบันจาก Time Study</button></div>
       <div class="tbl"><table class="el-table"><thead><tr><th>มิติ</th><th>คะแนนปัจจุบัน</th><th>เป้าหมาย</th><th>มาตรการหลัก</th></tr></thead><tbody>${TDIMS.map(([k, l]) => `<tr data-k="${k}"><td><b>${l}</b></td><td><input class="g-now r-sec" type="number" min="1" max="5" step="0.01"></td><td><input class="g-goal r-sec" type="number" min="1" max="5" step="0.01"></td><td><input class="g-act" placeholder="มาตรการที่จะทำ"></td></tr>`).join('')}</tbody></table></div>
-      <p class="hint">คะแนน 1 = ยากสุด, 5 = ง่ายสุด · ตั้งชื่องานให้ตรงกับชื่อ Time Study เพื่อดึงคะแนนปัจจุบันอัตโนมัติ</p>`;
+      <p class="hint">คะแนน 1 = ยากสุด, 5 = ง่ายสุด · เลือกสถานีในข้อมูลงานเพื่อดึงคะแนนปัจจุบันจาก Time Study อัตโนมัติ</p>`;
     el.querySelectorAll('tr[data-k]').forEach(tr => {
       const k = tr.dataset.k; const row = tg[k] || (tg[k] = { now: '', goal: '', act: '' });
       [['g-now', 'now'], ['g-goal', 'goal'], ['g-act', 'act']].forEach(([c, f]) => { const i = tr.querySelector('.' + c); i.value = row[f] ?? ''; i.oninput = () => row[f] = i.value; });
@@ -191,7 +191,7 @@
   function suggest() {
     const list = editing.suggest || (editing.suggest = []);
     const el = host.querySelector('#an-4m');
-    el.innerHTML = `<div class="panelhead"><h2>ข้อเสนอปรับปรุง (4M1E) <span>${list.length}</span></h2><button class="add dark" type="button">＋ ข้อเสนอ</button></div><div class="tbl"></div>`;
+    el.innerHTML = `<div class="panelhead"><h2>ข้อเสนอปรับปรุง (4M1E) <span>${list.length}</span></h2><button class="add ghost" type="button">＋ ข้อเสนอ</button></div><div class="tbl"></div>`;
     const tbl = el.querySelector('.tbl');
     if (!list.length) tbl.innerHTML = '<div class="empty-row"><p>กด ＋ ข้อเสนอ เพื่อบันทึกแนวทางปรับปรุงแยกตาม คน / เครื่อง / วัสดุ / วิธี / สภาพแวดล้อม</p></div>';
     else {
@@ -227,7 +227,7 @@
     const sec = document.createElement('section'); sec.className = 'panel';
     sec.innerHTML = `<div class="panelhead"><h2>${esc(title)} <span>${list.length}</span></h2><div class="head-btns">
       ${ph === 'after' ? '<button class="copy ghost" type="button">คัดลอกจาก Before</button>' : ''}
-      <button class="add dark" type="button">＋ ขั้นตอน</button></div></div>
+      <button class="add ghost" type="button">＋ ขั้นตอน</button></div></div>
       <div class="tbl"></div>
       <div class="mini-metrics">${mini('CT', fmt(t.ct) + ' วิ')}${mini('VA', fmt(t.VA) + ' · ' + fmt(t.vaPct) + '%', '#15856b')}${mini('NNVA', fmt(t.NNVA), '#ad7206')}${mini('NVA', fmt(t.NVA), '#a64475')}</div>
       <div class="stack">${stack(t)}</div>`;
@@ -305,7 +305,7 @@
   function training() {
     const { esc } = U(); const list = editing.training || (editing.training = []);
     const el = host.querySelector('#an-train');
-    el.innerHTML = `<div class="panelhead"><h2>อบรมพนักงาน (รายเดือน)</h2><button class="add dark" type="button">＋ รอบอบรม</button></div>
+    el.innerHTML = `<div class="panelhead"><h2>อบรมพนักงาน (รายเดือน)</h2><button class="add ghost" type="button">＋ รอบอบรม</button></div>
       <div class="tbl"></div><div class="train-sum"></div>`;
     const tbl = el.querySelector('.tbl');
     if (!list.length) tbl.innerHTML = '<div class="empty-row"><p>กด ＋ รอบอบรม เพื่อบันทึกการเทรนแต่ละเดือน</p></div>';

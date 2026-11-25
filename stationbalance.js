@@ -16,21 +16,21 @@
   const SBT = {
     th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'แนะนำปรับปรุง (ยังไม่ดำเนินการ)', sub: 'รุ่นย่อย',
       yz: 'กราฟ Yamazumi (Line Balance)', noRound: 'ไม่มีรอบจับเวลา', swct: '📊 SWCT ทั้งไลน์', edit: '✎ แก้ไขตาราง', done: '✓ เสร็จสิ้นการแก้ไข', cancel: 'ยกเลิกการแก้ไข', add: '＋ เพิ่มสถานี',
-      ro: '👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม', th: ['สถานี', 'ทีม', 'JPH', 'TAKT', 'CT สูงสุด', 'ภาระงาน', 'OIS', 'ระบบแนะนำ / ขั้นตอน'],
+      ro: '👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม', th: ['สถานี', 'ทีม', 'JPH', 'TAKT', 'CT ที่ใช้', 'ภาระงาน', 'OIS', 'ระบบแนะนำ / ขั้นตอน'],
       improve: 'ควรปรับปรุง', ok: 'ปกติ', wait: 'รอข้อมูล', step: '→ ขั้นตอน', twoHand: 'SWCT / สองมือ' },
     en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'To improve (not started)', sub: 'sub-model',
       yz: 'Yamazumi chart (line balance)', noRound: 'no timing round', swct: '📊 Line SWCT', edit: '✎ Edit table', done: '✓ Done editing', cancel: 'Discard changes', add: '＋ Add station',
-      ro: '👁️ Analysis mode (read only) — several teams combined', th: ['Station', 'Team', 'JPH', 'TAKT', 'Max CT', 'Load', 'OIS', 'Advice / steps'],
+      ro: '👁️ Analysis mode (read only) — several teams combined', th: ['Station', 'Team', 'JPH', 'TAKT', 'CT in use', 'Load', 'OIS', 'Advice / steps'],
       improve: 'Needs improvement', ok: 'OK', wait: 'No data', step: '→ Steps', twoHand: 'SWCT / two-hand' },
     zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '建议改善（未处理）', sub: '子车型',
       yz: '山积图 (Yamazumi)', noRound: '无计时轮次', swct: '📊 整线 SWCT', edit: '✎ 编辑表格', done: '✓ 完成编辑', cancel: '放弃修改', add: '＋ 添加工位',
-      ro: '👁️ 分析模式（只读）— 多个班组汇总', th: ['工位', '班组', 'JPH', 'TAKT', '最大 CT', '负荷', 'OIS', '建议 / 步骤'],
+      ro: '👁️ 分析模式（只读）— 多个班组汇总', th: ['工位', '班组', 'JPH', 'TAKT', '使用的 CT', '负荷', 'OIS', '建议 / 步骤'],
       improve: '需改善', ok: '正常', wait: '无数据', step: '→ 步骤', twoHand: 'SWCT / 双手' },
   };
   const L = k => {
     const l = window.CPSDashI18n ? window.CPSDashI18n.lang : 'th';
     if (l !== 'zhen') return (SBT[l] || SBT.th)[k];
-    const z = SBT.zh[k], e = SBT.en[k], two = (x, y) => x === y || String(x).length > 14 || /[/→]/.test(x) ? x : x + ' / ' + y;   // 中 / EN แบบเดียวกับแดชบอร์ด
+    const z = SBT.zh[k], e = SBT.en[k], two = (x, y) => x === y ? x : x + (/ \/ /.test(x + y) ? ' · ' : ' / ') + y;   // แบบเดียวกับตัวแปลหน้าจอ   // 中 / EN แบบเดียวกับแดชบอร์ด
     return Array.isArray(z) ? z.map((x, i) => two(x, e[i])) : two(z, e);
   };
   const unitN = n => n === 1 && L('unit') === 'stations' ? 'station' : L('unit');
@@ -71,7 +71,7 @@
         ${sumCard(L('n'), rows.length, unitN(rows.length))}
         ${sumCard(L('max'), (allMax > 100 ? '▲ ' : '') + fmt(allMax) + '%', '', loadColor(allMax))}
         ${(() => { const nO = rows.filter(r => loadPct(r) > 100).length; return sumCard(L('over'), nO, unitN(nO), nO ? '#c0392b' : ''); })()}
-        ${(() => { const nAdv = rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))).length; return sumCard(L('adv'), nAdv, unitN(nAdv), nAdv ? '#9a5b00' : ''); })()}
+        ${(() => { const adv = rows.filter(r => D().advise(r).status === 'improve' && !(r.wf && (r.wf.improve === false || (r.wf.approval && r.wf.approval.submitted)))); return sumCard(L('adv'), adv.length, unitN(adv.length) + (adv.length ? ' · ' + adv.slice(0, 3).map(r => r.station).join(', ') : ''), adv.length ? '#9a5b00' : ''); })()}
       </div>
       ${!rows.length ? `<div class="blank">ยังไม่มีข้อมูลสถานี${can ? ' — กด “＋ เพิ่มสถานี”' : ''}</div>`
         : Object.keys(groups).sort().map(k => groupBlock(k, groups[k], can && editMode)).join('')}`;
@@ -291,7 +291,7 @@
     const list = D().listStations().filter(r => lineKey(r) === key);
     const [, , , model, submodel] = key.split('§');
     const jphs = list.map(r => num(r.jph)).filter(Boolean);
-    const mode = { pick: 'latest' };
+    const mode = { pick: 'official' };
     const tk = groupTakt(list);
     let dlg = document.getElementById('sb-line-dlg');
     if (!dlg) { dlg = document.createElement('dialog'); dlg.id = 'sb-line-dlg'; dlg.className = 'sb-dlg'; document.body.appendChild(dlg); }
@@ -299,9 +299,10 @@
     const build = () => {
       const lanes = [], missing = [];
       list.forEach(r => {
+        if (mode.pick === 'official' && D().ctInfo(r).src === 'after') { const jb = D().listJobs().find(j => D().group.key(j) === D().group.key(r) && (j.after || []).length); if (jb) { lanes.push({ station: r.station, elements: jb.after, round: 'After', date: '' }); return; } }
         const rounds = D().group.roundsOf(r.station);
         if (!rounds.length) { missing.push(r.station); return; }
-        const s = mode.pick === 'max' ? rounds.reduce((a, x) => (num(x.ct) > num(a.ct) ? x : a), rounds[0]) : rounds[rounds.length - 1];
+        const s = mode.pick === 'latest' ? rounds[rounds.length - 1] : rounds.reduce((a, x) => (num(x.ct) > num(a.ct) ? x : a), rounds[0]);
         lanes.push({ station: r.station, elements: s.elements || [], round: rounds.indexOf(s) + 1, date: s.date || '' });
       });
       return { lanes, missing };
@@ -325,7 +326,7 @@
         `<div class="swct-scroll">${r.svg}</div>`;
     };
     dlg.innerHTML = `<div class="sbd-head"><b>SWCT ทั้งไลน์ · ${esc(model)} / ${esc(submodel)}</b>
-      <label>ใช้รอบ <select id="sbl-pick"><option value="latest">ล่าสุดของแต่ละสถานี</option><option value="max">ที่ C.T สูงสุด</option></select></label>
+      <label>ใช้รอบ <select id="sbl-pick"><option value="official">ตาม CT ที่ใช้ (After / รอบสูงสุด)</option><option value="latest">รอบล่าสุดของแต่ละสถานี (ดูเทียบ)</option><option value="max">รอบที่ C.T สูงสุด (ดูเทียบ)</option></select></label>
       <button type="button" id="sbl-print">พิมพ์</button><button type="button" id="sbd-close">ปิด</button></div><div id="sbl-body"></div>`;
     dlg.querySelector('#sbl-pick').onchange = e => { mode.pick = e.target.value; paint(); };
     dlg.querySelector('#sbd-close').onclick = () => dlg.close();

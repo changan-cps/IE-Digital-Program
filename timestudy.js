@@ -75,7 +75,7 @@
             <span class="tag">รอบ ${i + 1}</span>
             <small>${s.operator ? U().ud(s.operator) + ' · ' : ''}${esc(U().dateTxt(s.date))}</small>
             <em>${fmt(t.ct)} วิ · VA ${fmt(t.vaPct)}%</em>
-            <span class="row-btns"><button data-edit="${s.id}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}">ลบ</button>` : ''}</span>
+            <span class="row-btns"><button data-edit="${s.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(label)} รอบ ${i + 1}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}" aria-label="ลบ ${esc(label)} รอบ ${i + 1}">ลบ</button>` : ''}</span>
           </div>`; }).join('')}</div>
       </section>`;
     });
@@ -178,7 +178,7 @@
       </details>
 
       <section class="panel"><div class="panelhead"><h2>Element <span id="ts-count">0</span></h2>
-        <button id="ts-addrow" class="dark" type="button">＋ แถว</button></div>
+        <button id="ts-addrow" class="ghost" type="button">＋ แถว</button></div>
         <div id="ts-table" class="tbl"></div>
         <div id="ts-metrics" class="mini-metrics"></div>
         <div id="ts-bar" class="stack"></div>
@@ -696,17 +696,17 @@
   function row(list, e, i) {
     const { TYPES, uid } = U();
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="idx">${i + 1}</td>
-      <td><input class="r-op" type="number" min="1" max="9" step="1" inputmode="numeric" title="ผู้ปฏิบัติงานคนที่ (สำหรับ SWCT หลายคน)"></td>
-      <td><input class="r-name" placeholder="ชื่อขั้นตอน"></td>
-      <td><input class="r-sec" type="number" min="0" step="0.1" inputmode="decimal"></td>
-      <td><input class="r-steps" type="number" min="0" step="1" inputmode="numeric" title="จำนวนก้าวเดิน (AI ประมาณให้ แก้ได้)"></td>
-      <td><div class="r-type seg" role="radiogroup" tabindex="-1" aria-label="ประเภท แถว ${i + 1}">${TYPES.map(ty => `<button type="button" role="radio" data-ty="${ty.k}" style="--c:${ty.color}">${ty.k}</button>`).join('')}</div></td>
-      <td><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
-      <td><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
-      ${DIMS.map(d => `<td><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></td>`).join('')}
-      <td class="r-sum"></td>
-      <td><button class="r-del" title="ลบ" type="button">✕</button></td>`;
+    tr.innerHTML = `<td class="idx" data-l="#">${i + 1}</td>
+      <td data-l="คนที่"><input class="r-op" type="number" min="1" max="9" step="1" inputmode="numeric" title="ผู้ปฏิบัติงานคนที่ (สำหรับ SWCT หลายคน)"></td>
+      <td class="c-name" data-l="ขั้นตอน"><input class="r-name" placeholder="ชื่อขั้นตอน"></td>
+      <td data-l="วินาที"><input class="r-sec" type="number" min="0" step="0.1" inputmode="decimal"></td>
+      <td data-l="ก้าว"><input class="r-steps" type="number" min="0" step="1" inputmode="numeric" title="จำนวนก้าวเดิน (AI ประมาณให้ แก้ได้)"></td>
+      <td class="c-type" data-l="ประเภท"><div class="r-type seg" role="radiogroup" tabindex="-1" aria-label="ประเภท แถว ${i + 1}">${TYPES.map(ty => `<button type="button" role="radio" data-ty="${ty.k}" style="--c:${ty.color}">${ty.k}</button>`).join('')}</div></td>
+      <td data-l="แบบงาน"><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
+      <td data-l="เครื่อง (วิ)"><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
+      ${DIMS.map(d => `<td class="c-dim" data-l="${d.label}"><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></td>`).join('')}
+      <td class="r-sum" data-l="รวม"></td>
+      <td class="c-del"><button class="r-del" title="ลบแถว" aria-label="ลบแถว ${i + 1}" type="button">✕</button></td>`;
     const paintRow = () => {
       tr.querySelectorAll('.r-dim').forEach(s => { const n = sc(s.value); s.classList.toggle('low', n > 0 && n <= 3); });
       const v = rowScore(e); const cell = tr.querySelector('.r-sum'); cell.textContent = v ? v.toFixed(1) : ''; cell.style.color = v ? easeColor(v) : '';

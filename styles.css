@@ -297,7 +297,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   .ts-capture .primary,.ts-capture .dark{min-width:0}
 }
 @media print{.topbar,.tabs,footer,.head-btns,.ai-strip,.ts-transport,.ts-capture{display:none!important}}
-.sb-rounds{display:block;font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap}
+.sb-rounds{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap}
 .ts-group .sb-grouphead-r{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ts-group .sb-grouphead-r .mini{margin-left:8px}
 
@@ -548,3 +548,35 @@ button:disabled{opacity:.45}
   #btn-switch,#btn-logout{min-height:38px;padding:4px 10px;font-size:13px;white-space:nowrap}
 }
 @media(max-width:380px){ .brand>div{font-size:14px} .badge{display:none} }
+
+/* round 6: approval lock, dashboard bands, element cards on phones */
+.wf-lock{background:#f4f8fc;border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:#3d5a73}
+.wf-hist{margin-top:10px;font-size:13px}
+.wf-hist summary{cursor:pointer;color:var(--blue);font-weight:600}
+.dz-band{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 0 10px}
+.dz-meta{text-wrap:pretty}
+.help-gloss{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;font-size:14px;margin:8px 0}
+.help-gloss dt{font-weight:700}
+.help-gloss dd{margin:0}
+@media(max-width:720px){
+  .ease-table{min-width:0}
+  .ease-table thead{display:none}
+  .ease-table,.ease-table tbody{display:block}
+  .ease-table tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 10px;padding:12px;border-bottom:1px solid var(--line)}
+  .ease-table td{display:block;padding:0;border:0}
+  .ease-table td[data-l]::before{content:attr(data-l);display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+  .ease-table td.idx{grid-column:1/-1;text-align:left;font-weight:700;color:var(--ink)}
+  .ease-table td.idx::before{display:none}
+  .ease-table td.c-name{grid-column:1/-1}
+  .ease-table td.c-type{grid-column:1/-1}
+  .ease-table td.c-dim{grid-column:span 2}
+  .ease-table td input,.ease-table td select{width:100%;max-width:none}
+  .ease-table .seg{display:flex}
+  .ease-table .seg button{flex:1;min-height:44px}
+  .ease-table td.c-del{grid-column:1/-1;text-align:right}
+}
+@media(max-width:560px){
+  #tab-timestudy .page-head:has(#ts-save),#tab-analysis .page-head:has(#an-save){position:static}
+}
+
+@media(max-width:720px){ #ts-table.tbl{max-height:none;overflow:visible} }

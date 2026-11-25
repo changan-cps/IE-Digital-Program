@@ -183,6 +183,7 @@
     const sumT = B.reduce((a, b) => ({ VA: a.VA + b.VA, ct: a.ct + b.ct }), { VA: 0, ct: 0 });
     const same = iCt >= 0 && iPrev >= 0 ? sameCt(B[iCt], B[iPrev]) : null;
     const lb = ctx.lineBalance();
+    if (lb.lines.length && B.length) { B[B.length - 1].lbr = lb.lbr; B[B.length - 1].lines = lb.lines.length; }   // จุดล่าสุด = ค่าปัจจุบันเดียวกับการ์ด
     const delta = (cur, prev, unit, goodDown) => {
       if (cur == null || prev == null) return '';
       const d = cur - prev; if (Math.abs(d) < 0.05) return `<span class="dz-d">${t('same')}</span>`;
@@ -195,7 +196,7 @@
     const subT = [scope.workshop, scope.group].filter(x => x && x !== title).join(' / ');
     const trained = P.jobs.reduce((a, j) => a + (j.training || []).reduce((x, r) => x + U().num(r.count), 0), 0);
     // ต้องดูก่อน: สถานีเกิน TAKT และไลน์ที่ต่ำกว่าเป้า 85%
-    const ldOf = r => { const j = U().num(r.jph); return j ? U().num(r.ct) / (3600 / j) * 100 : 0; };
+    const ldOf = r => { const j = U().num(r.jph); return j ? D().ctOf(r) / (3600 / j) * 100 : 0; };   // CT ที่ใช้ (After > Time Study > กรอกเอง) เหมือนหน้าสมดุลสถานี
     const overSt = D().listStations().filter(r => ldOf(r) > 100).sort((a, b) => ldOf(b) - ldOf(a)), lowL = lb.lines.filter(l => l.lbr < 85);
     const list = (arr, k) => arr.slice(0, k).join(', ') + (arr.length > k ? '…' : '');
     const att = overSt.length || lowL.length ? `<section class="dz-att" role="status"><b>${esc(t('attTitle'))}</b>` +
@@ -218,6 +219,7 @@
         ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
       </div>
       <p class="muted dz-sub">Time Study <b>${nSt}</b> ${esc(t('items'))} (${esc(t('latestCount', mode, last.st.length))}) · ${esc(t('trained'))} <b>${trained}</b> ${esc(t('people'))}</p>
+      <h2 class="dz-band">${esc(t('bandTrend'))}</h2>
       <section class="panel"><div class="panelhead"><h2>${esc(t('redTitle', mode))}</h2><small class="muted">${esc(t('redNote', mode))} · ${esc(t('redZero'))}</small></div><div class="dz-body" data-chart="red"></div></section>
       <div class="dz-grid">
         <section class="panel"><div class="panelhead"><h2>${esc(t('ctTitle'))}</h2><small class="muted">${esc(t('ctNote'))}</small></div><div class="dz-body" data-chart="ct"></div></section>
@@ -225,6 +227,7 @@
         <section class="panel"><div class="panelhead"><h2>${esc(t('handsTitle'))}</h2><small class="muted">${esc(t('handsNote', n, mode))}</small></div><div class="dz-body" data-chart="hands"></div></section>
         <section class="panel"><div class="panelhead"><h2>${esc(t('topTitle'))}</h2><small class="muted">${esc(t('topNote', nJob))}</small></div><div class="dz-body dz-top">${topList(P.kaizen)}</div></section>
       </div>
+      <h2 class="dz-band">${esc(t('bandDetail'))}</h2>
       ${lb.lines.length ? swctPanel(lb) : ''}
       ${lineBalanceTable(lb)}
       ${D().canEdit() ? `<div class="dash-links">
@@ -267,7 +270,7 @@
     [d, W] = wOf('lbr');
     const lv = B.map(b => b.lbr), mn = Math.min(...lv.filter(v => v != null), 100);
     if (d) d.innerHTML = lv.some(v => v != null) ? chart('lbr', W, {
-      labels, aria: t('lbrTitle', mode), yMin: Math.min(60, Math.floor((mn - 5) / 10) * 10), yMax: 100, unitTick: '%',
+      labels, aria: t('lbrTitle', mode), yMin: 0, yMax: 100, unitTick: '%',
       lines: [{ name: 'Line Balance Rate', color: C.s1, vals: lv, endLabel: v => fmt(v) + '%' }],
       refs: [{ v: 85, label: t('target85'), color: '#15856b' }, { v: 70, label: '70%', color: '#c0392b' }],
       tip: i => `<b>${esc(B[i].long)}</b>${B[i].lbr != null ? tipRow(C.s1, 'Line Balance Rate', fmt(B[i].lbr) + '%', 'line') + `<div class="tr muted">${esc(t('linesN', B[i].lines))} · Balance loss ${fmt(100 - B[i].lbr)}%</div>` : `<div class="tr muted">${esc(t('noData'))}</div>`}`,
@@ -326,8 +329,8 @@
 
   // ---------- SWCT ทั้งไลน์ (ใช้ตัววาดเดียวกับหน้าสมดุลสถานี) ----------
   const SWKEY = 'cps-ie-dash-swct';
-  let swSel = null, swPick = 'latest';
-  try { const v = JSON.parse(localStorage.getItem(SWKEY) || 'null'); if (v) { swSel = v.k || null; swPick = v.p === 'max' ? 'max' : 'latest'; } } catch (e) {}
+  let swSel = null, swPick = 'official';
+  try { const v = JSON.parse(localStorage.getItem(SWKEY) || 'null'); if (v) { swSel = v.k || null; swPick = ['max', 'latest', 'official'].includes(v.p) ? v.p : 'official'; } } catch (e) {}
   const saveSw = () => { try { localStorage.setItem(SWKEY, JSON.stringify({ k: swSel, p: swPick })); } catch (e) {} };
   const lineKey = l => [l.ws, l.group, l.team, l.model, l.sub].join('§');
   function swctLabels() { const L = I().tn('swct'); if (I().bilingual) L.person = 'Op'; return L; }
@@ -336,8 +339,10 @@
     const list = D().listStations().filter(r => r.workshop === line.ws && r.group === line.group && r.team === line.team && (r.model || '-') === line.model && (r.submodel || '-') === line.sub);
     const lanes = [], missing = [];
     list.forEach(r => {
+      const ci = D().ctInfo(r);
+      if (pick === 'official' && ci.src === 'after') { const jb = D().listJobs().find(j => D().group.key(j) === D().group.key(r) && (j.after || []).length); if (jb) { lanes.push({ station: r.station, elements: jb.after }); return; } }
       const rounds = D().group.roundsOf(r.station); if (!rounds.length) { missing.push(r.station); return; }
-      const s = pick === 'max' ? rounds.reduce((a, x) => (num(x.ct) > num(a.ct) ? x : a), rounds[0]) : rounds[rounds.length - 1];
+      const s = pick === 'latest' ? rounds[rounds.length - 1] : rounds.reduce((a, x) => (num(x.ct) > num(a.ct) ? x : a), rounds[0]);
       lanes.push({ station: r.station, elements: s.elements || [] });
     });
     if (!lanes.length) return { lanes, missing, tk: line.tk };
@@ -370,7 +375,7 @@
     }
     return `<section class="panel" id="dz-swct"><div class="panelhead"><h2>${esc(t('swctTitle'))}</h2><div class="dz-swct-ctl">
       <label>${esc(t('swctLine'))} <select data-sw="line">${lb.lines.map(l => `<option value="${esc(lineKey(l))}"${l === cur ? ' selected' : ''}>${esc(areaOf(l))} · ${esc(l.model)} / ${esc(l.sub)} · LBR ${fmt(l.lbr)}%</option>`).join('')}</select></label>
-      <label>${esc(t('swctRound'))} <select data-sw="pick"><option value="latest"${swPick === 'latest' ? ' selected' : ''}>${esc(t('pickLatest'))}</option><option value="max"${swPick === 'max' ? ' selected' : ''}>${esc(t('pickMax'))}</option></select></label>
+      <label>${esc(t('swctRound'))} <select data-sw="pick"><option value="official"${swPick === 'official' ? ' selected' : ''}>${esc(t('pickOfficial'))}</option><option value="latest"${swPick === 'latest' ? ' selected' : ''}>${esc(t('pickLatest'))}</option><option value="max"${swPick === 'max' ? ' selected' : ''}>${esc(t('pickMax'))}</option></select></label>
       </div></div><div class="dz-body">${body}<p class="muted dz-swnote">${esc(t('swctNote'))}</p></div></section>`;
   }
   // SWCT → PNG สำหรับสไลด์ (แบ่งหน้าละไม่เกิน 20 แถว ใช้สเกลเวลาเดียวกันทุกหน้า)
@@ -415,6 +420,7 @@
     const { num } = U(), f = U().fmt, s = t('s');
     const scope = D().scope, P = compute(mode), B = P.B, n = B.length;
     const lb = ctx.lineBalance();
+    if (lb.lines.length && B.length) { B[B.length - 1].lbr = lb.lbr; B[B.length - 1].lines = lb.lines.length; }   // จุดล่าสุด = ค่าปัจจุบันเดียวกับการ์ด
     let cum = 0; const cumV = B.map(b => (cum += b.red));
     const avgK = (b, k) => b.st.length ? b[k] / b.st.length : 0;
     const withSt = B.map((b, i) => i).filter(i => B[i].st.length), iL = withSt[withSt.length - 1], iP = withSt[withSt.length - 2];
