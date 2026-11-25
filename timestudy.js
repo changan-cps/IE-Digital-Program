@@ -72,7 +72,7 @@
           <div class="sb-grouphead-r"><b>${agg.n}</b> รอบ · CT เฉลี่ย <b>${fmt(agg.ctAvg)}</b> วิ · สูงสุด <b>${fmt(agg.ctMax)}</b> · ต่ำสุด <b>${fmt(agg.ctMin)}</b>${can ? ` <button class="mini ghost" data-round="${head.id}">＋ จับรอบใหม่</button>` : ''}</div>
         </div>
         <div class="recent">${rounds.map((s, i) => { const t = U().totals(s.elements); return `<div class="recent-row ts-row">
-            <span class="tag">รอบ ${i + 1}</span>
+            <span class="tag">รอบ ${i + 1}</span>${U().totals(s.elements).ct === agg.ctMax && agg.n > 1 ? '<span class="tag tag-max">สูงสุด · ใช้เป็น CT</span>' : ''}
             <small>${s.operator ? U().ud(s.operator) + ' · ' : ''}${esc(U().dateTxt(s.date))}</small>
             <em>${fmt(t.ct)} วิ · VA ${fmt(t.vaPct)}%</em>
             <span class="row-btns"><button data-edit="${s.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(label)} รอบ ${i + 1}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}" aria-label="ลบ ${esc(label)} รอบ ${i + 1}">ลบ</button>` : ''}</span>
@@ -773,5 +773,6 @@
     hands: study => handsSvg((study && study.elements) || []),
     handsSum: study => handsSummary((study && study.elements) || [], '')
   };
-  window.CPSTimeStudy = { render, charts, isDirty, leave };
+  function showFor(q) { tsQuery = q || ''; window.CPS.showTab('timestudy'); }
+  window.CPSTimeStudy = { render, charts, isDirty, leave, showFor };
 })();

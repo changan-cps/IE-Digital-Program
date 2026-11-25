@@ -132,6 +132,14 @@
     };
   }
   // ส่งค่าของกลุ่มไปยังสมดุลสถานี (CT สูงสุด) และวิเคราะห์งาน (Before = เวลาเฉลี่ย) โดยอัตโนมัติ
+  // Before ของงาน Kaizen = รอบที่ CT สูงสุดของ Time Study (ค่าเดียวกับ CT สถานีก่อนทำ Kaizen)
+  // ยกเว้นผู้ใช้แก้ Before เอง (autoBefore === false) จึงใช้ค่าที่กรอก
+  function maxRoundOf(k) { const rs = roundsOf(k); return rs.length ? rs.reduce((a, s) => (totals(s.elements).ct > totals(a.elements).ct ? s : a), rs[0]) : null; }
+  function beforeOf(job) {
+    const k = gkey(job);
+    if (k && job.autoBefore !== false) { const mr = maxRoundOf(k); if (mr) return { ct: totals(mr.elements).ct, els: mr.elements || [], src: 'study', n: roundsOf(k).length }; }
+    return { ct: totals(job.before || []).ct, els: job.before || [], src: 'manual' };
+  }
   function flowFromStation(code) {
     const k = String(code || '').trim().toLowerCase(); if (!k || !canEdit()) return null;
     const rounds = roundsOf(k); const agg = aggregate(rounds); if (!agg) return null;
@@ -144,7 +152,8 @@
       upsert('stations', { id: uid(), model: last ? last.model : 'B216', submodel: last ? last.submodel : 'EV', station: label, jph: last ? last.jph : 22, ct: agg.ctMax, rounds: agg.n, ois: '', oisDesc: agg.latest.name && agg.latest.name !== label ? agg.latest.name : '' });
       out.stationCreated = true; out.stationRows = 1;
     }
-    const before = agg.elements.map(e => ({ id: uid(), name: e.name, sec: e.sec, type: e.type, note: '' }));
+    const mr = maxRoundOf(k);
+    const before = ((mr && mr.elements) || agg.elements).map(e => ({ id: uid(), name: e.name, sec: e.sec, type: e.type, note: '' }));
     const job = listJobs().find(j => gkey(j) === k);
     if (!job) { upsert('jobs', { id: uid(), name: label, station: label, line: '', operator: agg.latest.operator || '', analyst: agg.latest.analyst || '', date: new Date().toISOString().slice(0, 10), problem: '', target: '', before, after: [], training: [], autoBefore: true }); out.job = 'created'; }
     else if (job.autoBefore) { job.before = before; upsert('jobs', job); out.job = 'updated'; }
@@ -158,7 +167,7 @@
     const k = gkey(r);
     if (k) {
       const job = listJobs().find(j => gkey(j) === k && (j.after || []).length && (!r.team || !j.team || j.team === r.team));
-      if (job) { const ct = totals(job.after).ct; if (ct) return { ct, src: 'after', before: totals(job.before || []).ct }; }
+      if (job) { const ct = totals(job.after).ct; if (ct) return { ct, src: 'after', before: beforeOf(job).ct }; }
       const agg = aggregate(roundsOf(k));
       if (agg && agg.ctMax) return { ct: agg.ctMax, src: 'study', n: agg.n };
     }
@@ -502,6 +511,8 @@
         <dt>TAKT</dt><dd>เวลาที่ต้องผลิตได้ 1 คัน = 3600 ÷ JPH</dd>
         <dt>OIS</dt><dd>เอกสารมาตรฐานการทำงานของสถานี (ต้องอนุมัติครบ 5 ฝ่าย)</dd>
         <dt>4M1E</dt><dd>คน · เครื่อง · วัสดุ · วิธี · สภาพแวดล้อม</dd>
+        <dt>การอนุมัติ OIS</dt><dd>ส่งแล้วอนุมัติตามลำดับ Flow 1 → 5 ด้วย PIN ของแต่ละฝ่าย · ฝ่ายที่กำลังพิจารณาส่งกลับแก้ไขได้ (ล้างการอนุมัติทั้งหมด) · ดูงานที่รอฝ่ายคุณได้ที่หน้าสมดุลสถานี</dd>
+        <dt>Before</dt><dd>รอบที่ CT สูงสุดของ Time Study สถานีนั้น (ถ้าไม่ได้แก้เอง)</dd>
         <dt>คะแนนความง่าย</dt><dd>1 = ยากสุด, 5 = ง่ายสุด · ≤ 3 = จุดต้องปรับปรุง</dd></dl>
         <p><b>AI</b> ช่วยร่าง element และข้อเสนอให้ แล้วคนตรวจแก้ — ถ้าปุ่ม AI แจ้งว่ายังไม่พร้อม ให้ติดต่อผู้ดูแลระบบ</p>
         <div class="dlg-actions"><button type="button" class="primary" data-close>ปิด</button></div></div>`;
@@ -761,7 +772,7 @@
     $('#enter').onclick = enter;
 
     // app events
-    $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+    $$('#tabs button').forEach(b => b.onclick = () => { if (b.dataset.tab === currentTab && currentTab === 'stations' && window.CPSWorkflow?.isOpen?.()) { window.CPSStations.render($('#tab-stations')); return; } showTab(b.dataset.tab); });
     $('#btn-switch').onclick = () => guardLeave(() => openGate(scope));
     if ($('#gate-cancel')) $('#gate-cancel').onclick = () => openApp();
     if ($('#btn-help')) $('#btn-help').onclick = openHelp;
@@ -821,7 +832,7 @@
     util: { $, $$, uid, esc, ud, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
-      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf,
+      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf, beforeOf,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },
       advise, balance, RULES,
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },

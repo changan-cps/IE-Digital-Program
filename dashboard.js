@@ -56,10 +56,12 @@
     });
     const kaizen = [];
     jobs.forEach(j => {
-      if (!(j.after || []).length || !(j.before || []).length) return;
+      if (!(j.after || []).length) return;
       const i = idxOf(bs, j.date); if (i < 0) return;
-      const bf = totals(j.before).ct, af = totals(j.after).ct; if (!bf) return;
-      const b = B[i]; b.jobs.push(j); b.red += bf - af; b.before += bf; b.after += af;
+      const bf = D().beforeOf(j).ct, af = totals(j.after).ct; if (!bf) return;
+      const sr = D().listStations().find(r => D().group.key(r) === D().group.key(j)), ap = sr && sr.wf && sr.wf.approval;
+      const okd = !!(ap && ap.submitted && Object.values(ap.flows || {}).filter(x => x && x.by).length >= 5);
+      const b = B[i]; b.jobs.push(j); b.red += bf - af; b.before += bf; b.after += af; if (okd) b.redOk = (b.redOk || 0) + (bf - af);
       kaizen.push({ j, bf, af, red: bf - af, pct: (bf - af) / bf * 100, i });
     });
     // LBR ณ สิ้นแต่ละช่วง: CT จาก Time Study ล่าสุดของแต่ละสถานี · ไลน์ = ทีม + รุ่น/รุ่นย่อย
@@ -178,7 +180,7 @@
     const avg = b => b.st.length ? b.ct / b.st.length : null;
     const lastWith = f => { for (let i = n - 1; i >= 0; i--) if (f(B[i])) return i; return -1; };
     const iCt = lastWith(b => b.st.length), iPrev = iCt > 0 ? (() => { for (let i = iCt - 1; i >= 0; i--) if (B[i].st.length) return i; return -1; })() : -1;
-    const totRed = B.reduce((a, b) => a + b.red, 0), totBf = B.reduce((a, b) => a + b.before, 0), nJob = B.reduce((a, b) => a + b.jobs.length, 0);
+    const totRed = B.reduce((a, b) => a + b.red, 0), totBf = B.reduce((a, b) => a + b.before, 0), nJob = B.reduce((a, b) => a + b.jobs.length, 0), redOk = B.reduce((a, b) => a + (b.redOk || 0), 0);
     const nSt = B.reduce((a, b) => a + b.st.length, 0);
     const sumT = B.reduce((a, b) => ({ VA: a.VA + b.VA, ct: a.ct + b.ct }), { VA: 0, ct: 0 });
     const same = iCt >= 0 && iPrev >= 0 ? sameCt(B[iCt], B[iPrev]) : null;
@@ -197,12 +199,14 @@
     const trained = P.jobs.reduce((a, j) => a + (j.training || []).reduce((x, r) => x + U().num(r.count), 0), 0);
     // ต้องดูก่อน: สถานีเกิน TAKT และไลน์ที่ต่ำกว่าเป้า 85%
     const ldOf = r => { const j = U().num(r.jph); return j ? D().ctOf(r) / (3600 / j) * 100 : 0; };   // CT ที่ใช้ (After > Time Study > กรอกเอง) เหมือนหน้าสมดุลสถานี
+    const pendN = D().listStations().filter(r => D().statusOf(r).key === 'pending').length;
     const overSt = D().listStations().filter(r => ldOf(r) > 100).sort((a, b) => ldOf(b) - ldOf(a)), lowL = lb.lines.filter(l => l.lbr < 85);
     const list = (arr, k) => arr.slice(0, k).join(', ') + (arr.length > k ? '…' : '');
-    const att = overSt.length || lowL.length ? `<section class="dz-att" role="status"><b>${esc(t('attTitle'))}</b>` +
-      (overSt.length ? `<span>▲ ${esc(t('attOver', overSt.length, list(overSt.map(r => r.station + ' ' + fmt(ldOf(r)) + '%'), 4)))}</span>` : '') +
+    const att = overSt.length || lowL.length || pendN ? `<section class="dz-att" role="status"><b>${esc(t('attTitle'))}</b>` +
+      (overSt.length ? `<span>▲ ${esc(t('attOverHead', overSt.length))} ${overSt.slice(0, 4).map(r => `<button type="button" class="linklike" data-wfst="${esc(r.id)}">${esc(r.station)} ${fmt(ldOf(r))}%</button>`).join(', ')}</span>` : '') +
       (lowL.length ? `<span>▼ ${esc(t('attLow', lowL.length, list(lowL.map(l => l.model + ' / ' + l.sub + ' ' + fmt(l.lbr) + '%'), 3)))}</span>` : '') +
-      lowL.map(l => { const nr = D().listStations().find(r => r.station === l.neck); return nr && D().ctInfo(nr).src !== 'after' ? `<span class="dz-neck">● ${esc(t('attNeck', l.neck, fmt(l.max)))}</span>` : ''; }).join('') +
+      lowL.map(l => { const nr = D().listStations().find(r => r.station === l.neck); return nr && D().ctInfo(nr).src !== 'after' ? `<span class="dz-neck">● ${esc(t('attNeck', l.neck, fmt(l.max)))} <button type="button" class="linklike" data-wfst="${esc(nr.id)}">${esc(t('attOpenWf'))}</button></span>` : ''; }).join('') +
+      (pendN ? `<span class="dz-neck">⏳ ${esc(t('attPend', pendN))}</span>` : '') +
       `<button type="button" class="ghost" data-goto>${esc(t('attGo'))}</button></section>` : '';
 
     el.innerHTML = `
@@ -216,7 +220,7 @@
       <div class="cards dz-cards">
         ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85')), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
         ${kpi(I().tn('r_ctLatest', mode), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? esc(B[iCt].long) + (same && same.n ? '<br>' + delta(same.cur, same.prev, ' ' + s, true) + ` <small class="dz-same">${esc(t('sameSt', same.n))}</small>` : same ? `<br><small class="dz-same">${esc(t('noSame'))}</small>` : '') : esc(t('noStudy')))}
-        ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')), totRed ? '#15856b' : '')}
+        ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')) + (nJob ? '<br>' + esc(t('redSplit', fmt(redOk), fmt(totRed - redOk))) : ''), totRed ? '#15856b' : '')}
         ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
       </div>
       <p class="muted dz-sub">Time Study <b>${nSt}</b> ${esc(t('items'))} (${esc(t('latestCount', mode, last.st.length))}) · ${esc(t('trained'))} <b>${trained}</b> ${esc(t('people'))}</p>
@@ -241,6 +245,7 @@
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; try { localStorage.setItem(PKEY, mode); } catch (e) {} render(el, ctx); });
     el.querySelectorAll('[data-sw]').forEach(sl => sl.onchange = () => { if (sl.dataset.sw === 'line') swSel = sl.value; else swPick = sl.value; saveSw(); render(el, ctx); });
         el.querySelector('[data-goto]')?.addEventListener('click', () => window.CPS.showTab('stations'));
+    el.querySelectorAll('[data-wfst]').forEach(b => b.onclick = () => window.CPSStations.openWorkflow(b.dataset.wfst));
     drawCharts(el, B);
   }
 
@@ -358,7 +363,7 @@
   function swctFacts(x) {   // [[ป้าย, ค่า], ...] สองแถว: สรุปเวลา · Line Balance
     const { fmt } = U(), s = ' ' + t('s');
     const a = [[t('sw_st'), String(x.lanes.length)], ['TAKT', x.tk ? fmt(x.tk) + s : '—'], [t('sw_ctMax'), fmt(x.max) + s + ' (' + opLabel(x.slow) + ')'],
-      [t('sw_ctMin'), fmt(x.min) + s + ' (' + opLabel(x.fast) + ')'], [t('sw_avg'), fmt(x.avg) + s]];
+      [t('sw_ctMin'), fmt(x.min) + s + ' (' + opLabel(x.fast) + ')'], [t('sw_avg'), fmt(x.st.sum / x.st.n) + s]];
     const L = window.CPSLine.facts(x.st, x.op);   // ชุดเดียวกับหน้าสมดุลสถานี
     return { a, b: L.main, sub: L.sub, over: x.over.length ? t('sw_over', x.over.length, x.over.map(g => g.label).join(', ')) : '' };
   }
@@ -426,7 +431,7 @@
     const avgK = (b, k) => b.st.length ? b[k] / b.st.length : 0;
     const withSt = B.map((b, i) => i).filter(i => B[i].st.length), iL = withSt[withSt.length - 1], iP = withSt[withSt.length - 2];
     const ctL = iL != null ? B[iL].ct / B[iL].st.length : null, ctP = iP != null ? B[iP].ct / B[iP].st.length : null;
-    const totRed = B.reduce((a, b) => a + b.red, 0), totBf = B.reduce((a, b) => a + b.before, 0), nJob = B.reduce((a, b) => a + b.jobs.length, 0);
+    const totRed = B.reduce((a, b) => a + b.red, 0), totBf = B.reduce((a, b) => a + b.before, 0), nJob = B.reduce((a, b) => a + b.jobs.length, 0), redOk = B.reduce((a, b) => a + (b.redOk || 0), 0);
     const sumVA = B.reduce((a, b) => a + b.VA, 0), sumCt = B.reduce((a, b) => a + b.ct, 0), nStudy = B.reduce((a, b) => a + b.st.length, 0);
     const best = B.reduce((m, b) => b.red > (m ? m.red : 0) ? b : m, null);
     const L = {}, Rh = {}; let els = 0, both = 0;
@@ -462,7 +467,7 @@
       kpis: [
         { label: 'Time Study', value: nStudy + ' ' + t('items'), sub: t('periods', n, mode) },
         { label: tn('r_ctLatest', mode), value: ctL != null ? f(ctL) + ' ' + s : '—', sub: delta },
-        { label: tn('ctReduced'), value: totRed ? '−' + f(totRed) + ' ' + s : '0', sub: t('jobsN', nJob), color: totRed ? '15856B' : null },
+        { label: tn('ctReduced'), value: totRed ? '−' + f(totRed) + ' ' + s : '0', sub: t('jobsN', nJob) + (nJob ? ' · ' + t('redSplit', f(redOk), f(totRed - redOk)) : ''), color: totRed ? '15856B' : null },
         { label: tn('r_vaAvg'), value: sumCt ? f(sumVA / sumCt * 100) + '%' : '—', sub: t('r_vaSub') },
         { label: 'Line Balance Rate', value: lb.lines.length ? f(lb.lbr) + '%' : '—', sub: lb.lines.length ? t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85') : null, color: lb.lines.length ? lbrColor(lb.lbr).slice(1).toUpperCase() : null },
         { label: tn('trained'), value: trained + ' ' + t('people'), sub: null },

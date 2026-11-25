@@ -608,3 +608,24 @@ html[lang^=zh] .sb-table th{white-space:normal}
   #tab-timestudy:has(#ts-save) .ts-capture{bottom:66px}
   .ease-table td input.r-sec,.ease-table td input.r-steps{margin-right:6px}
 }
+
+/* round 8: inbox, locked rows, linklike, stepper on phones */
+.sb-inbox .panelhead{flex-wrap:wrap;gap:8px}
+.sb-myflow{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.sb-myflow select{min-height:40px;border:1px solid var(--line);border-radius:9px;padding:4px 8px}
+.sb-inbox-list{list-style:none;margin:0;padding:4px 16px 12px}
+.sb-inbox-list li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 0;border-bottom:1px solid #eef2f6}
+.sb-inbox-list li.mine{background:#f3f8fd;margin:0 -16px;padding:8px 16px}
+.sb-inbox-list li .wf-open{margin-left:auto}
+.sb-locked td{background:#fafbfc}
+.linklike{background:none;border:0;padding:0 2px;min-height:auto;color:var(--blue);font-weight:700;text-decoration:underline;cursor:pointer}
+.dz-att .linklike{min-height:32px}
+.tag-max{background:#e8f1fb;color:#00467f;margin-left:4px}
+.wf-acts{display:inline-flex;gap:8px;flex-wrap:wrap}
+.adv.improve{background:#fff4e0;color:#8a4b00}
+@media(max-width:560px){
+  .wf-steps{flex-wrap:wrap;row-gap:8px}
+  .wf-steps .wf-sep{display:none}
+}
+
+@media(max-width:560px){ .wf-flow{flex-wrap:wrap} .wf-flow-body{flex:1;min-width:0} .wf-acts{flex-basis:100%;padding-left:44px} .wf-acts button{flex:1} }

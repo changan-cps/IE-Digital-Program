@@ -9,7 +9,7 @@
   const snaps = new WeakMap();
   const scopeId = () => { const sc = D().scope || {}; return [sc.workshop, sc.group, sc.team].join('§'); };
   const hasContent = j => !!j && (String(j.name || j.station || j.problem || '').trim() !== '' || (j.before || []).some(e => String(e.name || '').trim() || U().num(e.sec) > 0) || (j.after || []).length > 0);
-  const isDirty = () => !!editing && hasContent(editing) && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
+  const isDirty = () => !!editing && hasContent(editing) && !lockedBy(editing) && snaps.has(editing) && snaps.get(editing) !== JSON.stringify(editing);
   function saveDraft() { if (!isDirty()) return; try { localStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), scope: scopeId(), j: editing })); } catch (e) {} }
   function readDraft() { try { const d = JSON.parse(localStorage.getItem(DRAFT)); return d && d.j && d.scope === scopeId() ? d : null; } catch (e) { return null; } }
   const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
@@ -32,7 +32,7 @@
   function renderList() {
     const { esc, fmt } = U();
     const can = D().canEdit();
-    const jobs = D().listJobs();
+    const jobs = D().listJobs().slice().sort((x, y) => String(x.station || x.name || '').localeCompare(String(y.station || y.name || ''), undefined, { numeric: true }));
     const dr = can ? readDraft() : null;
     host.innerHTML = `
       ${dr ? `<div class="ts-draft" role="status"><span>มีร่างงานวิเคราะห์ที่ยังไม่ได้บันทึก · ${esc(dr.j.name || 'ไม่มีชื่อ')} · ${U().dateTxt(dr.at, true)}</span><button class="primary" id="an-draft-go">กู้คืนร่าง</button><button id="an-draft-drop">ทิ้งร่าง</button></div>` : ''}
@@ -41,10 +41,10 @@
       ${!can ? '<div class="ro-banner">👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม</div>' : ''}
       ${!jobs.length ? `<div class="blank">ยังไม่มีงานวิเคราะห์ในพื้นที่นี้${can ? '<br><small>กด “＋ งานใหม่” เพื่อเริ่มเอง หรือบันทึก Time Study ของสถานี แล้วระบบจะสร้างงานวิเคราะห์ให้อัตโนมัติ</small>' : ''}</div>` :
         `${jobs.length > 3 ? '<label class="list-search"><span class="vh">ค้นหา</span><input type="search" id="an-q" placeholder="ค้นหาชื่องาน / สถานี"></label>' : ''}<section class="panel"><div class="recent">${jobs.map(j => {
-          const b = U().totals(j.before), a = U().totals(j.after);
+          const b = { ct: D().beforeOf(j).ct }, a = U().totals(j.after);
           const saved = b.ct - a.ct, has = a.count > 0;
           return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
-            <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}</em>
+            <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}${lockedBy(j) ? ' · 🔒' : ''}</em>
             <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}">ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
@@ -57,7 +57,7 @@
 
   function renderEditor() {
     const { esc } = U(); const j = editing;
-    if (!snaps.has(j)) snaps.set(j, JSON.stringify(j));
+    if (j.autoBefore !== false) { const bo = D().beforeOf(j); if (bo.src === 'study') { j.before = bo.els.map(e => ({ id: U().uid(), name: e.name, sec: U().round1(U().num(e.sec)), type: e.type, note: '' })); j.autoBefore = true; } }   // Before = รอบที่ CT สูงสุด
     host.innerHTML = `
       <div class="page-head"><div><h1>วิเคราะห์งาน</h1></div>
         <div class="head-btns"><button id="an-back" class="ghost">← กลับ</button><button id="an-ai" class="ghost">🤖 AI ร่างข้อเสนอ</button><button id="an-print" class="ghost">พิมพ์/PDF</button><button id="an-save" class="primary">บันทึก</button></div></div>
@@ -93,6 +93,8 @@
     phase('before', 'ก่อนปรับปรุง (Before)');
     phase('after', 'หลังปรับปรุง (After)');
     report(); observe(); suggest(); targets(); training();
+    if (!snaps.has(j)) snaps.set(j, JSON.stringify(j));   // หลังทุกส่วนเติมค่าเริ่มต้นแล้ว งานที่ยังไม่แตะจึงไม่นับว่าแก้
+    if (lockedBy(j)) host.querySelectorAll('input, select, textarea, button').forEach(x => { if (!['an-back', 'an-print'].includes(x.id)) x.disabled = true; });   // ล็อกจริง: อ่านอย่างเดียว
   }
 
   // ---- AI ร่างข้อสังเกต ข้อเสนอ 4M1E และเป้าหมายคะแนน (ส่งเฉพาะตัวเลข/ข้อความ ไม่ส่งภาพ) ----
@@ -234,7 +236,7 @@
       <div class="tbl"></div>
       <div class="mini-metrics">${mini('CT', fmt(t.ct) + ' วิ')}${mini('VA', fmt(t.VA) + ' · ' + fmt(t.vaPct) + '%', '#15856b')}${mini('NNVA', fmt(t.NNVA), '#ad7206')}${mini('NVA', fmt(t.NVA), '#a64475')}</div>
       <div class="stack">${stack(t)}</div>`;
-    if (ph === 'before' && editing.autoBefore) { const nt = document.createElement('p'); nt.className = 'hint'; nt.textContent = 'Before นี้ระบบเติมจากค่าเฉลี่ยของ Time Study ทุกรอบ และจะอัปเดตเองเมื่อมีรอบใหม่ · ถ้าแก้ด้วยมือ ระบบจะหยุดเขียนทับ'; sec.appendChild(nt); }
+    if (ph === 'before' && editing.autoBefore) { const nt = document.createElement('p'); nt.className = 'hint'; nt.textContent = 'Before นี้ใช้รอบที่ CT สูงสุดของ Time Study สถานีนี้ และอัปเดตเองเมื่อมีรอบใหม่ · ถ้าแก้ด้วยมือ ระบบจะหยุดเขียนทับ'; sec.appendChild(nt); }
     host.querySelector('#ph-' + ph).replaceChildren(sec);
     const tbl = sec.querySelector('.tbl');
     if (!list.length) tbl.innerHTML = `<div class="empty-row"><p>${ph === 'after' ? 'คัดลอกจาก Before แล้วแก้ หรือ ＋ ขั้นตอน' : 'กด ＋ ขั้นตอน เพื่อเพิ่มรายการ'}</p></div>`;
@@ -357,5 +359,6 @@ ${row('รอบเวลา (วิ)', fmt(b.ct), fmt(a.ct))}${row('VA (วิ)
     win.document.close();
   }
 
-  window.CPSAnalysis = { render, isDirty, leave };
+  function openJob(id) { const jb = D().listJobs().find(x => x.id === id); if (!jb) return; window.CPS.showTab('analysis'); editing = structuredClone(jb); render(document.getElementById('tab-analysis')); scrollTo(0, 0); }
+  window.CPSAnalysis = { render, isDirty, leave, openJob };
 })();

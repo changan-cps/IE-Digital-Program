@@ -14,15 +14,15 @@
 
   // ป้ายของหน้าสรุป (ส่วนที่ผู้จัดการเปิดดู) ตามภาษาที่เลือกบนแดชบอร์ด · โหมดแก้ไขตารางยังเป็นภาษาไทย
   const SBT = {
-    th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'ต้องตัดสินใจ / ยังเกิน TAKT', sub: 'รุ่นย่อย',
+    th: { title: 'สมดุลสถานี', all: 'ทุกพื้นที่', n: 'จำนวนสถานี', unit: 'สถานี', max: 'ภาระสูงสุด', over: 'เกิน TAKT (>100%)', adv: 'ต้องตัดสินใจ', sub: 'รุ่นย่อย',
       yz: 'กราฟ Yamazumi (Line Balance)', noRound: 'ไม่มีรอบจับเวลา', swct: '📊 SWCT ทั้งไลน์', edit: '✎ แก้ไขตาราง', done: '✓ เสร็จสิ้นการแก้ไข', cancel: 'ยกเลิกการแก้ไข', add: '＋ เพิ่มสถานี',
       ro: '👁️ โหมดวิเคราะห์ (อ่านอย่างเดียว) — รวมข้อมูลหลายทีม', th: ['สถานี', 'ทีม', 'JPH', 'TAKT', 'CT ที่ใช้', 'ภาระงาน', 'OIS', 'ระบบแนะนำ / ขั้นตอน'],
       improve: 'ควรปรับปรุง', ok: 'ปกติ', wait: 'รอข้อมูล', step: '→ ขั้นตอน', twoHand: 'SWCT / สองมือ' },
-    en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'Needs decision / still over TAKT', sub: 'sub-model',
+    en: { title: 'Station balance', all: 'All areas', n: 'Stations', unit: 'stations', max: 'Highest load', over: 'Over TAKT (>100%)', adv: 'Needs decision', sub: 'sub-model',
       yz: 'Yamazumi chart (line balance)', noRound: 'no timing round', swct: '📊 Line SWCT', edit: '✎ Edit table', done: '✓ Done editing', cancel: 'Discard changes', add: '＋ Add station',
       ro: '👁️ Analysis mode (read only) — several teams combined', th: ['Station', 'Team', 'JPH', 'TAKT', 'CT in use', 'Load', 'OIS', 'Advice / steps'],
       improve: 'Needs improvement', ok: 'OK', wait: 'No data', step: '→ Steps', twoHand: 'SWCT / two-hand' },
-    zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '待决定 / 仍超出 TAKT', sub: '子车型',
+    zh: { title: '工位平衡', all: '所有区域', n: '工位数', unit: '个工位', max: '最高负荷', over: '超出 TAKT (>100%)', adv: '待决定', sub: '子车型',
       yz: '山积图 (Yamazumi)', noRound: '无计时轮次', swct: '📊 整线 SWCT', edit: '✎ 编辑表格', done: '✓ 完成编辑', cancel: '放弃修改', add: '＋ 添加工位',
       ro: '👁️ 分析模式（只读）— 多个班组汇总', th: ['工位', '班组', 'JPH', 'TAKT', '使用的 CT', '负荷', 'OIS', '建议 / 步骤'],
       improve: '需改善', ok: '正常', wait: '无数据', step: '→ 步骤', twoHand: 'SWCT / 双手' },
@@ -67,15 +67,17 @@
         ${can ? `<div class="head-btns">${editMode ? `<button class="ghost" id="sb-cancel">${esc(L('cancel'))}</button>` : ''}${rows.length ? `<button class="ghost" id="sb-edit" aria-pressed="${editMode}">${esc(L(editMode ? 'done' : 'edit'))}</button>` : ''}<button class="primary" id="sb-add">${esc(L('add'))}</button></div>` : ''}
       </div>
       ${!can ? `<div class="ro-banner">${esc(L('ro'))}</div>` : ''}
+      ${inbox(rows)}
       <div class="sb-summary">
         ${sumCard(L('n'), rows.length, unitN(rows.length))}
         ${sumCard(L('max'), (allMax > 100 ? '▲ ' : '') + fmt(allMax) + '%', '', loadColor(allMax))}
-        ${(() => { const nO = rows.filter(r => loadPct(r) > 100).length; return sumCard(L('over'), nO, unitN(nO), nO ? '#c0392b' : ''); })()}
-        ${(() => { const adv = rows.filter(r => ['decide', 'closedOver'].includes(D().statusOf(r).key)); return sumCard(L('adv'), adv.length, unitN(adv.length) + (adv.length ? ' · ' + adv.slice(0, 3).map(r => r.station).join(', ') : ''), adv.length ? '#9a5b00' : ''); })()}
+        ${(() => { const oS = rows.filter(r => loadPct(r) > 100); return sumCard(L('over'), oS.length, unitN(oS.length) + (oS.length ? ' · ' + oS.slice(0, 3).map(r => r.station).join(', ') : ''), oS.length ? '#c0392b' : ''); })()}
+        ${(() => { const adv = rows.filter(r => D().statusOf(r).key === 'decide'); return sumCard(L('adv'), adv.length, unitN(adv.length) + (adv.length ? ' · ' + adv.slice(0, 3).map(r => r.station).join(', ') : ''), adv.length ? '#9a5b00' : ''); })()}
       </div>
       ${!rows.length ? `<div class="blank">ยังไม่มีข้อมูลสถานี${can ? ' — กด “＋ เพิ่มสถานี”' : ''}</div>`
         : Object.keys(groups).sort().map(k => groupBlock(k, groups[k], can && editMode)).join('')}`;
 
+    const mf = host.querySelector('#sb-myflow'); if (mf) mf.onchange = () => { try { localStorage.setItem('cps-ie-myflow', mf.value); } catch (e) {} render(host); };
     host.querySelectorAll('.wf-open').forEach(b => b.onclick = () => window.CPSWorkflow.open(b.dataset.wf, host, () => render(host)));
     host.querySelectorAll('.sb-chart').forEach(b => b.onclick = () => openCharts(b.dataset.st));
     host.querySelectorAll('.sb-line-swct').forEach(b => b.onclick = () => openLineSwct(b.dataset.key));
@@ -131,6 +133,18 @@
     return 3600 / jph;
   }
 
+  // งานรออนุมัติ: ใครต้องอนุมัติอะไรต่อ (เลือกฝ่ายของฉันเพื่อเน้นงานที่ถึงตา)
+  function inbox(rows) {
+    const { esc } = U(); const FL = (window.CPSWorkflow && window.CPSWorkflow.FLOWS) || [];
+    const pend = rows.filter(r => D().statusOf(r).key === 'pending'); if (!pend.length || !FL.length) return '';
+    let mine = ''; try { mine = localStorage.getItem('cps-ie-myflow') || ''; } catch (e) {}
+    const items = pend.map(r => { const ap = r.wf.approval; const k = FL.findIndex(f => !(ap.flows[f.key] && ap.flows[f.key].by)); return { r, k, f: FL[k] }; });
+    const n = mine ? items.filter(x => x.f && x.f.key === mine).length : 0;
+    return `<section class="panel sb-inbox"><div class="panelhead"><h2>รออนุมัติ OIS (${items.length})${mine ? ` · ถึงตาฝ่ายคุณ ${n}` : ''}</h2>
+      <label class="sb-myflow">ฝ่ายของฉัน <select id="sb-myflow"><option value="">— ทุกฝ่าย —</option>${FL.map(f => `<option value="${f.key}"${f.key === mine ? ' selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label></div>
+      <ul class="sb-inbox-list">${items.map(x => `<li class="${mine && x.f && x.f.key === mine ? 'mine' : ''}"><b translate="no">${esc(x.r.station)}</b> <span class="muted" translate="no">${esc((x.r.wf.newOis && x.r.wf.newOis.code) || '')}</span> · <span>รอ ${esc(x.f ? x.f.name : '')}</span>${mine && x.f && x.f.key === mine ? ' <span class="adv prog">ถึงตาคุณ</span>' : ''}<button type="button" class="ghost wf-open" data-wf="${esc(x.r.id)}">${esc(L('step'))}</button></li>`).join('')}</ul></section>`;
+  }
+  function openWorkflow(id) { window.CPS.showTab('stations'); const h = host || document.getElementById('tab-stations'); window.CPSWorkflow.open(id, h, () => render(h)); }
   function sumCard(label, val, unit, color) {
     return `<div class="stat"><small>${U().esc(label)}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + U().esc(unit) : ''}</em></strong></div>`;
   }
@@ -158,7 +172,7 @@
   // ที่มาของ CT ที่ใช้ (After ของงานวิเคราะห์ / Time Study / กรอกเอง)
   function srcNote(ci) {
     const { fmt } = U();
-    return ci.src === 'after' ? `<small class="sb-rounds">หลังปรับ (After) · ก่อน (เฉลี่ย) ${fmt(ci.before)} วิ</small>` : ci.src === 'study' ? `<small class="sb-rounds">สูงสุดจาก ${ci.n} รอบ</small>` : '';
+    return ci.src === 'after' ? `<small class="sb-rounds">หลังปรับ (After) · ก่อน (รอบสูงสุด) ${fmt(ci.before)} วิ</small>` : ci.src === 'study' ? `<small class="sb-rounds">สูงสุดจาก ${ci.n} รอบ</small>` : '';
   }
   function stationRow(r, can) {
     const { esc, fmt, num } = U();
@@ -167,15 +181,16 @@
     const bar = `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(p, 100)}%;background:${col}"></i>${p > 100 ? `<i class="over" style="width:${Math.min(p - 100, 40)}%"></i>` : ''}</div><span style="color:${col}">${fmt(p)}%</span></div>`;
     const adv = D().advise(r);
     const stt = D().statusOf(r);
-    const cls = { ok: 'adv ok', approved: 'adv ok', pending: 'adv ok', progress: 'adv prog', decide: 'adv improve', closedOver: 'adv alarm', closed: 'adv', nodata: 'adv' }[stt.key];
+    const cls = { ok: 'adv ok', approved: 'adv ok', pending: 'adv prog', progress: 'adv prog', decide: 'adv improve', closedOver: 'adv alarm', closed: 'adv', nodata: 'adv' }[stt.key];
     const done = `<span class="${cls}"${stt.reasons ? ` title="${esc(stt.reasons.join(' · '))}"` : ''}>${stt.alarm ? '▲ ' : ''}${esc(stt.label)}</span>`;
     const nR = D().group.roundsOf(r.station).length;
     const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}">${esc(L('step'))}</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
-    if (!can) {
-      return `<tr>
+    const lockRow = !!(r.wf && r.wf.approval && r.wf.approval.submitted);
+    if (!can || lockRow) {
+      return `<tr${lockRow && can ? ' class="sb-locked" title="OIS รออนุมัติ — แก้ไม่ได้"' : ''}>
         <td class="sb-st">${esc(r.station)}</td><td class="sb-team">${esc(r.team)}</td><td class="sb-jph">${esc(r.jph)}</td>
         <td class="sb-takt">${fmt(t)} วิ</td><td class="sb-ctv"><b>${fmt(ci.ct)} วิ</b>${srcNote(ci)}</td><td class="sb-load">${bar}</td>
-        <td class="sb-ois"><b>${esc(r.ois)}</b><small>${U().ud(r.oisDesc)}</small></td>${wfBtn}</tr>`;
+        <td class="sb-ois"><b>${esc(r.ois)}</b><small>${U().ud(r.oisDesc)}</small></td>${wfBtn}${can ? '<td title="ล็อก: OIS รออนุมัติ">🔒</td>' : ''}</tr>`;
     }
     return `<tr data-id="${esc(r.id)}">
       <td><input class="f-station" aria-label="รหัสสถานี" value="${esc(r.station)}" placeholder="CA-01A"></td>
@@ -360,6 +375,6 @@
     U().toast('ดึง CT จาก “' + (match.name || '') + '” แล้ว');
   }
 
-  window.CPSStations = { render };
+  window.CPSStations = { render, openWorkflow };
   window.CPSLine = { stats: lineStats, facts: lineFacts, strip: lineStrip };
 })();
