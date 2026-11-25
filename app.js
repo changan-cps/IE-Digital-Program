@@ -142,7 +142,7 @@
     if (k && job.autoBefore !== false) { const mr = maxRoundOf(k); if (mr) return { ct: totals(mr.elements).ct, els: mr.elements || [], src: 'study', n: roundsOf(k).length }; }
     return { ct: totals(job.before || []).ct, els: job.before || [], src: 'manual' };
   }
-  function flowFromStation(code) {
+  function flowFromStation(code, opt) {
     const k = String(code || '').trim().toLowerCase(); if (!k || !canEdit()) return null;
     const rounds = roundsOf(k); const agg = aggregate(rounds); if (!agg) return null;
     const label = (agg.latest.station || agg.latest.name || '').trim();
@@ -157,8 +157,8 @@
     const mr = maxRoundOf(k);
     const before = ((mr && mr.elements) || agg.elements).map(e => ({ id: uid(), name: e.name, sec: e.sec, type: e.type, note: '' }));
     const job = listJobs().find(j => gkey(j) === k);
-    if (!job) { upsert('jobs', { id: uid(), name: label, station: label, line: '', operator: agg.latest.operator || '', analyst: agg.latest.analyst || '', date: new Date().toISOString().slice(0, 10), problem: '', target: '', before, after: [], training: [], autoBefore: true }); out.job = 'created'; }
-    else if (job.autoBefore) { job.before = before; upsert('jobs', job); out.job = 'updated'; }
+    if (!job && !(opt && opt.noCreate)) { upsert('jobs', { id: uid(), name: label, station: label, line: '', operator: agg.latest.operator || '', analyst: agg.latest.analyst || '', date: new Date().toISOString().slice(0, 10), problem: '', target: '', before, after: [], training: [], autoBefore: true }); out.job = 'created'; }
+    else if (job && job.autoBefore) { job.before = before; upsert('jobs', job); out.job = 'updated'; }
     return out;
   }
 
@@ -526,7 +526,8 @@
   }
   // ---------- toast ----------
   let toastT;
-  function toast(m, ms) { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.remove('has-action'); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms || Math.max(4000, 60 * String(m).length)); }
+  function toast(m, ms) { const t = $('#toast'); if (!t) return; if (t.classList.contains('has-action')) { setTimeout(() => toast(m, ms), 1500); return; }   // ไม่ทับกล่อง "เลิกทำ"
+    t.textContent = m; t.classList.remove('has-action'); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms || Math.max(4000, 60 * String(m).length)); }
   // in-page input dialog (replaces prompt): fields = [{name,label,type?,options?}] -> Promise<object|null>
   function ask(title, fields, opt) {
     opt = opt || {};
@@ -712,12 +713,27 @@
       ${recent(studies, jobs)}`;
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => showTab(b.dataset.go));
   }
+  // การอนุมัติที่นับได้: อนุมัติหลังสร้าง OIS ฉบับนี้ และคนเดียวนับได้ฝ่ายเดียว (ฝ่ายแรกที่อนุมัติ)
+  const FLOW_KEYS = ['reviewer', 'safety', 'quality', 'process', 'manager'];
+  function approvalOf(w) {
+    const ap = (w && w.approval) || {}, fl = ap.flows || {}, gen = (w && w.newOis && w.newOis.generatedAt) || 0, seen = new Set();
+    const out = { valid: {}, why: {}, n: 0, redo: 0, firstPending: -1 };
+    FLOW_KEYS.forEach(k => {
+      const s = fl[k]; if (!s || !s.by) return;
+      if (gen && s.at < gen) { out.why[k] = 'stale'; return; }
+      if (seen.has(s.by)) { out.why[k] = 'dup'; return; }
+      seen.add(s.by); out.valid[k] = true; out.n++;
+    });
+    out.redo = Object.keys(out.why).length;
+    out.firstPending = FLOW_KEYS.findIndex(k => !out.valid[k]);
+    return out;
+  }
   // สถานะของสถานีชุดเดียวทั้งแอป (ชิปในตาราง · การ์ดสรุป · แดชบอร์ด)
   function statusOf(r) {
     const w = r.wf || {}, ap = w.approval || {};
     const j = num(r.jph), load = j ? ctOf(r) / (3600 / j) * 100 : 0;
     if (w.improve === false) return load > 100 ? { key: 'decide', label: 'ต้องตัดสินใจ · ยังเกิน TAKT', alarm: true, load } : { key: 'closed', label: 'ปิด – ไม่ปรับปรุง', load };
-    if (ap.submitted) { const n = Object.values(ap.flows || {}).filter(x => x && x.by).length; return n >= 5 ? { key: 'approved', label: 'อนุมัติครบ 5/5', load } : { key: 'pending', label: `รออนุมัติ ${n}/5`, load }; }
+    if (ap.submitted) { const av = approvalOf(w); return av.n >= 5 ? { key: 'approved', label: 'อนุมัติครบ 5/5', load } : { key: 'pending', label: `รออนุมัติ ${av.n}/5` + (av.redo ? ` · ต้องอนุมัติใหม่ ${av.redo}` : ''), load }; }
     if (w.improve === true) { const step = 4 + (w.lineBalance && w.lineBalance.saved ? 1 : 0) + (w.newOis && w.newOis.reviewed ? 1 : 0); return { key: 'progress', label: `กำลังทำ ขั้น ${step}/6`, load }; }
     const adv = advise(r);
     return adv.status === 'improve' ? { key: 'decide', label: 'ต้องตัดสินใจ', alarm: load > 100, reasons: adv.reasons, load } : adv.status === 'ok' ? { key: 'ok', label: 'ปกติ', load } : { key: 'nodata', label: 'รอข้อมูล', load };
@@ -837,7 +853,7 @@
     util: { $, $$, uid, esc, ud, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
-      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf, beforeOf,
+      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf, beforeOf, approvalOf,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },
       advise, balance, RULES,
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },

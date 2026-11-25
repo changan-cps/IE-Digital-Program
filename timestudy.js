@@ -101,7 +101,7 @@
     host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
       const s = D().listStudies().find(x => x.id === b.dataset.del); const k = s ? G.key(s) : '';
       const lk = submittedFor(s); if (lk) { U().toast(`รอบนี้ใช้กับ OIS ของ ${lk.station} ที่ส่งอนุมัติแล้ว — ลบไม่ได้จนกว่าจะถอนการส่งหรือถูกส่งกลับแก้ไข`, 6000); return; }
-      D().removeUndo('studies', b.dataset.del, 'ลบรอบจับเวลาแล้ว', () => { if (k) G.flow(k); renderList(); });
+      D().removeUndo('studies', b.dataset.del, 'ลบรอบจับเวลาแล้ว', () => { if (k) G.flow(k, { noCreate: true }); renderList(); });   // ลบ/เลิกทำ ไม่สร้างงานวิเคราะห์ใหม่
     });
     const q = host.querySelector('#ts-q'); if (q) { const run = () => { const v = q.value.trim().toLowerCase(); host.querySelectorAll('.ts-group').forEach(g => g.hidden = !!v && !g.textContent.toLowerCase().includes(v)); }; q.oninput = run; q.value = tsQuery; run(); q.addEventListener('input', () => tsQuery = q.value); }
   }

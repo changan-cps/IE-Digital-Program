@@ -236,7 +236,7 @@
       <div class="tbl"></div>
       <div class="mini-metrics">${mini('CT', fmt(t.ct) + ' วิ')}${mini('VA', fmt(t.VA) + ' · ' + fmt(t.vaPct) + '%', '#15856b')}${mini('NNVA', fmt(t.NNVA), '#ad7206')}${mini('NVA', fmt(t.NVA), '#a64475')}</div>
       <div class="stack">${stack(t)}</div>`;
-    if (ph === 'before' && editing.autoBefore) { const nt = document.createElement('p'); nt.className = 'hint'; nt.textContent = 'Before นี้ใช้รอบที่ CT สูงสุดของ Time Study สถานีนี้ และอัปเดตเองเมื่อมีรอบใหม่ · ถ้าแก้ด้วยมือ ระบบจะหยุดเขียนทับ'; sec.appendChild(nt); }
+    if (ph === 'before' && editing.autoBefore) { const nt = document.createElement('p'); nt.className = 'hint'; nt.textContent = D().beforeOf(editing).frozen ? 'Before นี้เก็บไว้ตอนส่ง OIS — ไม่เปลี่ยนตามรอบ Time Study ใหม่' : 'Before นี้ใช้รอบที่ CT สูงสุดของ Time Study สถานีนี้ และอัปเดตเองเมื่อมีรอบใหม่ · ถ้าแก้ด้วยมือ ระบบจะหยุดเขียนทับ'; sec.appendChild(nt); }
     host.querySelector('#ph-' + ph).replaceChildren(sec);
     const tbl = sec.querySelector('.tbl');
     if (!list.length) tbl.innerHTML = `<div class="empty-row"><p>${ph === 'after' ? 'คัดลอกจาก Before แล้วแก้ หรือ ＋ ขั้นตอน' : 'กด ＋ ขั้นตอน เพื่อเพิ่มรายการ'}</p></div>`;

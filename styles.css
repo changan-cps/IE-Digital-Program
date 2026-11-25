@@ -647,3 +647,11 @@ html[lang^=zh] .sb-table th{white-space:normal}
   .lb-table input{width:100%;max-width:none!important;min-height:44px}
   .el-table td input,.el-table td select{min-height:44px}
 }
+
+/* round 10: re-approval rows, current step, disabled inputs */
+.wf-flow.redo{border-color:#f0c9b8;background:#fff8f4}
+.wf-flow.redo s{color:var(--muted)}
+.wf-step.now .wf-dot{background:var(--blue);color:#fff;box-shadow:0 0 0 3px #cfe0f0}
+.wf-moves{margin:6px 0 10px;padding-left:20px;font-size:14px}
+input:disabled,select:disabled,textarea:disabled{background:#eef2f6;color:#5f7386;border-color:#dfe6ed;cursor:not-allowed}
+@media(max-width:560px){ .r-dim{font-size:13px} }

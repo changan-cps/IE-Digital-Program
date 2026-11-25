@@ -138,13 +138,13 @@
     const { esc } = U(); const FL = (window.CPSWorkflow && window.CPSWorkflow.FLOWS) || [];
     const pend = rows.filter(r => D().statusOf(r).key === 'pending'); if (!pend.length || !FL.length) return '';
     let mine = ''; try { mine = localStorage.getItem('cps-ie-myflow') || ''; } catch (e) {}
-    const items = pend.map(r => { const ap = r.wf.approval; const k = FL.findIndex(f => !(ap.flows[f.key] && ap.flows[f.key].by)); return { r, k, f: FL[k] }; });
+    const items = pend.map(r => { const av = D().approvalOf(r.wf); const k = av.firstPending; return { r, k, f: FL[k], redo: av.redo }; });
     const n = mine ? items.filter(x => x.f && x.f.key === mine).length : 0;
     return `<section class="panel sb-inbox"><div class="panelhead"><h2>รออนุมัติ OIS (${items.length})${mine ? ` · ถึงตาฝ่ายคุณ ${n}` : ''}</h2>
       <label class="sb-myflow">ฝ่ายของฉัน <select id="sb-myflow"><option value="">— ทุกฝ่าย —</option>${FL.map(f => `<option value="${f.key}"${f.key === mine ? ' selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label></div>
-      <ul class="sb-inbox-list">${items.map(x => `<li class="${mine && x.f && x.f.key === mine ? 'mine' : ''}"><b translate="no">${esc(x.r.station)}</b> <span class="muted" translate="no">${esc((x.r.wf.newOis && x.r.wf.newOis.code) || '')}</span> · <span>รอ ${esc(x.f ? x.f.name : '')}</span>${mine && x.f && x.f.key === mine ? ' <span class="adv prog">ถึงตาคุณ</span>' : ''}<button type="button" class="ghost wf-open" data-wf="${esc(x.r.id)}">${esc(L('step'))}</button></li>`).join('')}</ul></section>`;
+      <ul class="sb-inbox-list">${items.map(x => `<li class="${mine && x.f && x.f.key === mine ? 'mine' : ''}"><b translate="no">${esc(x.r.station)}</b> ${x.r.wf.newOis ? `<span class="muted" translate="no">${esc(x.r.wf.newOis.code)}</span> · ` : ''}${x.r.wf.approval.ct ? `<span>CT ${x.r.wf.approval.ct.before ? U().fmt(x.r.wf.approval.ct.before) + ' → ' : ''}${U().fmt(x.r.wf.approval.ct.ct)} วิ</span> · ` : ''}<span>รอ ${esc(x.f ? x.f.name : '')}</span>${x.redo ? ` <span class="wf-old">ต้องอนุมัติใหม่ ${x.redo}</span>` : ''}${mine && x.f && x.f.key === mine ? ' <span class="adv prog">ถึงตาคุณ</span>' : ''}<button type="button" class="ghost wf-open" data-wf="${esc(x.r.id)}">${esc(L('step'))}</button></li>`).join('')}</ul></section>`;
   }
-  function openWorkflow(id) { window.CPS.showTab('stations'); const h = host || document.getElementById('tab-stations'); window.CPSWorkflow.open(id, h, () => render(h)); }
+  function openWorkflow(id) { window.CPS.showTab('stations'); const h = host || document.getElementById('tab-stations'); window.CPSWorkflow.open(id, h, () => render(h), { top: true }); }
   function sumCard(label, val, unit, color) {
     return `<div class="stat"><small>${U().esc(label)}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + U().esc(unit) : ''}</em></strong></div>`;
   }
