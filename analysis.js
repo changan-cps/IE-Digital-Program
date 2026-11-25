@@ -45,7 +45,7 @@
           const saved = b.ct - a.ct, has = a.count > 0;
           return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
             <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}${lockedBy(j) ? ' · 🔒' : ''}</em>
-            <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}">ลบ</button>` : ''}</span></div>`;
+            <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}"${lockedBy(j) ? ' disabled title="ล็อก: OIS รออนุมัติ"' : ''}>ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
     const q = host.querySelector('#an-q'); if (q) q.oninput = () => { const v = q.value.trim().toLowerCase(); host.querySelectorAll('.recent-row').forEach(r => r.hidden = !!v && !r.textContent.toLowerCase().includes(v)); };
@@ -86,15 +86,15 @@
       if (isDirty() && !(await U().ask('ยังไม่ได้บันทึกงานวิเคราะห์นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)', [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }))) return;
       leave(); renderList();
     };
-    const lk = lockedBy(editing); if (lk) host.querySelector('.page-head').insertAdjacentHTML('afterend', `<div class="ro-banner">🔒 งานนี้ผูกกับ OIS ของ ${esc(lk.station)} ที่รออนุมัติ — แก้และบันทึกได้เมื่อถอนการส่งหรือถูกส่งกลับแก้ไข</div>`);
-    host.querySelector('#an-save').onclick = () => { if (lockedBy(editing)) { U().toast('งานนี้ผูกกับ OIS ที่รออนุมัติ — บันทึกไม่ได้จนกว่าจะถอนการส่งหรือถูกส่งกลับแก้ไข', 6000); return; } D().upsert('jobs', editing); dropDraft(); U().toast('บันทึกงานแล้ว'); editing = null; renderList(); };
+    const lk = lockedBy(editing); if (lk) host.querySelector('.page-head').insertAdjacentHTML('afterend', `<div class="ro-banner">🔒 งานนี้ผูกกับ OIS ของ ${esc(lk.station)} ที่รออนุมัติ — แก้ได้เฉพาะการอบรม ส่วนอื่นแก้ได้เมื่อถอนการส่งหรือถูกส่งกลับแก้ไข</div>`);
+    host.querySelector('#an-save').onclick = () => { if (lockedBy(editing)) { const strip = o => JSON.stringify(Object.assign({}, o, { training: null, updatedAt: null, before: null, autoBefore: null })); const orig = D().listJobs().find(x => x.id === editing.id); if (!orig || strip(orig) !== strip(editing)) { U().toast('งานนี้ผูกกับ OIS ที่รออนุมัติ — แก้ได้เฉพาะการอบรม จนกว่าจะถอนการส่งหรือถูกส่งกลับแก้ไข', 6000); return; } } D().upsert('jobs', editing); dropDraft(); U().toast('บันทึกงานแล้ว'); editing = null; renderList(); };
     host.querySelector('#an-print').onclick = printReport;
     host.querySelector('#an-ai').onclick = aiDraft;
     phase('before', 'ก่อนปรับปรุง (Before)');
     phase('after', 'หลังปรับปรุง (After)');
     report(); observe(); suggest(); targets(); training();
     if (!snaps.has(j)) snaps.set(j, JSON.stringify(j));   // หลังทุกส่วนเติมค่าเริ่มต้นแล้ว งานที่ยังไม่แตะจึงไม่นับว่าแก้
-    if (lockedBy(j)) host.querySelectorAll('input, select, textarea, button').forEach(x => { if (!['an-back', 'an-print'].includes(x.id)) x.disabled = true; });   // ล็อกจริง: อ่านอย่างเดียว
+    if (lockedBy(j)) host.querySelectorAll('input, select, textarea, button').forEach(x => { if (['an-back', 'an-print', 'an-save'].includes(x.id) || x.closest('#an-train')) return; if (x.tagName === 'BUTTON') x.hidden = true; else x.disabled = true; });   // อ่านอย่างเดียว ยกเว้นบันทึกการอบรม   // ล็อกจริง: อ่านอย่างเดียว
   }
 
   // ---- AI ร่างข้อสังเกต ข้อเสนอ 4M1E และเป้าหมายคะแนน (ส่งเฉพาะตัวเลข/ข้อความ ไม่ส่งภาพ) ----
@@ -278,7 +278,7 @@
         ${rc('CT หลัง', has ? fmt(a.ct) + ' วิ' : '—')}
         ${rc('ลดเวลาได้', has ? fmt(saved) + ' วิ' : '—', saved > 0 ? '#15856b' : saved < 0 ? '#a64475' : '', has ? fmt(savedPct) + '%' : '')}
         ${rc('VA%', fmt(b.vaPct) + '%' + (has ? ' → ' + fmt(a.vaPct) + '%' : ''), '#15856b')}
-        ${rc('ลด NVA (สูญเปล่า)', has ? fmt(wasteCut) + ' วิ' : '—', wasteCut > 0 ? '#15856b' : '')}
+        ${rc('NVA (สูญเปล่า) ก่อน → หลัง', has ? fmt(b.NVA) + ' → ' + fmt(a.NVA) + ' วิ' : '—', has ? (a.NVA < b.NVA ? '#15856b' : a.NVA > b.NVA ? '#c0392b' : '') : '')}
       </div>
       <div class="compare">${cmp('ก่อน', b, Math.max(b.ct, a.ct, 1))}${has ? cmp('หลัง', a, Math.max(b.ct, a.ct, 1)) : ''}</div>
       <div class="legend">${U().TYPES.map(t => `<span><i style="background:${t.color}"></i>${esc(t.label)}</span>`).join('')}</div>

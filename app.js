@@ -137,6 +137,8 @@
   function maxRoundOf(k) { const rs = roundsOf(k); return rs.length ? rs.reduce((a, s) => (totals(s.elements).ct > totals(a.elements).ct ? s : a), rs[0]) : null; }
   function beforeOf(job) {
     const k = gkey(job);
+    const sr = k ? listStations().find(r => gkey(r) === k && r.wf && r.wf.approval && r.wf.approval.submitted && r.wf.approval.before) : null;
+    if (sr) { const b = sr.wf.approval.before; return { ct: b.ct, els: b.els || [], src: 'study', frozen: true }; }   // OIS ส่งแล้ว: ใช้ค่าตอนส่ง
     if (k && job.autoBefore !== false) { const mr = maxRoundOf(k); if (mr) return { ct: totals(mr.elements).ct, els: mr.elements || [], src: 'study', n: roundsOf(k).length }; }
     return { ct: totals(job.before || []).ct, els: job.before || [], src: 'manual' };
   }
@@ -181,9 +183,10 @@
     if (load > 100) reasons.push(`ภาระงาน ${fmt(load)}% เกิน TAKT`);
     else if (load >= RULES.load) reasons.push(`ภาระงาน ${fmt(load)}% ถึงเกณฑ์ ${RULES.load}%`);
     if (agg) {
-      const t = totals(agg.elements); const nvaPct = t.ct ? (t.NVA / t.ct) * 100 : 0;
+      const mr = maxRoundOf(gkey(r)), base = mr ? mr.elements : agg.elements;   // รอบเดียวกับ Before
+      const t = totals(base); const nvaPct = t.ct ? (t.NVA / t.ct) * 100 : 0;
       if (nvaPct >= RULES.nva) reasons.push(`NVA ${fmt(nvaPct)}% ของรอบเวลา (เกณฑ์ ${RULES.nva}%)`);
-      let weak = 0; (agg.latest.elements || []).forEach(e => ['t', 'u', 'v', 'w'].forEach(k => { const x = parseInt(e[k], 10); if (x >= 1 && x <= RULES.ease) weak++; }));
+      let weak = 0; (base || []).forEach(e => ['t', 'u', 'v', 'w'].forEach(k => { const x = parseInt(e[k], 10); if (x >= 1 && x <= RULES.ease) weak++; }));
       if (weak) reasons.push(`คะแนนความง่าย ≤ ${RULES.ease} จำนวน ${weak} จุด`);
     }
     const status = (!agg && !ctOf(r)) ? 'nodata' : reasons.length ? 'improve' : 'ok';
@@ -665,10 +668,12 @@
   function showTab(tab) {
     if (tab !== currentTab && dirtyEditor()) return guardLeave(() => showTab(tab));
     if (tab !== currentTab) { scrollTo(0, 0); const tt = $('#toast'); if (tt && !tt.classList.contains('has-action')) tt.classList.remove('show'); }
+    const prevTab = currentTab;
     currentTab = tab;
     const tbh = $('.topbar') ? $('.topbar').offsetHeight : 0; if (tbh) document.documentElement.style.setProperty('--topbar-h', tbh + 'px');
     $$('#tabs button').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
     $$('.tab-page').forEach(p => p.hidden = p.id !== 'tab-' + tab);
+    if (tab === 'stations' && prevTab !== 'stations') { window.CPSStations?.render($('#tab-stations')); return; }
     render();
   }
   function render() {
@@ -711,7 +716,7 @@
   function statusOf(r) {
     const w = r.wf || {}, ap = w.approval || {};
     const j = num(r.jph), load = j ? ctOf(r) / (3600 / j) * 100 : 0;
-    if (w.improve === false) return load > 100 ? { key: 'closedOver', label: 'ปิดแล้วแต่ยังเกิน TAKT', alarm: true, load } : { key: 'closed', label: 'ปิด – ไม่ปรับปรุง', load };
+    if (w.improve === false) return load > 100 ? { key: 'decide', label: 'ต้องตัดสินใจ · ยังเกิน TAKT', alarm: true, load } : { key: 'closed', label: 'ปิด – ไม่ปรับปรุง', load };
     if (ap.submitted) { const n = Object.values(ap.flows || {}).filter(x => x && x.by).length; return n >= 5 ? { key: 'approved', label: 'อนุมัติครบ 5/5', load } : { key: 'pending', label: `รออนุมัติ ${n}/5`, load }; }
     if (w.improve === true) { const step = 4 + (w.lineBalance && w.lineBalance.saved ? 1 : 0) + (w.newOis && w.newOis.reviewed ? 1 : 0); return { key: 'progress', label: `กำลังทำ ขั้น ${step}/6`, load }; }
     const adv = advise(r);

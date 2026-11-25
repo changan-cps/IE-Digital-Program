@@ -629,3 +629,21 @@ html[lang^=zh] .sb-table th{white-space:normal}
 }
 
 @media(max-width:560px){ .wf-flow{flex-wrap:wrap} .wf-flow-body{flex:1;min-width:0} .wf-acts{flex-basis:100%;padding-left:44px} .wf-acts button{flex:1} }
+
+/* round 9: locked LB rows, old approvals, phone LB cards, 44px inputs */
+.wf-lk{color:#6b4700;font-weight:600}
+.wf-old{color:#a12a1d;font-weight:600}
+.sb-newois{display:block;color:#00467f;font-weight:600}
+@media(max-width:720px){
+  .lb-table{min-width:0}
+  .lb-table thead{display:none}
+  .lb-table,.lb-table tbody{display:block}
+  .lb-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .lb-table td{display:block;padding:0;border:0}
+  .lb-table td[data-l]::before{content:attr(data-l);display:block;font-size:12px;color:var(--muted)}
+  .lb-table td.sb-st{grid-column:1/-1}
+  .lb-table td.sb-st::before,.lb-table td.lb-load::before{display:none}
+  .lb-table td.lb-load{grid-column:1/-1}
+  .lb-table input{width:100%;max-width:none!important;min-height:44px}
+  .el-table td input,.el-table td select{min-height:44px}
+}

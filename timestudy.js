@@ -23,6 +23,7 @@
   function readDraft() { try { const d = JSON.parse(localStorage.getItem(DRAFT)); return d && d.s && d.scope === scopeId() ? d : null; } catch (e) { return null; } }
   const dropDraft = () => { try { localStorage.removeItem(DRAFT); } catch (e) {} };
   let tsQuery = '';
+  const submittedFor = s => { const k = s ? D().group.key(s) : ''; return k ? D().listStations().find(r => D().group.key(r) === k && r.wf && r.wf.approval && r.wf.approval.submitted) || null : null; };
   function leave() { saveDraft(); cleanupVideo(); editing = null; laps = []; }
 
   // มิติคะแนนความง่ายในการทำงาน (1 = ยากสุด, 5 = ง่ายสุด) — เกณฑ์ตามตัวอย่างอ้างอิงเท่าที่ระบุไว้
@@ -65,6 +66,9 @@
     const blocks = [...groups.values()].map(list => {
       const rounds = list.slice().sort((x, y) => (x.updatedAt || 0) - (y.updatedAt || 0));
       const agg = G.aggregate(rounds); const head = rounds[rounds.length - 1];
+      const tots = rounds.map(s => U().totals(s.elements).ct), iMax = tots.indexOf(Math.max(...tots));
+      const stRec = D().listStations().find(r => G.key(r) === G.key(head)), srcCt = stRec ? D().ctInfo(stRec).src : 'study';
+      const maxTag = `<span class="tag tag-max">${srcCt === 'after' ? 'สูงสุด · ใช้เป็น Before ของ Kaizen' : 'สูงสุด · ใช้เป็น CT สถานี'}</span>`;
       const label = (head.station || head.name || 'ไม่มีชื่อ');
       return `<section class="panel ts-group">
         <div class="sb-grouphead">
@@ -72,7 +76,7 @@
           <div class="sb-grouphead-r"><b>${agg.n}</b> รอบ · CT เฉลี่ย <b>${fmt(agg.ctAvg)}</b> วิ · สูงสุด <b>${fmt(agg.ctMax)}</b> · ต่ำสุด <b>${fmt(agg.ctMin)}</b>${can ? ` <button class="mini ghost" data-round="${head.id}">＋ จับรอบใหม่</button>` : ''}</div>
         </div>
         <div class="recent">${rounds.map((s, i) => { const t = U().totals(s.elements); return `<div class="recent-row ts-row">
-            <span class="tag">รอบ ${i + 1}</span>${U().totals(s.elements).ct === agg.ctMax && agg.n > 1 ? '<span class="tag tag-max">สูงสุด · ใช้เป็น CT</span>' : ''}
+            <span class="tag">รอบ ${i + 1}</span>${i === iMax ? maxTag : ''}
             <small>${s.operator ? U().ud(s.operator) + ' · ' : ''}${esc(U().dateTxt(s.date))}</small>
             <em>${fmt(t.ct)} วิ · VA ${fmt(t.vaPct)}%</em>
             <span class="row-btns"><button data-edit="${s.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(label)} รอบ ${i + 1}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}" aria-label="ลบ ${esc(label)} รอบ ${i + 1}">ลบ</button>` : ''}</span>
@@ -96,6 +100,7 @@
     host.querySelectorAll('[data-round]').forEach(b => b.onclick = () => { editing = newRound(D().listStudies().find(s => s.id === b.dataset.round)); renderEditor(); });
     host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
       const s = D().listStudies().find(x => x.id === b.dataset.del); const k = s ? G.key(s) : '';
+      const lk = submittedFor(s); if (lk) { U().toast(`รอบนี้ใช้กับ OIS ของ ${lk.station} ที่ส่งอนุมัติแล้ว — ลบไม่ได้จนกว่าจะถอนการส่งหรือถูกส่งกลับแก้ไข`, 6000); return; }
       D().removeUndo('studies', b.dataset.del, 'ลบรอบจับเวลาแล้ว', () => { if (k) G.flow(k); renderList(); });
     });
     const q = host.querySelector('#ts-q'); if (q) { const run = () => { const v = q.value.trim().toLowerCase(); host.querySelectorAll('.ts-group').forEach(g => g.hidden = !!v && !g.textContent.toLowerCase().includes(v)); }; q.oninput = run; q.value = tsQuery; run(); q.addEventListener('input', () => tsQuery = q.value); }
@@ -744,6 +749,8 @@
 
   const untyped = () => (editing ? editing.elements : []).filter(e => U().num(e.sec) > 0 && !e.type && /^\s*\d+(\.\d+)?\s*$/.test(String(e.sec))).length;
   async function saveStudy() {
+    const lk = submittedFor(editing);
+    if (lk && !(await U().ask(`สถานี ${lk.station} ส่ง OIS แล้ว — การแก้รอบนี้ไม่เปลี่ยน OIS ที่ส่ง (ใช้ค่าตอนส่ง) · บันทึกต่อ?`, [], { ok: 'บันทึกต่อ', cancel: 'ยกเลิก' }))) return;
     const badSec = host.querySelector('.r-sec.bad');
     if (badSec) { badSec.focus(); U().toast('เวลาบางแถวไม่ถูกต้อง (ต้องเป็นตัวเลข 0 ขึ้นไป) — แก้ช่องที่ขึ้นสีแดงก่อนบันทึก', 6000); return; }
     const st = host.querySelector('[data-f="station"]');

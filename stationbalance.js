@@ -190,7 +190,7 @@
       return `<tr${lockRow && can ? ' class="sb-locked" title="OIS รออนุมัติ — แก้ไม่ได้"' : ''}>
         <td class="sb-st">${esc(r.station)}</td><td class="sb-team">${esc(r.team)}</td><td class="sb-jph">${esc(r.jph)}</td>
         <td class="sb-takt">${fmt(t)} วิ</td><td class="sb-ctv"><b>${fmt(ci.ct)} วิ</b>${srcNote(ci)}</td><td class="sb-load">${bar}</td>
-        <td class="sb-ois"><b>${esc(r.ois)}</b><small>${U().ud(r.oisDesc)}</small></td>${wfBtn}${can ? '<td title="ล็อก: OIS รออนุมัติ">🔒</td>' : ''}</tr>`;
+        <td class="sb-ois"><b>${esc(r.ois)}</b>${r.wf && r.wf.approval && r.wf.approval.submitted && r.wf.newOis ? `<small class="sb-newois">→ ${esc(r.wf.newOis.code)} รออนุมัติ</small>` : ''}<small>${U().ud(r.oisDesc)}</small></td>${wfBtn}${can ? '<td title="ล็อก: OIS รออนุมัติ">🔒</td>' : ''}</tr>`;
     }
     return `<tr data-id="${esc(r.id)}">
       <td><input class="f-station" aria-label="รหัสสถานี" value="${esc(r.station)}" placeholder="CA-01A"></td>
@@ -267,7 +267,7 @@
         `<text x="${x + bw / 2}" y="${top + ph + 30}" class="yz-pct${over ? ' yz-over' : ''}">${d.t ? fmt(d.s.ct / d.t * 100) + '%' : ''}</text>`;
     });
     const t0 = data.find(d => d.t);
-    const legend = `<div class="yz-legend"><span><i style="background:#15856b"></i>VA</span><span><i style="background:#e0a21b"></i>NNVA</span><span><i style="background:#c0507f"></i>NVA</span><span><i style="background:#9aa8b6"></i>${esc(L('noRound'))}</span><span><i class="yz-tk"></i>TAKT${t0 ? ' ' + fmt(t0.t) + ' วิ' : ''}</span></div>`;
+    const legend = `<div class="yz-legend"><span><i style="background:#15856b"></i>VA</span><span><i style="background:#e0a21b"></i>NNVA</span><span><i style="background:#c0507f"></i>NVA</span>${data.some(x => x.s.other > 0) ? `<span><i style="background:#9aa8b6"></i>${esc(L('noRound'))}</span>` : ''}<span><i class="yz-tk"></i>TAKT${t0 ? ' ' + fmt(t0.t) + ' วิ' : ''}</span></div>`;
     return `<div class="yz-head"><b>${esc(L('yz'))}</b>${legend}</div><div class="swct-scroll"><svg viewBox="0 0 ${W} ${H}" class="yz-svg" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><style>.yz-g{stroke:#e6edf3}.yz-ax{font:10px sans-serif;fill:#6b7f92;text-anchor:end}.yz-v{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.yz-st{font:bold 11px sans-serif;fill:#17324b;text-anchor:middle}.yz-pct{font:10px sans-serif;fill:#4c6378;text-anchor:middle}.yz-over{fill:#c0392b}.yz-takt{stroke:#d62020;stroke-width:2.5}</style><line x1="${left}" y1="${top + ph}" x2="${W - 8}" y2="${top + ph}" stroke="#9fb1c0"/>${g}</svg></div>`;
   }
   function refreshYama(tr) {

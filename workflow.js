@@ -31,7 +31,7 @@
     const s1 = !!matchStudy();
     const job = matchJob();
     const s2 = !!job;
-    const s3 = w.improve !== null && w.improve !== undefined;
+    const s3 = w.improve !== null && w.improve !== undefined && !(w.improve === false && loadOf(r) > 100);   // ปิดแบบไม่ปรับปรุงแต่ยังเกิน TAKT = ยังไม่เสร็จ
     const s4 = !w.improve ? null : !!(w.lineBalance && w.lineBalance.saved);
     const s5 = !w.improve ? null : !!(w.newOis && w.newOis.code && (w.newOis.reviewed || (w.approval && w.approval.submitted)));
     const approved = w.approval && w.approval.flows && FLOWS.every(f => w.approval.flows[f.key] && w.approval.flows[f.key].by);
@@ -105,7 +105,7 @@
     if (job) {
       const b = { ct: D().beforeOf(job).ct }, a = U().totals(job.after);
       d.innerHTML = `<p>งานวิเคราะห์: <b>${U().ud(job.name)}</b> · Before (รอบสูงสุด) ${fmt(b.ct)} วิ · After ${a.count ? fmt(a.ct) + ' วิ' + (job.autoAfter ? ' (ร่างอัตโนมัติ)' : '') : 'ยังไม่มี'}</p>`;
-    } else d.innerHTML = `<p class="muted">ยังไม่มีงานวิเคราะห์ของสถานีนี้ (ระบบจะสร้างให้เองเมื่อบันทึก Time Study ของสถานีนี้)</p>`;
+    } else d.innerHTML = `<p class="muted">ยังไม่มีงานวิเคราะห์ของสถานีนี้ — กดปุ่มด้านล่างเพื่อสร้างจาก Time Study</p>`;
     const hasStudy = !!matchStudy();
     const b = el('button', st.s2 ? 'ghost' : 'primary', st.s2 ? 'เปิดงานวิเคราะห์ของ ' + rec().station : 'สร้างงานวิเคราะห์ของ ' + rec().station);
     if (!st.s2 && !hasStudy) { b.disabled = true; b.title = 'ต้องมี Time Study ของสถานีนี้ก่อน'; }
@@ -118,6 +118,13 @@
     const { esc } = U(); const w = wf(); const r = rec();
     const d = document.createElement('div'); d.className = 'wf-pad';
     const lock3 = !!(w.approval && w.approval.submitted); if (lock3) can = false;
+    if (can && w.improve === false && loadOf(r) > 100) {   // เกิน TAKT ปิดแบบไม่ปรับปรุงไม่ได้: สร้างงานวิเคราะห์แล้วตัดสินใจใหม่ในปุ่มเดียว
+      d.innerHTML = `<div class="wf-advise improve"><b>สถานีนี้ยังเกิน TAKT (${U().fmt(loadOf(r))}%) — ปิดแบบไม่ปรับปรุงไม่ได้</b><p>สร้างงานวิเคราะห์จาก Time Study แล้วตัดสินใจใหม่</p></div>`;
+      const go = el('button', 'primary', st.s2 ? '↺ เปิดการตัดสินใจใหม่' : 'สร้างงานวิเคราะห์ + เปิดการตัดสินใจใหม่');
+      if (!st.s1) { go.disabled = true; go.title = 'ต้องมี Time Study ของสถานีนี้ก่อน'; }
+      go.onclick = () => { if (!matchJob()) G().flow(G().key(r)); w.improve = null; saveRec(); render(); };
+      d.appendChild(go); return panel('3 · ยืนยันการปรับปรุง', d, badgeDone(false));
+    }
     if (!st.s1 || !st.s2) { d.innerHTML = '<p class="muted">ทำขั้น 1–2 ให้เสร็จก่อนจึงจะยืนยันการปรับปรุงได้</p>'; return panel('3 · ยืนยันการปรับปรุง', d, badgeDone(false)); }
     const adv = D().advise(r);
     d.innerHTML = `<div class="wf-advise ${adv.status}"><b>ระบบแนะนำ: ${adv.status === 'improve' ? 'ควรปรับปรุง' : 'ยังไม่จำเป็นต้องปรับปรุง'}</b>${adv.reasons.length ? `<ul>${adv.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p>ภาระงาน สัดส่วน NVA และคะแนนความง่าย อยู่ในเกณฑ์</p>'}</div><p>ยืนยันตามคำแนะนำ หรือเลือกเองได้</p>`;
@@ -150,7 +157,7 @@
     return peers.map(p => {
       const g = G().aggregate(G().roundsOf(p.station));
       const ci = D().ctInfo(p), pj = ci.src === 'after' ? D().listJobs().find(j => G().key(j) === G().key(p) && (j.after || []).length) : null;
-      return { id: p.id, station: p.station, now: ci.ct, ct: ci.ct, els: pj ? pj.after : (g ? g.elements : []), improved: ci.src === 'after' };
+      return { id: p.id, station: p.station, now: ci.ct, ct: ci.ct, els: pj ? pj.after : (g ? g.elements : []), improved: ci.src === 'after', locked: p.id !== r.id && !!(p.wf && p.wf.approval && p.wf.approval.submitted) };
     });
   }
   function panelStep4(st, can) {
@@ -158,11 +165,19 @@
     const d = document.createElement('div'); d.className = 'wf-pad';
     const locked = !!(w.approval && w.approval.submitted);   // ส่งอนุมัติแล้ว: Line Balance ล็อกให้ตรงกับ OIS ที่ส่ง
     if (locked) { can = false; d.insertAdjacentHTML('beforeend', '<p class="wf-lock">🔒 ล็อกแล้ว — OIS ส่งอนุมัติไปแล้ว แก้ Line Balance ได้เมื่อถอนการส่งหรือถูกส่งกลับแก้ไข</p>'); }
-    const lb = w.lineBalance || (w.lineBalance = { targetJph: r.jph || 22, limit: 90, rows: {}, auto: true });
+    const lineJph = (D().listStations().find(x => x.model === r.model && x.submodel === r.submodel && x.team === r.team && num(x.jph)) || {}).jph;
+    const lb = w.lineBalance || (w.lineBalance = { targetJph: r.jph || lineJph || 22, limit: 90, rows: {}, auto: true });
     if (lb.limit == null) lb.limit = 90;
-    const items = lbItems();
+    const all = lbItems(), items = all.filter(it => !it.locked);   // สถานีที่ส่ง OIS แล้ว: คงที่ ไม่ย้ายงานเข้า/ออก
     const takt = num(lb.targetJph) ? 3600 / num(lb.targetJph) : 0;
-    const prop = D().balance(items, takt, lb.limit);
+    // สถานีที่ล็อกเป็น "กำแพง": เกลี่ยงานเฉพาะในช่วงสถานีติดกันที่ยังไม่ล็อก (ย้ายงานได้เฉพาะสถานีข้างเคียงจริง)
+    const segs = []; let seg = [];
+    all.forEach(it => { if (it.locked) { if (seg.length) segs.push(seg); seg = []; } else seg.push(it); }); if (seg.length) segs.push(seg);
+    const parts = segs.map(sg => D().balance(sg, takt, lb.limit));
+    const propOf = {}; parts.forEach((pp, k) => segs[k].forEach((it, i) => { propOf[it.id] = pp.proposed[i]; }));
+    const whole = D().balance(all, takt, lb.limit);
+    const prop = Object.assign({}, whole, { proposed: items.map(it => propOf[it.id]), moves: [].concat(...parts.map(pp => pp.moves)),
+      feasible: items.every(it => num(propOf[it.id]) <= whole.limit + 1), shortage: U().round1(items.reduce((a, it) => a + Math.max(0, num(propOf[it.id]) - whole.limit), 0)) });
     const applyProp = () => { lb.rows = {}; items.forEach((it, i) => lb.rows[it.id] = prop.proposed[i]); lb.auto = true; };
     if (can && !lb.saved && (lb.auto !== false || !Object.keys(lb.rows).length)) applyProp();
 
@@ -174,18 +189,20 @@
     const box = el('div', 'wf-advise ' + (prop.feasible ? 'ok' : 'improve'));
     box.innerHTML = `<b>ข้อเสนอของระบบ</b><p>งานรวม ${fmt(prop.total)} วิ · ${items.length} สถานี · เพดาน ${fmt(prop.limit)} วิ/สถานี · ต้องใช้อย่างน้อย ${prop.minStations} สถานีที่เพดาน ${fmt(lb.limit)}% (ตาม TAKT 100% = ${takt ? Math.ceil(prop.total / takt - 1e-9) : '—'} สถานี)</p>` +
       (prop.feasible ? '' : `<p><b>เกลี่ยไม่ลงภายใน ${items.length} สถานี</b> ยังเกินอยู่ ${fmt(prop.shortage)} วิ → ต้องลดงานเพิ่ม เพิ่มสถานี/คน หรือปรับ JPH</p>`) +
-      (prop.moves.length ? `<ul>${prop.moves.map(m => `<li>ย้ายงาน <b>${fmt(m.sec)} วิ</b> จาก <b>${esc(m.from)}</b> → <b>${esc(m.to)}</b>${m.pick.names && m.pick.names.length ? ' · ขั้นตอนที่เสนอ: ' + U().ud(m.pick.names.join(', ')) : m.pick.split ? ' · ต้องแบ่งขั้นตอน “' + U().ud(m.pick.split) + '” (' + fmt(m.pick.splitSec) + ' วิ)' : ''}</li>`).join('')}</ul>` : '<p>ทุกสถานีอยู่ในเพดานแล้ว ไม่ต้องย้ายงาน</p>');
+      (prop.moves.length ? `<ul>${prop.moves.map(m => `<li>ย้ายงาน <b>${fmt(m.sec)} วิ</b> จาก <b>${esc(m.from)}</b> → <b>${esc(m.to)}</b>${m.pick.names && m.pick.names.length ? ' · ขั้นตอนที่เสนอ: ' + U().ud(m.pick.names.map(n => String(n).replace(/\s*\([\d.]+\s*วิ\)\s*$/, '')).join(', ')) : m.pick.split ? ' · ต้องแบ่งขั้นตอน “' + U().ud(m.pick.split) + '” (' + fmt(m.pick.splitSec) + ' วิ)' : ''}</li>`).join('')}</ul>` : '<p>ทุกสถานีอยู่ในเพดานแล้ว ไม่ต้องย้ายงาน</p>');
     if (lb.saved && lb.confirmedAt) box.insertAdjacentHTML('afterbegin', `<p class="wf-okline">✓ ยืนยันแล้วทั้งไลน์ · จาก ${esc(lb.confirmedFrom || '')} · ${esc(U().dateTxt(lb.confirmedAt, true))}</p>`);
     d.appendChild(box);
 
     const tbl = document.createElement('div'); tbl.className = 'table-scroll';
     const loadCell = v => { const load = takt ? (num(v) / takt) * 100 : 0; const col = load > 100 ? '#c0392b' : load > num(lb.limit || 90) ? '#9a5b00' : '#15856b'; return `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(load, 100)}%;background:${col}"></i></div><span style="color:${col}">${fmt(load)}%</span></div>`; };
-    tbl.innerHTML = `<table class="sb-table"><thead><tr><th>สถานี</th><th>CT ที่ใช้</th><th>ระบบเสนอ</th><th>CT หลังปรับ</th><th>ภาระใหม่</th></tr></thead><tbody>${items.map((it, i) => {
+    tbl.innerHTML = `<table class="sb-table"><thead><tr><th>สถานี</th><th>CT ที่ใช้</th><th>ระบบเสนอ</th><th>CT หลังปรับ</th><th>ภาระใหม่</th></tr></thead><tbody>${all.map((it, i) => {
       const after = lb.rows[it.id] != null ? lb.rows[it.id] : it.ct;
-      return `<tr data-pid="${it.id}"><td class="sb-st">${esc(it.station)}${it.improved ? ' <small class="muted">(ใช้ค่า After)</small>' : ''}</td><td>${fmt(it.now)} วิ</td><td>${fmt(lb.saved && lb.proposed && lb.proposed[it.id] != null ? lb.proposed[it.id] : prop.proposed[i])} วิ</td>
-        <td><input class="lb-ct" type="number" min="0" step="0.1" value="${esc(U().round1(num(after)))}" style="max-width:90px" ${can ? '' : 'disabled'}></td><td class="lb-load">${loadCell(after)}</td></tr>`;
+      return `<tr data-pid="${it.id}"><td class="sb-st">${esc(it.station)}${it.improved ? ' <small class="muted">(ใช้ค่า After)</small>' : ''}${it.locked ? ' <small class="wf-lk">🔒 OIS รออนุมัติ</small>' : ''}</td><td>${fmt(it.now)} วิ</td><td>${fmt(it.locked ? it.ct : lb.saved && lb.proposed && lb.proposed[it.id] != null ? lb.proposed[it.id] : propOf[it.id])} วิ</td>
+        <td><input class="lb-ct" type="number" min="0" step="0.1" value="${esc(U().round1(num(after)))}" style="max-width:90px" ${can && !it.locked ? '' : 'disabled'}></td><td class="lb-load">${loadCell(after)}</td></tr>`;
     }).join('')}</tbody></table>`;
     tbl.querySelectorAll('tr[data-pid]').forEach(tr => { const i = tr.querySelector('.lb-ct'); i.oninput = () => { lb.rows[tr.dataset.pid] = i.value; lb.auto = false; tr.querySelector('.lb-load').innerHTML = loadCell(i.value); }; });
+    { const hd = [...tbl.querySelectorAll('th')].map(th => th.textContent); tbl.querySelector('table').classList.add('lb-table'); tbl.querySelectorAll('tbody tr').forEach(tr => [...tr.children].forEach((td, i) => { td.dataset.l = hd[i] || ''; })); }
+    if (all.length > items.length) d.insertAdjacentHTML('beforeend', `<p class="muted">🔒 ${all.length - items.length} สถานีส่ง OIS แล้ว — ไม่นำมาเกลี่ยงาน</p>`);
     d.appendChild(tbl);
 
     if (can) {
@@ -194,10 +211,13 @@
       const row = el('div', 'wf-btnrow'); row.style.marginTop = '12px';
       const use = el('button', 'ghost', '↺ ใช้ข้อเสนอของระบบ'); use.onclick = () => { applyProp(); lb.saved = false; saveRec(); render(); };
       const ok = el('button', 'primary', lb.saved ? '✓ ยืนยัน Line Balance อีกครั้ง' : '✓ ยืนยัน Line Balance');
-      ok.onclick = () => {
+      ok.onclick = async () => {
+        const others = D().listStations().filter(p => p.id !== r.id && p.model === r.model && p.submodel === r.submodel && p.team === r.team && p.group === r.group && p.workshop === r.workshop);
+        const upd = [r.station].concat(others.filter(p => !(p.wf && p.wf.approval && p.wf.approval.submitted)).map(p => p.station)), skip = others.filter(p => p.wf && p.wf.approval && p.wf.approval.submitted).map(p => p.station);
+        if (!(await U().ask(`ยืนยัน Line Balance ทั้งไลน์? อัปเดต: ${upd.join(', ')}${skip.length ? ' · ข้าม (ส่ง OIS แล้ว): ' + skip.join(', ') : ''}`, [], { ok: 'ยืนยันทั้งไลน์', cancel: 'ยกเลิก' }))) return;
         lb.saved = true; lb.moves = prop.moves.map(m => `${m.from} → ${m.to}: ${m.sec} วิ`);
         lb.moveList = prop.moves.map(m => ({ from: m.from, to: m.to, sec: m.sec, names: (m.pick && m.pick.names) || [], split: m.pick && m.pick.split ? { name: m.pick.split, sec: m.pick.splitSec } : null }));
-        lb.proposed = {}; items.forEach((it, i) => { lb.proposed[it.id] = prop.proposed[i]; });
+        lb.proposed = {}; all.forEach(it => { lb.proposed[it.id] = it.locked ? it.ct : propOf[it.id]; });
         lb.confirmedFrom = r.station; lb.confirmedAt = Date.now();
         // Line Balance เป็นของทั้งไลน์: ยืนยันครั้งเดียวแล้วทุกสถานีในไลน์ใช้ร่วมกัน (ยกเว้นสถานีที่ส่ง OIS แล้ว)
         let skipped = 0;
@@ -206,7 +226,6 @@
           p.wf = p.wf || { improve: null, lineBalance: null, newOis: null, approval: { submitted: false, by: '', flows: {} } };
           p.wf.lineBalance = JSON.parse(JSON.stringify(lb)); D().upsert('stations', p);
         });
-        if (skipped) setTimeout(() => U().toast(`ใช้ Line Balance นี้กับทั้งไลน์แล้ว (ข้าม ${skipped} สถานีที่ส่ง OIS แล้ว)`), 1800);
         const sent = w.approval && w.approval.submitted;
         if (!sent) makeOis();   // ร่าง OIS ใหม่ให้ตรวจในขั้น 5 · ยังไม่ส่งอนุมัติ
         saveRec(); U().toast(sent ? 'บันทึก Line Balance แล้ว (OIS ส่งอนุมัติไปแล้ว ไม่ได้สร้างใหม่)' : 'ยืนยัน Line Balance แล้ว — ตรวจร่าง OIS ในขั้น 5 ก่อนส่งอนุมัติ'); render();
@@ -278,6 +297,7 @@
         let me = ssoName();
         const a = await U().ask(`ส่ง OIS ${w.newOis.code} (${(w.newOis.steps || []).length} ขั้นตอน) ให้ 5 ฝ่ายอนุมัติ${me ? ' ในชื่อ ' + me : ''}?`, me ? [] : [{ name: 'by', label: 'ชื่อผู้จัดทำ (ผู้ส่งอนุมัติ)' }], { ok: 'ส่งอนุมัติ', cancel: 'ยังไม่ส่ง' });
         if (!a) return; if (!me) me = String(a.by || '').trim(); if (!me) { U().toast('ใส่ชื่อผู้จัดทำก่อนส่ง'); return; }
+        const jb0 = matchJob(); if (jb0) { const bo = D().beforeOf(jb0); ap.before = { ct: bo.ct, els: (bo.els || []).map(e => ({ name: e.name, sec: e.sec, type: e.type })) }; }
         const ci = D().ctInfo(rec()); ap.ct = { ct: ci.ct, before: ci.before || null, src: ci.src };
         ap.submitted = true; ap.by = me; ap.submittedAt = Date.now(); saveRec(); U().toast('ส่งอนุมัติแล้ว — รอผู้อนุมัติ 5 ฝ่าย'); render(); }; d.appendChild(b); }
       return panel('6 · ส่งอนุมัติ', d, badgeDone(false));
@@ -288,7 +308,7 @@
     flowsWrap.innerHTML = `<div class="wf-maker">👤 ผู้จัดทำ: <b>${U().ud(ap.by)}</b>${waiting.length ? ` · รอ: ${esc(waiting.join(', '))}` : ''}</div>` + FLOWS.map((f, i) => {
       const s = ap.flows[f.key];
       return `<div class="wf-flow ${s && s.by ? 'approved' : ''}"><div class="wf-flow-no">${s && s.by ? '✓' : i + 1}</div>
-        <div class="wf-flow-body"><b>${esc(f.name)}</b>${s && s.by ? `<small>อนุมัติโดย ${esc(s.by)} · ${esc(U().dateTxt(s.at, true))}</small>` : '<small class="muted">ยังไม่อนุมัติ</small>'}</div>
+        <div class="wf-flow-body"><b>${esc(f.name)}</b>${s && s.by ? `<small>อนุมัติโดย ${U().ud(s.by)} · ${esc(U().dateTxt(s.at, true))}${w.newOis && s.at < w.newOis.generatedAt ? ' <span class="wf-old">⚠ ก่อน OIS ฉบับนี้</span>' : ''}</small>` : '<small class="muted">ยังไม่อนุมัติ</small>'}</div>
         ${s && s.by ? '' : (can ? (i === firstPending ? `<span class="wf-acts"><button class="wf-approve" data-flow="${f.key}"${online ? '' : ' disabled title="ต้องเชื่อมข้อมูลกลางก่อนจึงอนุมัติได้"'}>อนุมัติ</button><button class="ghost wf-return" type="button"${online ? '' : ' disabled'}>↩ ส่งกลับแก้ไข</button></span>` : `<small class="muted">รอ Flow ${firstPending + 1}</small>`) : '')}</div>`;
     }).join('');
     d.appendChild(flowsWrap);
@@ -298,7 +318,7 @@
     if ((ap.history || []).length) d.insertAdjacentHTML('beforeend', `<details class="wf-hist"><summary>ประวัติการส่งกลับ (${ap.history.length})</summary><ul>${ap.history.map(h => `<li>${esc(U().dateTxt(h.at, true))} · ${esc(h.flowName)} · ${U().ud(h.by)} — ${U().ud(h.reason)}</li>`).join('')}</ul></details>`);
     if (can && !Object.values(ap.flows || {}).some(x => x && x.by)) {
       const wd = el('button', 'ghost', '↶ ถอนการส่ง (ยังไม่มีใครอนุมัติ)');
-      wd.onclick = async () => { if (await U().ask('ถอนการส่งอนุมัติ OIS นี้? แก้ OIS แล้วค่อยส่งใหม่ได้', [], { ok: 'ถอนการส่ง', cancel: 'ไม่ถอน', danger: true })) { ap.submitted = false; ap.by = ''; if (w.newOis) w.newOis.reviewed = false; saveRec(); render(); } };
+      wd.onclick = async () => { if (await U().ask('ถอนการส่งอนุมัติ OIS นี้? แก้ OIS แล้วค่อยส่งใหม่ได้', [], { ok: 'ถอนการส่ง', cancel: 'ไม่ถอน', danger: true })) { ap.submitted = false; ap.by = ''; delete ap.before; delete ap.ct; if (w.newOis) w.newOis.reviewed = false; saveRec(); render(); } };
       d.appendChild(wd);
     }
     const nOk = FLOWS.filter(f => ap.flows[f.key] && ap.flows[f.key].by).length;
@@ -320,7 +340,7 @@
       if (!a) return; prev = a; a.by = sn || String(a.by || '').trim();
       if (!a.by) { err = 'ใส่ชื่อผู้อนุมัติ'; continue; }
       const dup = FLOWS.find(x => x.key !== flowKey && w0.approval.flows[x.key] && w0.approval.flows[x.key].by === a.by);
-      if (dup && !(await U().ask(`${a.by} อนุมัติ ${dup.name} ไปแล้ว — ยืนยันอนุมัติอีกฝ่ายในชื่อเดียวกัน?`, [], { ok: 'ยืนยัน', cancel: 'ยกเลิก' }))) return;
+      if (dup) { err = `${a.by} อนุมัติ ${dup.name} ไปแล้ว — คนเดียวกันอนุมัติได้ฝ่ายเดียว`; continue; }
       let r;
       try { r = await S.call({ action: 'approve' }, { flow: flowKey, pin: String(a.pin || '') }); } catch (e) { err = 'ตรวจ PIN ไม่สำเร็จ: ' + e.message; continue; }
       if (!r || !r.ok) { err = 'ตรวจ PIN ไม่สำเร็จ'; continue; }
@@ -338,9 +358,10 @@
     const S = window.CPS.sheet;
     if (!S.configured()) { U().toast('เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ'); return; }
     const sn = ssoName(); let prev = {}, err = '';
+    const fpf = FLOWS.find(f => !(wf().approval.flows[f.key] && wf().approval.flows[f.key].by));
     for (;;) {   // PIN ผิดแล้วไม่ต้องพิมพ์ใหม่: เปิดกล่องเดิมพร้อมข้อความที่พิมพ์ไว้
       const a = await U().ask((err ? '⚠ ' + err + ' — ' : '') + 'ส่งกลับแก้ไข — การอนุมัติทุกฝ่ายจะถูกล้าง ผู้จัดทำแก้แล้วส่งใหม่',
-        [{ name: 'flow', label: 'ฝ่ายที่ส่งกลับ', value: prev.flow, options: FLOWS.map(f => ({ value: f.key, label: f.name })) }]
+        [{ name: 'flow', label: 'ฝ่ายที่ส่งกลับ', value: prev.flow, options: [fpf].filter(Boolean).map(f => ({ value: f.key, label: f.name })) }]
           .concat(sn ? [] : [{ name: 'by', label: 'ชื่อผู้ส่งกลับ', value: prev.by }])
           .concat([{ name: 'reason', label: 'เหตุผล / สิ่งที่ต้องแก้', value: prev.reason }, { name: 'pin', label: 'PIN ของฝ่าย', type: 'password' }]),
         { ok: 'ส่งกลับแก้ไข', cancel: 'ยกเลิก', danger: true });
@@ -354,7 +375,7 @@
       if (!r.valid) { err = 'PIN ไม่ถูกต้อง'; continue; }
       const w = wf(), ap = w.approval, f = FLOWS.find(x => x.key === a.flow);
       ap.history = (ap.history || []).concat({ type: 'return', flow: a.flow, flowName: f ? f.name : a.flow, by, reason, at: Date.now() });
-      ap.flows = {}; ap.submitted = false; ap.by = ''; delete ap.ct; if (w.newOis) w.newOis.reviewed = false;
+      ap.flows = {}; ap.submitted = false; ap.by = ''; delete ap.ct; delete ap.before; if (w.newOis) w.newOis.reviewed = false;
       saveRec(); U().toast('ส่งกลับแก้ไขแล้ว — ผู้จัดทำแก้แล้วส่งใหม่ได้'); render();
       return;
     }

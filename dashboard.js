@@ -32,7 +32,7 @@
   }
   const idxOf = (bs, s) => { const d = parseD(s); if (!d) return -1; for (let i = 0; i < bs.length; i++) if (d >= bs[i].a && d < bs[i].b) return i; return -1; };
   const rangeText = B => mode === 'week'
-    ? dt(B[0].a, { day: 'numeric', month: 'short' }) + ' – ' + dt(new Date(B[B.length - 1].b - 864e5), { day: 'numeric', month: 'short', year: 'numeric' })
+    ? dt(B[0].a, { day: 'numeric', month: 'short' }) + ' – ' + dt(new Date(Math.min(B[B.length - 1].b - 864e5, Date.now())), { day: 'numeric', month: 'short', year: 'numeric' })
     : B[0].long + ' – ' + B[B.length - 1].long;
 
   // ---------- data per period ----------
@@ -204,7 +204,7 @@
     const list = (arr, k) => arr.slice(0, k).join(', ') + (arr.length > k ? '…' : '');
     const att = overSt.length || lowL.length || pendN ? `<section class="dz-att" role="status"><b>${esc(t('attTitle'))}</b>` +
       (overSt.length ? `<span>▲ ${esc(t('attOverHead', overSt.length))} ${overSt.slice(0, 4).map(r => `<button type="button" class="linklike" data-wfst="${esc(r.id)}">${esc(r.station)} ${fmt(ldOf(r))}%</button>`).join(', ')}</span>` : '') +
-      (lowL.length ? `<span>▼ ${esc(t('attLow', lowL.length, list(lowL.map(l => l.model + ' / ' + l.sub + ' ' + fmt(l.lbr) + '%'), 3)))}</span>` : '') +
+      (lowL.length ? `<span>⚠ ${esc(t('attLow', lowL.length, list(lowL.map(l => l.model + ' / ' + l.sub + ' ' + fmt(l.lbr) + '%'), 3)))}</span>` : '') +
       lowL.map(l => { const nr = D().listStations().find(r => r.station === l.neck); return nr && D().ctInfo(nr).src !== 'after' ? `<span class="dz-neck">● ${esc(t('attNeck', l.neck, fmt(l.max)))} <button type="button" class="linklike" data-wfst="${esc(nr.id)}">${esc(t('attOpenWf'))}</button></span>` : ''; }).join('') +
       (pendN ? `<span class="dz-neck">⏳ ${esc(t('attPend', pendN))}</span>` : '') +
       `<button type="button" class="ghost" data-goto>${esc(t('attGo'))}</button></section>` : '';
@@ -223,7 +223,7 @@
         ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')) + (nJob ? '<br>' + esc(t('redSplit', fmt(redOk), fmt(totRed - redOk))) : ''), totRed ? '#15856b' : '')}
         ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
       </div>
-      <p class="muted dz-sub">Time Study <b>${nSt}</b> ${esc(t('items'))} (${esc(t('latestCount', mode, last.st.length))}) · ${esc(t('trained'))} <b>${trained}</b> ${esc(t('people'))}</p>
+      <p class="muted dz-sub">Time Study <b>${nSt}</b> ${esc(t('items'))} (${esc(t('latestData', mode, iCt >= 0 ? B[iCt].st.length : 0))}) · ${esc(t('trained'))} <b>${trained}</b> ${esc(t('people'))}</p>
       <h2 class="dz-band">${esc(t('bandTrend'))}</h2>
       <section class="panel"><div class="panelhead"><h2>${esc(t('redTitle', mode))}</h2><small class="muted">${esc(t('redNote', mode))} · ${esc(t('redZero'))}</small></div><div class="dz-body" data-chart="red"></div></section>
       <div class="dz-grid">
@@ -355,15 +355,15 @@
     const r = C.swctLine(lanes, line.tk, Object.assign({ lab: swctLabels() }, opt || {}));
     const G = r.groups, cts = G.map(g => g.ct), n = G.length, sum = cts.reduce((a, b) => a + b, 0), max = Math.max(...cts), min = Math.min(...cts);
     return { lanes, missing, tk: line.tk, r, n, sum, max, min, avg: sum / n, slow: G.find(g => g.ct === max), fast: G.find(g => g.ct === min), multi: G.some(g => g.multi),
-      st: { n: line.n, sum: line.sum, max: line.max, neck: line.neck, lbr: line.lbr, eff: line.eff, tk: line.tk, minSt: line.tk ? Math.ceil(line.sum / line.tk - 1e-9) : 0 },
+      st: { n: line.n, sum: line.sum, max: line.max, neck: line.neck, min: Math.min(...line.items.map(q => q.ct)), low: (line.items.slice().sort((p, q) => p.ct - q.ct)[0] || {}).st, lbr: line.lbr, eff: line.eff, tk: line.tk, minSt: line.tk ? Math.ceil(line.sum / line.tk - 1e-9) : 0 },
       op: G.some(g => g.multi) ? { n, sum, max, neck: '', lbr: sum / (n * max) * 100, eff: line.tk ? sum / (n * line.tk) * 100 : 0, tk: line.tk, minSt: line.tk ? Math.ceil(sum / line.tk - 1e-9) : 0 } : null,
       stLbr: line.lbr, lbr: sum / (n * max) * 100, eff: line.tk ? sum / (n * line.tk) * 100 : 0, minSt: line.tk ? Math.ceil(sum / line.tk - 1e-9) : 0, over: line.tk ? G.filter(g => g.ct > line.tk) : [] };
   }
   const opLabel = g => g.label + (g.multi ? ' ' + swctLabels().person.split('\n')[0] + ' ' + g.op : '');
   function swctFacts(x) {   // [[ป้าย, ค่า], ...] สองแถว: สรุปเวลา · Line Balance
     const { fmt } = U(), s = ' ' + t('s');
-    const a = [[t('sw_st'), String(x.lanes.length)], ['TAKT', x.tk ? fmt(x.tk) + s : '—'], [t('sw_ctMax'), fmt(x.max) + s + ' (' + opLabel(x.slow) + ')'],
-      [t('sw_ctMin'), fmt(x.min) + s + ' (' + opLabel(x.fast) + ')'], [t('sw_avg'), fmt(x.st.sum / x.st.n) + s]];
+    const a = [[t('sw_st'), String(x.lanes.length)], ['TAKT', x.tk ? fmt(x.tk) + s : '—'], [t('sw_ctMax'), fmt(x.st.max) + s + ' (' + x.st.neck + ')'],
+      [t('sw_ctMin'), fmt(x.st.min) + s + ' (' + x.st.low + ')'], [t('sw_avg'), fmt(x.st.sum / x.st.n) + s]];
     const L = window.CPSLine.facts(x.st, x.op);   // ชุดเดียวกับหน้าสมดุลสถานี
     return { a, b: L.main, sub: L.sub, over: x.over.length ? t('sw_over', x.over.length, x.over.map(g => g.label).join(', ')) : '' };
   }
