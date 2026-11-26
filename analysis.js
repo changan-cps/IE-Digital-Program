@@ -45,7 +45,7 @@
           const saved = b.ct - a.ct, has = a.count > 0;
           return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
             <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}${lockedBy(j) ? ' · 🔒 OIS ส่งแล้ว' : ''}</em>
-            <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}"${lockedBy(j) ? ' disabled title="ล็อก: OIS รออนุมัติ"' : ''}>ลบ</button>` : ''}</span></div>`;
+            <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}"${lockedBy(j) ? ' disabled title="ล็อก: ใช้กับ OIS ที่ส่งอนุมัติแล้ว"' : ''}>${lockedBy(j) ? '🔒 ลบ' : 'ลบ'}</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
     const q = host.querySelector('#an-q'); if (q) q.oninput = () => { const v = q.value.trim().toLowerCase(); host.querySelectorAll('.recent-row').forEach(r => r.hidden = !!v && !r.textContent.toLowerCase().includes(v)); };

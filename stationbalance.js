@@ -293,7 +293,7 @@
         `<div class="swct-scroll">${r.svg}</div>` +
         `<h3>แผนภูมิสองมือ (Two-Handed Process Chart)</h3><div class="swct-scroll">${C.hands(s)}</div><div class="th-sum">${C.handsSum(s)}</div>`;
     };
-    dlg.innerHTML = `<div class="sbd-head"><b>${esc(code)}</b><label>รอบ <select id="sbd-round">${rounds.map((x, i) => `<option value="${esc(x.id)}">รอบ ${i + 1} · ${esc(x.date || '')} · ${esc(x.operator || '')} · CT ${fmt(x.ct)} วิ</option>`).join('')}</select></label><button type="button" class="ghost" id="sbd-close">ปิด ✕</button></div><div id="sbd-body"></div>`;
+    dlg.innerHTML = `<div class="sbd-head"><b>${esc(code)}</b><label>รอบ <select id="sbd-round">${rounds.map((x, i) => `<option value="${esc(x.id)}">รอบ ${i + 1} · ${esc(U().dateTxt(x.date))} · ${esc(x.operator || '')} · CT ${fmt(x.ct)} วิ</option>`).join('')}</select></label><button type="button" class="ghost" id="sbd-close">ปิด ✕</button></div><div id="sbd-body"></div>`;
     const sel = dlg.querySelector('#sbd-round'); sel.value = rounds[rounds.length - 1].id;
     sel.onchange = () => paint(sel.value);
     dlg.querySelector('#sbd-close').onclick = () => dlg.close();

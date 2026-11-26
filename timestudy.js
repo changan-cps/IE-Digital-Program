@@ -79,7 +79,7 @@
             <span class="tag">รอบ ${i + 1}</span>${i === iMax ? maxTag : ''}
             <small>${s.operator ? U().ud(s.operator) + ' · ' : ''}${esc(U().dateTxt(s.date))}</small>
             <em>${fmt(t.ct)} วิ · VA ${fmt(t.vaPct)}%</em>
-            <span class="row-btns"><button data-edit="${s.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(label)} รอบ ${i + 1}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}" aria-label="ลบ ${esc(label)} รอบ ${i + 1}">ลบ</button>` : ''}</span>
+            <span class="row-btns"><button data-edit="${s.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(label)} รอบ ${i + 1}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}" aria-label="ลบ ${esc(label)} รอบ ${i + 1}"${submittedFor(s) ? ' disabled title="ล็อก: ใช้กับ OIS ที่ส่งอนุมัติแล้ว"' : ''}>${submittedFor(s) ? '🔒 ลบ' : 'ลบ'}</button>` : ''}</span>
           </div>`; }).join('')}</div>
       </section>`;
     });
@@ -628,7 +628,7 @@
     // ตัวเลือก Proposed = รอบอื่นของสถานีเดียวกัน
     const sel = host.querySelector('#th-cmp'); const G = D().group;
     const others = G.roundsOf(G.key(editing)).filter(x => x.id !== editing.id);
-    sel.innerHTML = '<option value="">— ไม่เทียบ —</option>' + others.map((x, i) => `<option value="${esc(x.id)}">${esc(x.date || '')} · ${esc(x.operator || 'รอบ ' + (i + 1))}</option>`).join('');
+    sel.innerHTML = '<option value="">— ไม่เทียบ —</option>' + others.map((x, i) => `<option value="${esc(x.id)}">${esc(U().dateTxt(x.date))} · ${esc(x.operator || 'รอบ ' + (i + 1))}</option>`).join('');
     sel.value = others.some(x => x.id === editing.thCmp) ? editing.thCmp : '';
     if (!list.length) { box.innerHTML = '<div class="empty-row"><p>เพิ่ม element ก่อน</p></div>'; renderHandsChart(); return; }
     const opt = v => '<option value="">–</option>' + SYMS.map(x => `<option value="${x[0]}"${v === x[0] ? ' selected' : ''}>${x[1]} ${x[2]}</option>`).join('');
@@ -671,7 +671,7 @@
     const a = handCounts(list), b = cmp ? handCounts(cmp.elements) : null;
     const tot = c => SYMK.reduce((s, k) => s + c[k], 0);
     const cell = v => `<td>${v == null ? '–' : v}</td>`;
-    return `<table class="el-table th-summary"><thead><tr><th rowspan="2">สรุป (Method)</th><th colspan="2">Present (รอบนี้)</th><th colspan="2">Proposed${cmp ? ' (' + U().esc(cmp.date || '') + ')' : ''}</th></tr><tr><th>L.H</th><th>R.H</th><th>L.H</th><th>R.H</th></tr></thead><tbody>${SYMS.map(x => `<tr><td>${x[1]} ${x[3]} (${x[2]})</td>${cell(a.L[x[0]])}${cell(a.R[x[0]])}${cell(b ? b.L[x[0]] : null)}${cell(b ? b.R[x[0]] : null)}</tr>`).join('')}<tr class="th-total"><td>Total</td>${cell(tot(a.L))}${cell(tot(a.R))}${cell(b ? tot(b.L) : null)}${cell(b ? tot(b.R) : null)}</tr></tbody></table>`;
+    return `<table class="el-table th-summary"><thead><tr><th rowspan="2">สรุป (Method)</th><th colspan="2">Present (รอบนี้)</th><th colspan="2">Proposed${cmp ? ' (' + U().esc(U().dateTxt(cmp.date)) + ')' : ''}</th></tr><tr><th>L.H</th><th>R.H</th><th>L.H</th><th>R.H</th></tr></thead><tbody>${SYMS.map(x => `<tr><td>${x[1]} ${x[3]} (${x[2]})</td>${cell(a.L[x[0]])}${cell(a.R[x[0]])}${cell(b ? b.L[x[0]] : null)}${cell(b ? b.R[x[0]] : null)}</tr>`).join('')}<tr class="th-total"><td>Total</td>${cell(tot(a.L))}${cell(tot(a.R))}${cell(b ? tot(b.L) : null)}${cell(b ? tot(b.R) : null)}</tr></tbody></table>`;
   }
   function renderHandsChart() {
     const c = host && host.querySelector('#th-chart'); if (!c) return;

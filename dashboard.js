@@ -310,7 +310,7 @@
     const { esc, fmt } = U(), s = t('s');
     if (!kz.length) return `<div class="blank">${esc(t('noJobsPeriod'))}</div>`;
     const top = kz.slice().sort((a, b) => b.red - a.red).slice(0, 6), mx = Math.max(...top.map(k => k.red), 1);
-    return `<ol class="dz-toplist">${top.map(k => `<li><div><b>${U().ud(k.j.name || k.j.station || '—')}</b><small class="muted">${esc([k.j.team, k.j.station].filter(Boolean).join(' · '))} · ${esc(k.j.date || '')}</small></div>
+    return `<ol class="dz-toplist">${top.map(k => `<li><div><b>${U().ud(k.j.name || k.j.station || '—')}</b><small class="muted">${esc([k.j.team, k.j.station].filter(Boolean).join(' · '))} · ${esc(U().dateTxt(k.j.date))}</small></div>
       <div class="dz-topbar"><i style="width:${Math.max(2, k.red / mx * 100)}%"></i></div>
       <span><b>−${fmt(k.red)} ${s}</b><small>${fmt(k.bf)} → ${fmt(k.af)} ${s} (−${fmt(k.pct)}%)</small></span></li>`).join('')}</ol>`;
   }
@@ -332,7 +332,7 @@
     const rows = [...studies.map(x => ({ tg: 'Time Study', n: x.name, d: x.date, ct: x.ct })), ...jobs.map(j => ({ tg: t('tagJob'), n: j.name, d: j.date }))]
       .sort((a, b) => String(b.d || '').localeCompare(String(a.d || ''))).slice(0, 10);
     if (!rows.length) return `<div class="blank">${esc(t(D().canEdit() ? 'noArea' : 'noAreaRo'))}</div>`;
-    return `<section class="panel"><div class="panelhead"><h2>${esc(t('recent'))}</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.tg)}</span><b>${U().ud(r.n || '—')}</b><small>${esc(r.d || '')}</small>${r.ct != null ? `<em>${fmt(r.ct)} ${t('s')}</em>` : ''}</div>`).join('')}</div></section>`;
+    return `<section class="panel"><div class="panelhead"><h2>${esc(t('recent'))}</h2></div><div class="recent">${rows.map(r => `<div class="recent-row"><span class="tag">${esc(r.tg)}</span><b>${U().ud(r.n || '—')}</b><small>${esc(U().dateTxt(r.d))}</small>${r.ct != null ? `<em>${fmt(r.ct)} ${t('s')}</em>` : ''}</div>`).join('')}</div></section>`;
   }
 
   // ---------- SWCT ทั้งไลน์ (ใช้ตัววาดเดียวกับหน้าสมดุลสถานี) ----------
