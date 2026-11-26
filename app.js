@@ -739,11 +739,11 @@
   function statusOf(r) {
     const w = r.wf || {}, ap = w.approval || {};
     const j = num(r.jph), load = j ? ctOf(r) / (3600 / j) * 100 : 0;
-    if (w.improve === false) return load > 100 ? { key: 'decide', label: 'ต้องตัดสินใจ · ยังเกิน TAKT', alarm: true, load } : { key: 'closed', label: 'ปิด – ไม่ปรับปรุง', load };
+    if (w.improve === false) return load > 100 ? { key: 'decide', label: 'เกิน TAKT · ต้องทำ Kaizen', alarm: true, load } : { key: 'closed', label: 'ปิด – ไม่ปรับปรุง', load };
     if (ap.submitted) { const av = approvalOf(w); return av.n >= 5 ? { key: 'approved', label: 'อนุมัติครบ 5/5', load } : { key: 'pending', label: `อนุมัติแล้ว ${av.n}/5` + (av.firstPending >= 0 ? ` · รอ Flow ${av.firstPending + 1}` : ''), sub: av.redo ? 'ต้องอนุมัติใหม่: ' + FLOW_KEYS.map((k, i) => av.why[k] ? 'Flow ' + (i + 1) : '').filter(Boolean).join(', ') : '', dots: approvalDots(w), load }; }
     if (w.improve === true) { const step = 4 + (w.lineBalance && w.lineBalance.saved ? 1 : 0) + (w.newOis && w.newOis.reviewed ? 1 : 0); return { key: 'progress', label: `กำลังทำ ขั้น ${step}/6`, load }; }
     const adv = advise(r);
-    return adv.status === 'improve' ? { key: 'decide', label: 'ต้องตัดสินใจ', alarm: load > 100, reasons: adv.reasons, load } : adv.status === 'ok' ? { key: 'ok', label: 'ปกติ', load } : { key: 'nodata', label: 'รอข้อมูล', load };
+    return adv.status === 'improve' ? { key: 'decide', label: load > 100 ? 'เกิน TAKT · ต้องทำ Kaizen' : 'ต้องตัดสินใจ', alarm: load > 100, reasons: adv.reasons, load } : adv.status === 'ok' ? { key: 'ok', label: 'ปกติ', load } : { key: 'nodata', label: 'รอข้อมูล', load };
   }
   // ---- Line Balance Rate: ไลน์ = ทีม + รุ่น/รุ่นย่อย · LBR = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) × 100 ----
   const lbrColor = v => v >= 85 ? '#15856b' : v >= 70 ? '#9a5b00' : '#c0392b';

@@ -674,8 +674,9 @@ html[lang^=zh] .sb-table th{white-space:normal}
 }
 
 /* round 10: re-approval rows, current step, disabled inputs */
-.wf-flow.redo{border-color:#f0c9b8;background:#fff8f4}
-.wf-flow.redo s{color:var(--muted)}
+.wf-flow.redo{border-color:#f1d39a;background:#fffaf0}
+.wf-flow.redo .wf-flow-no{background:#fdf0d5;color:#8a4b00}
+.lb-man{display:block;margin-top:3px;font-size:12px}.lb-man[hidden]{display:none}
 .wf-step.now .wf-dot{background:var(--blue);color:#fff;box-shadow:0 0 0 3px #cfe0f0}
 .wf-moves{margin:6px 0 10px;padding-left:20px;font-size:14px}
 input:disabled,select:disabled,textarea:disabled{background:#eef2f6;color:#5f7386;border-color:#dfe6ed;cursor:not-allowed}

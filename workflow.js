@@ -228,12 +228,16 @@
 
     const tbl = document.createElement('div'); tbl.className = 'table-scroll';
     const loadCell = v => { const load = takt ? (num(v) / takt) * 100 : 0; const col = load > 100 ? '#c0392b' : load > num(lb.limit || 90) ? '#9a5b00' : '#15856b'; return `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(load, 100)}%;background:${col}"></i></div><span style="color:${col}">${fmt(load)}%</span></div>`; };
-    tbl.innerHTML = `<table class="sb-table"><thead><tr><th>สถานี</th><th>CT ที่ใช้</th><th>ระบบเสนอ</th><th>CT หลังปรับ</th><th>ภาระใหม่</th></tr></thead><tbody>${all.map((it, i) => {
+    const sysOf = it => num(it.locked ? it.ct : lb.saved && lb.proposed && lb.proposed[it.id] != null ? lb.proposed[it.id] : propOf[it.id]);
+    const showSys = all.some(it => Math.abs(sysOf(it) - num(it.ct)) > 0.05);   // ไม่มีการย้ายงาน = ค่าเท่า CT ที่ใช้ทุกแถว ไม่ต้องแสดงซ้ำ
+    const manualOf = it => !it.locked && lb.rows[it.id] != null && Math.abs(num(lb.rows[it.id]) - sysOf(it)) > 0.05;
+    tbl.innerHTML = `<table class="sb-table"><thead><tr><th>สถานี</th><th>CT ที่ใช้</th>${showSys ? '<th>ระบบเสนอ</th>' : ''}<th>CT หลังปรับ</th><th>ภาระใหม่</th></tr></thead><tbody>${all.map((it, i) => {
       const after = lb.rows[it.id] != null ? lb.rows[it.id] : it.ct;
-      return `<tr data-pid="${it.id}"><td class="sb-st">${esc(it.station)}${it.improved ? ' <small class="muted">(ใช้ค่า After)</small>' : ''}${it.locked ? ' <small class="wf-lk">🔒 OIS รออนุมัติ</small>' : ''}</td><td>${fmt(it.now)} วิ</td><td>${(v => fmt(v) + ' วิ' + (!it.locked && v > whole.limit + 1 ? ' <small class="wf-warn">เกินเพดาน</small>' : ''))(num(it.locked ? it.ct : lb.saved && lb.proposed && lb.proposed[it.id] != null ? lb.proposed[it.id] : propOf[it.id]))}</td>
-        <td><input class="lb-ct" aria-label="CT หลังปรับ ${esc(it.station)}" type="number" min="0" step="0.1" value="${esc(U().round1(num(after)))}" style="max-width:90px" ${can && !it.locked ? '' : 'disabled'}></td><td class="lb-load">${loadCell(after)}</td></tr>`;
+      return `<tr data-pid="${it.id}"><td class="sb-st">${esc(it.station)}${it.improved ? ' <small class="muted">(ใช้ค่า After)</small>' : ''}${it.locked ? ' <small class="wf-lk">🔒 OIS รออนุมัติ</small>' : ''}</td><td>${fmt(it.now)} วิ</td>${showSys ? `<td>${(v => fmt(v) + ' วิ' + (!it.locked && v > whole.limit + 1 ? ' <small class="wf-warn">เกินเพดาน</small>' : ''))(sysOf(it))}</td>` : ''}
+        <td><input class="lb-ct" aria-label="CT หลังปรับ ${esc(it.station)}" type="number" min="0" step="0.1" value="${esc(U().round1(num(after)))}" style="max-width:90px" ${can && !it.locked ? '' : 'disabled'}>${it.locked ? '' : `<small class="wf-warn lb-man"${manualOf(it) ? '' : ' hidden'}>✎ แก้เอง · ระบบ ${fmt(sysOf(it))} วิ</small>`}</td><td class="lb-load">${loadCell(after)}</td></tr>`;
     }).join('')}</tbody></table>`;
-    tbl.querySelectorAll('tr[data-pid]').forEach(tr => { const i = tr.querySelector('.lb-ct'); i.oninput = () => { lb.rows[tr.dataset.pid] = i.value; lb.auto = false; tr.querySelector('.lb-load').innerHTML = loadCell(i.value); }; });
+    let refreshOk = () => {};
+    tbl.querySelectorAll('tr[data-pid]').forEach(tr => { const i = tr.querySelector('.lb-ct'), it = all.find(x => String(x.id) === tr.dataset.pid); i.oninput = () => { lb.rows[tr.dataset.pid] = i.value; lb.auto = false; tr.querySelector('.lb-load').innerHTML = loadCell(i.value); const mk = tr.querySelector('.lb-man'); if (mk && it) mk.hidden = !manualOf(it); refreshOk(); }; });
     { const hd = [...tbl.querySelectorAll('th')].map(th => th.textContent); tbl.querySelector('table').classList.add('lb-table'); tbl.querySelectorAll('tbody tr').forEach(tr => [...tr.children].forEach((td, i) => { td.dataset.l = hd[i] || ''; })); }
     if (all.length > items.length) d.insertAdjacentHTML('beforeend', `<p class="muted">🔒 ${all.length - items.length} สถานีส่ง OIS แล้ว — ไม่นำมาเกลี่ยงาน</p>`);
     d.appendChild(tbl);
@@ -244,13 +248,18 @@
       const row = el('div', 'wf-btnrow'); row.style.marginTop = '12px';
       const use = el('button', 'ghost', noValid ? '↺ คืนค่า CT เดิม' : '↺ ใช้ข้อเสนอของระบบ'); use.onclick = () => { applyProp(); lb.saved = false; saveRec(); render(); };
       if (noValid) use.title = 'ไม่มีการย้ายงานที่ใช้ได้ — ปุ่มนี้คืนค่า CT หลังปรับเป็นค่าเดิมของทุกสถานี';
-      const ok = el('button', 'primary', lb.saved ? '✓ ยืนยัน Line Balance อีกครั้ง' : '✓ ยืนยัน Line Balance');
+      const ok = el('button', 'primary', '');
+      refreshOk = () => { const nm = !prop.moves.length && !items.some(manualOf);
+        ok.textContent = nm ? (lb.saved ? '✓ ยืนยันอีกครั้ง (ไม่มีการย้ายงาน)' : '✓ ยืนยัน (ไม่มีการย้ายงาน)') : (lb.saved ? '✓ ยืนยัน Line Balance อีกครั้ง' : '✓ ยืนยัน Line Balance');
+        if (nm) ok.title = 'ไม่มีการย้ายงาน — ยืนยันเพื่อบันทึกว่าไลน์นี้คงงานเดิม แล้วตรวจร่าง OIS ในขั้น 5'; else ok.removeAttribute('title'); };
+      refreshOk();
       ok.onclick = async () => {
         const others = D().listStations().filter(p => p.id !== r.id && p.model === r.model && p.submodel === r.submodel && p.team === r.team && p.group === r.group && p.workshop === r.workshop);
         const upd = [r.station].concat(others.filter(p => !(p.wf && p.wf.approval && p.wf.approval.submitted)).map(p => p.station)), skip = others.filter(p => p.wf && p.wf.approval && p.wf.approval.submitted).map(p => p.station);
         const aft = it => num(it.locked ? it.ct : (lb.rows[it.id] != null ? lb.rows[it.id] : it.ct));
         const oT = all.filter(it => takt && aft(it) > takt + 0.05), oC = all.filter(it => !it.locked && aft(it) > whole.limit + 1 && !oT.includes(it));
-        const res = `หลังยืนยัน: เกิน TAKT ${oT.length}${oT.length ? ' (' + oT.map(it => it.station + ' ' + fmt(aft(it) / takt * 100) + '%').join(', ') + ')' : ''} · เกินเพดาน ${oC.length}${oC.length ? ' (' + oC.map(it => it.station).join(', ') + ')' : ''}`;
+        const man = items.filter(manualOf), manTxt = man.length ? ' · แก้ CT เอง: ' + man.map(it => `${it.station} ${fmt(sysOf(it))}→${fmt(num(lb.rows[it.id]))}`).join(', ') : '';
+        const res = `หลังยืนยัน: เกิน TAKT ${oT.length}${oT.length ? ' (' + oT.map(it => it.station + ' ' + fmt(aft(it) / takt * 100) + '%').join(', ') + ')' : ''} · เกินเพดาน ${oC.length}${oC.length ? ' (' + oC.map(it => it.station).join(', ') + ')' : ''}${manTxt}`;
         if (!(await U().ask(`ยืนยัน Line Balance ทั้งไลน์? อัปเดต: ${upd.join(', ')}${skip.length ? ' · ข้าม (ส่ง OIS แล้ว): ' + skip.join(', ') : ''} — ${res}`, [], { ok: 'ยืนยันทั้งไลน์', cancel: 'ยกเลิก' }))) return;
         lb.saved = true; lb.moves = prop.moves.map(m => `${m.from} → ${m.to}: ${m.sec} วิ`);
         lb.moveList = prop.moves.map(m => ({ from: m.from, to: m.to, sec: m.sec, names: (m.pick && m.pick.names) || [], split: m.pick && m.pick.split ? { name: m.pick.split, sec: m.pick.splitSec } : null }));
@@ -348,7 +357,7 @@
       const actions = ok ? '' : (can ? (i === firstPending ? `<span class="wf-acts"><button class="wf-approve" data-flow="${f.key}"${online ? '' : ' disabled title="ต้องเชื่อมข้อมูลกลางก่อนจึงอนุมัติได้"'}>อนุมัติ</button><button class="ghost wf-return" type="button"${online ? '' : ' disabled title="ต้องเชื่อมข้อมูลกลางก่อนจึงส่งกลับได้"'}>↩ ส่งกลับแก้ไข</button></span>` : `<small class="muted">รอ Flow ${firstPending + 1}</small>`) : '');
       const note = !s || !s.by ? '<small class="muted">ยังไม่อนุมัติ</small>'
         : ok ? `<small>อนุมัติโดย ${U().ud(s.by)} · ${esc(U().dateTxt(s.at, true))}</small>`
-        : `<small><s>อนุมัติโดย ${U().ud(s.by)} · ${esc(U().dateTxt(s.at, true))}</s> <span class="wf-old">ต้องอนุมัติใหม่ — ${why === 'stale' ? 'อนุมัติก่อน OIS ฉบับนี้' : 'คนเดียวกับฝ่ายก่อนหน้า'}</span></small>`;
+        : `<small><span class="wf-warn">↺ ต้องอนุมัติใหม่ — ${why === 'stale' ? 'อนุมัติก่อน OIS ฉบับนี้' : 'คนเดียวกับฝ่ายก่อนหน้า'}</span> <span class="muted">· อนุมัติเดิมโดย ${U().ud(s.by)} · ${esc(U().dateTxt(s.at, true))}</span></small>`;
       return `<div class="wf-flow ${ok ? 'approved' : why ? 'redo' : ''}"><div class="wf-flow-no">${ok ? '✓' : i + 1}</div>
         <div class="wf-flow-body"><b>${esc(f.name)}</b>${note}</div>
         ${actions}</div>`;

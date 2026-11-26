@@ -181,7 +181,7 @@
     const bar = `<div class="sb-bar"><div class="sb-bar-track"><i style="width:${Math.min(p, 100)}%;background:${col}"></i>${p > 100 ? `<i class="over" style="width:${Math.min(p - 100, 40)}%"></i>` : ''}</div><span style="color:${col}">${fmt(p)}%</span></div>`;
     const adv = D().advise(r);
     const stt = D().statusOf(r);
-    const cls = { ok: 'adv ok', approved: 'adv ok', pending: 'adv prog', progress: 'adv prog', decide: 'adv improve', closedOver: 'adv alarm', closed: 'adv', nodata: 'adv' }[stt.key];
+    const cls = stt.alarm ? 'adv alarm' : { ok: 'adv ok', approved: 'adv ok', pending: 'adv prog', progress: 'adv prog', decide: 'adv improve', closedOver: 'adv alarm', closed: 'adv', nodata: 'adv' }[stt.key];
     const done = `<span class="${cls}"${stt.reasons ? ` title="${esc(stt.reasons.join(' · '))}"` : ''}>${stt.alarm ? '▲ ' : ''}${esc(stt.label)}${stt.dots || ''}${stt.sub ? `<small class="ap-sub">${esc(stt.sub)}</small>` : ''}</span>`;
     const nR = D().group.roundsOf(r.station).length;
     const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}" aria-label="${esc(L('step'))} ${esc(r.station)}">${esc(L('step'))}</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
