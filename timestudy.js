@@ -136,7 +136,7 @@
 
       <section class="panel ts-videopanel${videoUrl ? '' : ' no-video'}">
         <div class="panelhead"><h2>วิดีโอ (ในเครื่อง — ไม่ถูกบันทึก)</h2>
-          <label class="filebtn">เลือก/ถ่ายวิดีโอ<input id="ts-file" class="vh" type="file" accept="video/*" capture="environment"></label>
+          <div class="head-btns"><button id="ts-ai-top" type="button" class="ghost"${videoUrl ? '' : ' hidden'}>🤖 แยก element อัตโนมัติ (AI)</button><label class="filebtn">เลือก/ถ่ายวิดีโอ<input id="ts-file" class="vh" type="file" accept="video/*" capture="environment"></label></div>
         </div>
         <div class="ts-screen"><video id="ts-video" playsinline></video><div id="ts-empty" class="ts-empty">เลือกวิดีโอเพื่อเริ่มจับเวลา<small>หรือกรอก element และเวลาเองในตารางด้านล่าง</small></div></div>
         <div class="ts-transport">
@@ -232,6 +232,8 @@
     host.querySelector('#ts-undo').onclick = undoLap;
     host.querySelector('#ts-addrow').onclick = () => { s.elements.push({ id: U().uid(), name: '', sec: '', type: '', note: '' }); renderTable(); };
     host.querySelector('#ts-ai').onclick = aiAnalyze;
+    // the AI button lives in the collapsed tools strip; this copy in the video header keeps it in sight once a video is loaded
+    host.querySelector('#ts-ai-top').onclick = () => { const m = host.querySelector('.ts-more'); if (m) m.open = true; const b = host.querySelector('#ts-ai'); b.scrollIntoView({ block: 'center', behavior: 'smooth' }); aiAnalyze(); };
     const er = host.querySelector('#ergo-risk'); er.value = s.ergo.risk || ''; er.onchange = () => s.ergo.risk = er.value;
     const en = host.querySelector('#ergo-notes'); en.value = s.ergo.notes || ''; en.oninput = () => s.ergo.notes = en.value;
     host.querySelector('#ts-ergo-ai').onclick = e => { e.preventDefault(); host.querySelector('.ts-ergo').open = true; aiAnalyze(); };
@@ -251,6 +253,7 @@
     const v = host.querySelector('#ts-video'); v.src = videoUrl;
     host.querySelector('#ts-empty').hidden = true;
     host.querySelector('.ts-videopanel').classList.remove('no-video');
+    host.querySelector('#ts-ai-top').hidden = false;
     host.querySelector('#ts-mark').disabled = false;
   }
   function step(d) { const v = host && host.querySelector('#ts-video'); if (!v || !v.src) return; v.pause(); v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); }
