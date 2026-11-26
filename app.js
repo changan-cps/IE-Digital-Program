@@ -733,7 +733,7 @@
   // จุด 5 จุดบอกความคืบหน้าการอนุมัติ: ok = อนุมัติแล้ว · redo = ต้องอนุมัติใหม่ · next = ถึงตา
   function approvalDots(w) {
     const av = approvalOf(w);
-    return `<span class="ap-dots" aria-hidden="true">${FLOW_KEYS.map((k, i) => `<i class="${av.valid[k] ? 'ok' : av.why[k] ? 'redo' : i === av.firstPending ? 'next' : ''}"></i>`).join('')}</span>`;
+    return `<span class="ap-dots" aria-hidden="true">${FLOW_KEYS.map((k, i) => av.valid[k] ? '<i class="ok">✓</i>' : av.why[k] ? '<i class="redo">↺</i>' : i === av.firstPending ? '<i class="next"></i>' : '<i></i>').join('')}</span>`;
   }
   // สถานะของสถานีชุดเดียวทั้งแอป (ชิปในตาราง · การ์ดสรุป · แดชบอร์ด)
   function statusOf(r) {

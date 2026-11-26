@@ -204,10 +204,10 @@
     const overSt = D().listStations().filter(r => ldOf(r) > 100).sort((a, b) => ldOf(b) - ldOf(a)), lowL = lb.lines.filter(l => l.lbr < 85);
     const list = (arr, k) => arr.slice(0, k).join(', ') + (arr.length > k ? '…' : '');
     const att = overSt.length || lowL.length || pendN ? `<section class="dz-att" role="status"><b>${esc(t('attTitle'))}</b>` +
-      (overSt.length ? `<span>▲ ${esc(t('attOverHead', overSt.length))} ${overSt.slice(0, 4).map(r => `<button type="button" class="linklike" data-wfst="${esc(r.id)}">${esc(r.station)} ${fmt(ldOf(r))}%</button>`).join(', ')}</span>` : '') +
-      (lowL.length ? `<span>⚠ ${esc(t('attLow', lowL.length, list(lowL.map(l => l.model + ' / ' + l.sub + ' ' + fmt(l.lbr) + '%'), 3)))}</span>` : '') +
+      (overSt.length ? `<span class="att-block">▲ ${esc(t('attOverHead', overSt.length))} ${overSt.slice(0, 4).map(r => `<button type="button" class="linklike" data-wfst="${esc(r.id)}">${esc(r.station)} ${fmt(ldOf(r))}%</button>`).join(', ')}</span>` : '') +
+      (lowL.length ? `<span class="att-wait">⚠ ${esc(t('attLow', lowL.length, list(lowL.map(l => l.model + ' / ' + l.sub + ' ' + fmt(l.lbr) + '%'), 3)))}</span>` : '') +
       lowL.map(l => { const nr = D().listStations().find(r => r.station === l.neck); return nr && D().ctInfo(nr).src !== 'after' ? `<span class="dz-neck">● ${esc(t('attNeck', l.neck, fmt(l.max)))} <button type="button" class="linklike" data-wfst="${esc(nr.id)}">${esc(t('attOpenWf'))}</button></span>` : ''; }).join('') +
-      (pendN ? `<span class="dz-neck">⏳ ${esc(t('attPend', pendN))}</span>` : '') +
+      (pendN ? `<span class="dz-neck att-info">⏳ ${esc(t('attPend', pendN))}</span>` : '') +
       `<button type="button" class="ghost" data-goto>${esc(t('attGo'))}</button></section>` : '';
 
     el.innerHTML = `

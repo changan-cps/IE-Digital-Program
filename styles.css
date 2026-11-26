@@ -234,8 +234,8 @@ details.wf-panel>summary::-webkit-details-marker{display:none}
 details.wf-panel>summary h2::before{content:'▾';display:inline-block;width:1.1em;color:var(--muted)}
 details.wf-panel:not([open])>summary h2::before{content:'▸'}
 details.wf-panel:not([open])>summary{border-bottom:0}
-.ap-dots{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}.ap-dots i{width:8px;height:8px;border-radius:50%;background:#d6dde5}.ap-dots i.ok{background:#15856b}.ap-dots i.redo{background:#c0392b}.ap-dots i.next{background:#fff;box-shadow:0 0 0 2px #1f6fb2}
-.ap-sub{display:block;font-size:12px;color:#a12a1d;font-weight:600;margin-top:2px}
+.ap-dots{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}.ap-dots i{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#e3e9ef;font:700 10px/1 system-ui,sans-serif;font-style:normal;color:#fff}.ap-dots i.ok{background:#15856b}.ap-dots i.redo{background:#b86e00}.ap-dots i.next{background:#fff;box-shadow:inset 0 0 0 2px #1f6fb2}
+.ap-sub{display:block;font-size:12px;color:#8a4b00;font-weight:600;margin-top:2px}
 .wf-lead{margin-bottom:12px}.wf-lead .wf-btnrow{margin-top:8px}
 .dz-detail>summary{cursor:pointer;list-style:none}.dz-detail>summary::-webkit-details-marker{display:none}.dz-detail>summary::after{content:' ▸';color:var(--muted);font-size:.8em}.dz-detail[open]>summary::after{content:' ▾'}
 .ease-table .r-name{min-width:180px}
@@ -325,7 +325,13 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .adv.improve{background:#fde3e0;color:#a3271b}
 .adv.ok{background:#e4f6ef;color:#12735a}
 .wf-advise{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:12px;background:#f7fafc}
-.wf-advise.improve{background:#fdf0ee;border-color:#f1c9c3}
+.wf-advise.improve,.wf-advise.block{background:#fdf0ee;border-color:#f1c9c3}.wf-advise.block>b:first-child{color:#a12a1d}
+.wf-advise.wait{background:#fff8ec;border-color:#f0d6a8}.wf-advise.wait>b:first-child{color:#8a4b00}
+.wf-advise.info{background:#f2f7fc;border-color:#c9dcef}.wf-advise.info>b:first-child{color:#00467f}
+.lb-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 4px}.lb-facts>div{background:#fff;border:1px solid #dbe5ef;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}.lb-facts span{font-size:12px;color:#4c6378}.lb-facts b{font-size:18px;font-variant-numeric:tabular-nums;color:#17324b}.lb-facts small{font-size:12px;font-weight:500;color:#4c6378}
+@media (max-width:720px){.lb-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lb-verdict{margin:8px 0 0}.lb-alts{margin:4px 0 0;color:#3b5368}.lb-tried{margin-top:8px}.lb-tried summary{cursor:pointer;color:#3b5368;font-size:14px}.lb-tried ul{color:#4c6378}
+.wf-warn{color:#8a4b00;font-weight:600}
 .wf-advise.ok{background:#f1faf6;border-color:#bfe6d4}
 .wf-advise ul{margin:6px 0 0;padding-left:20px;line-height:1.8}
 .wf-advise p{margin:6px 0 0}
@@ -473,8 +479,8 @@ i.k-dash{border-top-style:dashed}
 /* round 3: one line-balance basis, attention strip, read-only station cards, folded editor sections */
 .lbr-op{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:#52708a}
 .lbr-op small{font-weight:700;color:#3d5a73;font-size:12.5px}
-.dz-att{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:0 0 16px;padding:12px 16px;border:1px solid #f0b9b1;border-radius:10px;background:#fff7f5;color:#5b2a22;font-size:14px}
-.dz-att b{color:#a12a1d}
+.dz-att{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:0 0 16px;padding:12px 16px;border:1px solid #d6e1ec;border-radius:10px;background:#f7fafd;color:#17324b;font-size:14px}
+.dz-att>b{color:#00467f}.dz-att .att-block{color:#a12a1d;font-weight:600}.dz-att .att-wait{color:#8a4b00}.dz-att .att-info{color:#00467f}
 .dz-att button{margin-left:auto;min-height:40px}
 .dz-lang{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);background:transparent;border:0;padding:0}
 .dz-lang select{min-height:40px;border:1px solid var(--line);border-radius:10px;padding:4px 10px;background:#fff;color:var(--ink);font-size:14px}
