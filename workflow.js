@@ -79,8 +79,9 @@
   }
 
   function panel(title, bodyNode, badge) {
-    const p = document.createElement('section'); p.className = 'panel wf-panel';
-    p.innerHTML = `<div class="panelhead"><h2>${title}</h2>${badge || ''}</div>`;
+    const done = /wf-badge ok/.test(badge || '');   // ขั้นที่เสร็จแล้วพับเหลือบรรทัดเดียว กดหัวข้อเพื่อเปิดดู
+    const p = document.createElement('details'); p.className = 'panel wf-panel'; p.open = !done;
+    p.innerHTML = `<summary class="panelhead"><h2>${title}</h2>${badge || ''}</summary>`;
     p.appendChild(bodyNode); return p;
   }
   const badgeDone = ok => ok ? '<span class="wf-badge ok">เสร็จ</span>' : '<span class="wf-badge">รอดำเนินการ</span>';
@@ -174,6 +175,7 @@
       if (lb.saved && lb.confirmedAt) d.insertAdjacentHTML('beforeend', `<p class="wf-okline">✓ ยืนยันแล้ว · จาก ${esc(lb.confirmedFrom || '')} · ${esc(U().dateTxt(lb.confirmedAt, true))}</p>`);
       else if (!lb.saved) d.insertAdjacentHTML('beforeend', '<p class="muted">ไม่มี Line Balance ที่ยืนยันไว้ตอนส่ง OIS</p>');
       if (lb.saved && (lb.moveList || []).length) d.insertAdjacentHTML('beforeend', `<ul class="wf-moves">${lb.moveList.map(m => `<li>${esc(m.from)} → ${esc(m.to)} · ${fmt(m.sec)} วิ</li>`).join('')}</ul>`);
+      if (lb.saved && !allL.some(it => rowsL[it.id] != null)) d.insertAdjacentHTML('beforeend', '<p class="muted">ไม่มีค่า CT หลังปรับที่ยืนยันไว้ตอนส่ง OIS — แสดงเฉพาะ CT ที่ใช้</p>');
       const tL = document.createElement('div'); tL.className = 'table-scroll';
       tL.innerHTML = `<table class="sb-table lb-table"><thead><tr><th>สถานี</th><th>CT ที่ใช้</th><th>CT หลังปรับ (ที่ยืนยัน)</th></tr></thead><tbody>${allL.map(it => `<tr><td class="sb-st" data-l="สถานี">${esc(it.station)}${it.locked || it.id === r.id ? ' 🔒' : ''}</td><td data-l="CT ที่ใช้">${fmt(it.ct)} วิ</td><td data-l="CT หลังปรับ (ที่ยืนยัน)">${lb.saved && rowsL[it.id] != null ? fmt(num(rowsL[it.id])) + ' วิ' : '—'}</td></tr>`).join('')}</tbody></table>`;
       d.appendChild(tL);
@@ -192,15 +194,26 @@
     const applyProp = () => { lb.rows = {}; items.forEach((it, i) => lb.rows[it.id] = prop.proposed[i]); lb.auto = true; };
     if (can && !lb.saved && (lb.auto !== false || !Object.keys(lb.rows).length)) applyProp();
 
+    const overT = all.filter(it => !it.locked && takt && num(propOf[it.id]) > takt + 0.05);
+    if (overT.length) {
+      const walls = it => { const i = all.indexOf(it), nb = [all[i - 1], all[i + 1]].filter(Boolean); return nb.length && nb.every(x => x.locked) ? nb : null; };
+      const lead = el('div', 'wf-advise improve wf-lead');
+      lead.innerHTML = `<b>ไลน์นี้ยังถึง TAKT ไม่ได้จนกว่า Kaizen ของ <span translate="no">${esc(overT.map(it => it.station).join(', '))}</span> จะลดงานได้</b>` +
+        overT.map(it => { const w2 = walls(it); return w2 ? `<p><span translate="no">${esc(it.station)}</span> อยู่ระหว่างสถานีที่ส่ง OIS แล้ว (<span translate="no">${esc(w2.map(x => x.station).join(', '))}</span>) — ย้ายงานออกไม่ได้ ต้องลดงานใน Kaizen ของสถานีนั้น</p>` : `<p><span translate="no">${esc(it.station)}</span> ${fmt(num(propOf[it.id]) / takt * 100)}% ยังเกิน TAKT หลังเกลี่ยงาน</p>`; }).join('');
+      const lrow = el('div', 'wf-btnrow');
+      overT.forEach(it => { const b = el('button', it.id === r.id ? 'primary' : 'ghost', it.id === r.id ? 'ลดงานในงานวิเคราะห์ของสถานีนี้ (ขั้น 2)' : 'เปิดขั้นตอนของ ' + it.station + ' →');
+        b.onclick = () => { if (it.id === r.id) { const jb = matchJob(); if (jb) window.CPSAnalysis.openJob(jb.id); } else open(it.id, host, onBack, { top: true }); }; lrow.appendChild(b); });
+      lead.appendChild(lrow); d.appendChild(lead);
+    }
     const head = el('div', 'wf-lbhead');
     head.innerHTML = `<label class="field"><span>JPH เป้าหมาย (TAKT = ${fmt(takt)} วิ)</span><input id="lb-jph" type="number" min="1" value="${esc(lb.targetJph)}" ${can ? '' : 'disabled'}></label>
-      <label class="field"><span>เพดานภาระต่อสถานี (%)</span><input id="lb-limit" type="number" min="50" max="100" value="${esc(lb.limit)}" ${can ? '' : 'disabled'}></label>`;
+      <label class="field"><span title="ภาระสูงสุดที่ยอมให้แต่ละสถานีตอนเกลี่ยงาน (% ของ TAKT เช่น 90%) เผื่อไว้ไม่ให้ชน TAKT">เพดานภาระต่อสถานี (%) ⓘ</span><input id="lb-limit" type="number" min="50" max="100" value="${esc(lb.limit)}" ${can ? '' : 'disabled'}></label>`;
     d.appendChild(head);
 
     const box = el('div', 'wf-advise ' + (prop.feasible ? 'ok' : 'improve'));
-    box.innerHTML = `<b>ข้อเสนอของระบบ</b><p>งานรวม ${fmt(prop.total)} วิ · ${all.length} สถานี (เกลี่ยได้ ${items.length}) · เพดาน ${fmt(prop.limit)} วิ/สถานี · ต้องใช้อย่างน้อย ${prop.minStations} สถานีที่เพดาน ${fmt(lb.limit)}% (ตาม TAKT 100% = ${takt ? Math.ceil(prop.total / takt - 1e-9) : '—'} สถานี)</p>` +
+    box.innerHTML = `<b>ข้อเสนอของระบบ</b><p>งานรวม ${fmt(prop.total)} วิ · ${all.length} สถานี (เกลี่ยได้ ${items.length}) · เพดาน ${fmt(lb.limit)}% = ${fmt(prop.limit)} วิ ต่อสถานี → ต้องมีอย่างน้อย ${prop.minStations} สถานี</p>` +
       (prop.feasible ? '' : `<p><b>เกลี่ยไม่ลงภายใน ${items.length} สถานี</b> ยังเกินอยู่ ${fmt(prop.shortage)} วิ → ต้องลดงานเพิ่ม เพิ่มสถานี/คน หรือปรับ JPH</p>`) +
-      (prop.moves.length ? `<ul>${prop.moves.map(m => `<li>ย้ายงาน <b>${fmt(m.sec)} วิ</b> จาก <b>${esc(m.from)}</b> → <b>${esc(m.to)}</b>${m.pick.names && m.pick.names.length ? ' · ขั้นตอนที่เสนอ: ' + U().ud(m.pick.names.map(n => String(n).replace(/\s*\([\d.]+\s*วิ\)\s*$/, '')).join(', ')) : m.pick.split ? ' · ต้องแบ่งขั้นตอน “' + U().ud(m.pick.split) + '” (' + fmt(m.pick.splitSec) + ' วิ)' : ''}</li>`).join('')}</ul>` : '<p>ทุกสถานีอยู่ในเพดานแล้ว ไม่ต้องย้ายงาน</p>');
+      (prop.moves.length ? `<ul>${prop.moves.map(m => `<li>ย้ายงาน <b>${fmt(m.sec)} วิ</b> จาก <b>${esc(m.from)}</b> → <b>${esc(m.to)}</b>${m.pick.names && m.pick.names.length ? ' · ขั้นตอนที่เสนอ: ' + U().ud(m.pick.names.map(n => String(n).replace(/\s*\([\d.]+\s*วิ\)\s*$/, '')).join(', ')) : m.pick.split ? ' · ต้องแบ่งขั้นตอน “' + U().ud(m.pick.split) + '” (' + fmt(m.pick.splitSec) + ' วิ)' : ''}${(t => t && num(propOf[t.id]) > whole.limit + 1 ? ` <small class="wf-old">→ <span translate="no">${esc(m.to)}</span> จะเกินเพดาน — ต้องลดงานก่อน</small>` : '')(all.find(x => x.station === m.to))}</li>`).join('')}</ul>` : '<p>ทุกสถานีอยู่ในเพดานแล้ว ไม่ต้องย้ายงาน</p>');
     if (lb.saved && lb.confirmedAt) box.insertAdjacentHTML('afterbegin', `<p class="wf-okline">✓ ยืนยันแล้วทั้งไลน์ · จาก ${esc(lb.confirmedFrom || '')} · ${esc(U().dateTxt(lb.confirmedAt, true))}</p>`);
     d.appendChild(box);
 
@@ -225,7 +238,10 @@
       ok.onclick = async () => {
         const others = D().listStations().filter(p => p.id !== r.id && p.model === r.model && p.submodel === r.submodel && p.team === r.team && p.group === r.group && p.workshop === r.workshop);
         const upd = [r.station].concat(others.filter(p => !(p.wf && p.wf.approval && p.wf.approval.submitted)).map(p => p.station)), skip = others.filter(p => p.wf && p.wf.approval && p.wf.approval.submitted).map(p => p.station);
-        if (!(await U().ask(`ยืนยัน Line Balance ทั้งไลน์? อัปเดต: ${upd.join(', ')}${skip.length ? ' · ข้าม (ส่ง OIS แล้ว): ' + skip.join(', ') : ''}`, [], { ok: 'ยืนยันทั้งไลน์', cancel: 'ยกเลิก' }))) return;
+        const aft = it => num(it.locked ? it.ct : (lb.rows[it.id] != null ? lb.rows[it.id] : it.ct));
+        const oT = all.filter(it => takt && aft(it) > takt + 0.05), oC = all.filter(it => !it.locked && aft(it) > whole.limit + 1 && !oT.includes(it));
+        const res = `หลังยืนยัน: เกิน TAKT ${oT.length}${oT.length ? ' (' + oT.map(it => it.station + ' ' + fmt(aft(it) / takt * 100) + '%').join(', ') + ')' : ''} · เกินเพดาน ${oC.length}${oC.length ? ' (' + oC.map(it => it.station).join(', ') + ')' : ''}`;
+        if (!(await U().ask(`ยืนยัน Line Balance ทั้งไลน์? อัปเดต: ${upd.join(', ')}${skip.length ? ' · ข้าม (ส่ง OIS แล้ว): ' + skip.join(', ') : ''} — ${res}`, [], { ok: 'ยืนยันทั้งไลน์', cancel: 'ยกเลิก' }))) return;
         lb.saved = true; lb.moves = prop.moves.map(m => `${m.from} → ${m.to}: ${m.sec} วิ`);
         lb.moveList = prop.moves.map(m => ({ from: m.from, to: m.to, sec: m.sec, names: (m.pick && m.pick.names) || [], split: m.pick && m.pick.split ? { name: m.pick.split, sec: m.pick.splitSec } : null }));
         lb.proposed = {}; all.forEach(it => { lb.proposed[it.id] = it.locked ? it.ct : propOf[it.id]; });
@@ -319,7 +335,7 @@
     const firstPending = av.firstPending, online = window.CPS.sheet.configured();
     flowsWrap.innerHTML = `<div class="wf-maker">👤 ผู้จัดทำ: <b>${U().ud(ap.by)}</b>${waiting.length ? ` · รอ: ${esc(waiting.join(', '))}` : ''}</div>` + FLOWS.map((f, i) => {
       const s = ap.flows[f.key], ok = !!av.valid[f.key], why = av.why[f.key];
-      const actions = ok ? '' : (can ? (i === firstPending ? `<span class="wf-acts"><button class="wf-approve" data-flow="${f.key}"${online ? '' : ' disabled title="ต้องเชื่อมข้อมูลกลางก่อนจึงอนุมัติได้"'}>อนุมัติ</button><button class="ghost wf-return" type="button"${online ? '' : ' disabled'}>↩ ส่งกลับแก้ไข</button></span>` : `<small class="muted">รอ Flow ${firstPending + 1}</small>`) : '');
+      const actions = ok ? '' : (can ? (i === firstPending ? `<span class="wf-acts"><button class="wf-approve" data-flow="${f.key}"${online ? '' : ' disabled title="ต้องเชื่อมข้อมูลกลางก่อนจึงอนุมัติได้"'}>อนุมัติ</button><button class="ghost wf-return" type="button"${online ? '' : ' disabled title="ต้องเชื่อมข้อมูลกลางก่อนจึงส่งกลับได้"'}>↩ ส่งกลับแก้ไข</button></span>` : `<small class="muted">รอ Flow ${firstPending + 1}</small>`) : '');
       const note = !s || !s.by ? '<small class="muted">ยังไม่อนุมัติ</small>'
         : ok ? `<small>อนุมัติโดย ${U().ud(s.by)} · ${esc(U().dateTxt(s.at, true))}</small>`
         : `<small><s>อนุมัติโดย ${U().ud(s.by)} · ${esc(U().dateTxt(s.at, true))}</s> <span class="wf-old">ต้องอนุมัติใหม่ — ${why === 'stale' ? 'อนุมัติก่อน OIS ฉบับนี้' : 'คนเดียวกับฝ่ายก่อนหน้า'}</span></small>`;
@@ -330,14 +346,14 @@
     d.appendChild(flowsWrap);
     if (can) flowsWrap.querySelectorAll('.wf-approve').forEach(b => b.onclick = () => approve(b.dataset.flow));
     if (can) flowsWrap.querySelectorAll('.wf-return').forEach(b => b.onclick = returnForRevision);
-    if (can && !online) d.insertAdjacentHTML('beforeend', '<p class="muted">เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — อนุมัติหรือส่งกลับได้เมื่อเปิดจากลิงก์สำหรับทีม</p>');
+    if (can && !online) d.insertAdjacentHTML('afterbegin', '<div class="wf-advise improve"><b>ยังอนุมัติหรือส่งกลับจากเครื่องนี้ไม่ได้</b><p>เครื่องนี้ยังไม่เชื่อมข้อมูลกลาง — เปิดแอปจากลิงก์สำหรับทีมแล้วจึงอนุมัติได้</p></div>');
     if ((ap.history || []).length) d.insertAdjacentHTML('beforeend', `<details class="wf-hist"><summary>ประวัติการส่งกลับ (${ap.history.length})</summary><ul>${ap.history.map(h => `<li>${esc(U().dateTxt(h.at, true))} · ${esc(h.flowName)} · ${U().ud(h.by)} — ${U().ud(h.reason)}</li>`).join('')}</ul></details>`);
     if (can && av.n === 0) {
       const wd = el('button', 'ghost', '↶ ถอนการส่ง (ยังไม่มีใครอนุมัติ)');
       wd.onclick = async () => { if (await U().ask('ถอนการส่งอนุมัติ OIS นี้? แก้ OIS แล้วค่อยส่งใหม่ได้', [], { ok: 'ถอนการส่ง', cancel: 'ไม่ถอน', danger: true })) { ap.submitted = false; ap.by = ''; delete ap.before; delete ap.ct; if (w.newOis) w.newOis.reviewed = false; saveRec(); render(); } };
       d.appendChild(wd);
     }
-    return panel('6 · ส่งอนุมัติ', d, st.approved ? badgeDone(true) : `<span class="wf-badge">อนุมัติแล้ว ${av.n}/${FLOWS.length}${av.redo ? ' · ต้องอนุมัติใหม่ ' + av.redo : ''}</span>`);
+    return panel('6 · ส่งอนุมัติ', d, st.approved ? badgeDone(true) : `<span class="wf-badge">อนุมัติแล้ว ${av.n}/${FLOWS.length}${av.firstPending >= 0 ? ' · รอ Flow ' + (av.firstPending + 1) : ''}${D().approvalDots(w)}</span>`);
   }
   async function approve(flowKey) {
     // PIN กลาง: ตรวจที่ server (ผู้ดูแลตั้งที่หน้าหลังบ้าน) ใช้ได้ทุกเครื่อง · PIN ผิดแล้วกล่องเปิดค้างพร้อมข้อความเดิม
@@ -347,10 +363,11 @@
     const av0 = D().approvalOf(wf()), fp = av0.firstPending;
     if (FLOWS.indexOf(f) !== fp) { U().toast('อนุมัติตามลำดับ — รอ ' + FLOWS[fp].name + ' ก่อน'); return; }
     const sn = ssoName(), w0 = wf(), ci = (w0.approval && w0.approval.ct) || D().ctInfo(rec());
+    if (sn) { const d0 = FLOWS.find(x => x.key !== flowKey && av0.valid[x.key] && w0.approval.flows[x.key].by === sn); if (d0) { U().toast(`${sn} อนุมัติ ${d0.name} ไปแล้ว — คนเดียวกันอนุมัติได้ฝ่ายเดียว`); return; } }
     const what = `${w0.newOis ? w0.newOis.code + ' · ' + (w0.newOis.steps || []).length + ' ขั้นตอน · ' : ''}CT ${ci.src === 'after' ? U().fmt(ci.before) + ' → ' : ''}${U().fmt(ci.ct)} วิ`;
     let prev = {}, err = '';
     for (;;) {
-      const a = await U().ask((err ? '⚠ ' + err + ' — ' : '') + 'อนุมัติ · ' + f.name + ' — ' + what + (sn ? ' (ในชื่อ ' + sn + ')' : ''),
+      const a = await U().ask((err ? '⚠ ' + err + ' — ' : '') + 'อนุมัติ · ' + f.name + ' — ' + what + (sn ? ' (ในชื่อ ' + sn + ')' : ' · หนึ่งคนอนุมัติได้ฝ่ายเดียว'),
         (sn ? [] : [{ name: 'by', label: 'ชื่อผู้อนุมัติ', value: prev.by }]).concat([{ name: 'pin', label: 'PIN ของฝ่าย', type: 'password' }]), { ok: 'อนุมัติ', cancel: 'ยกเลิก' });
       if (!a) return; prev = a; a.by = sn || String(a.by || '').trim();
       if (!a.by) { err = 'ใส่ชื่อผู้อนุมัติ'; continue; }

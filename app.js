@@ -515,7 +515,9 @@
         <dt>OIS</dt><dd>เอกสารมาตรฐานการทำงานของสถานี (ต้องอนุมัติครบ 5 ฝ่าย)</dd>
         <dt>4M1E</dt><dd>คน · เครื่อง · วัสดุ · วิธี · สภาพแวดล้อม</dd>
         <dt>การอนุมัติ OIS</dt><dd>ส่งแล้วอนุมัติตามลำดับ Flow 1 → 5 ด้วย PIN ของแต่ละฝ่าย · ฝ่ายที่กำลังพิจารณาส่งกลับแก้ไขได้ (ล้างการอนุมัติทั้งหมด) · ดูงานที่รอฝ่ายคุณได้ที่หน้าสมดุลสถานี</dd>
-        <dt>Before</dt><dd>รอบที่ CT สูงสุดของ Time Study สถานีนั้น (ถ้าไม่ได้แก้เอง)</dd>
+        <dt>Before</dt><dd>รอบที่ CT สูงสุดของ Time Study สถานีนั้น (ถ้าไม่ได้แก้เอง) · ตรึงไว้ตอนส่ง OIS — รอบใหม่หลังส่งไม่เปลี่ยน Before</dd>
+        <dt>กฎผู้อนุมัติ</dt><dd>หนึ่งคนอนุมัติได้ฝ่ายเดียว · ถ้าสร้าง OIS ฉบับใหม่ การอนุมัติก่อนหน้าต้องทำใหม่</dd>
+        <dt>เพดานภาระ</dt><dd>ภาระสูงสุดที่ยอมให้แต่ละสถานีตอนเกลี่ยงาน (% ของ TAKT เช่น 90%) เผื่อไว้ไม่ให้ชน TAKT</dd>
         <dt>คะแนนความง่าย</dt><dd>1 = ยากสุด, 5 = ง่ายสุด · ≤ 3 = จุดต้องปรับปรุง</dd></dl>
         <p><b>AI</b> ช่วยร่าง element และข้อเสนอให้ แล้วคนตรวจแก้ — ถ้าปุ่ม AI แจ้งว่ายังไม่พร้อม ให้ติดต่อผู้ดูแลระบบ</p>
         <div class="dlg-actions"><button type="button" class="primary" data-close>ปิด</button></div></div>`;
@@ -728,12 +730,17 @@
     out.firstPending = FLOW_KEYS.findIndex(k => !out.valid[k]);
     return out;
   }
+  // จุด 5 จุดบอกความคืบหน้าการอนุมัติ: ok = อนุมัติแล้ว · redo = ต้องอนุมัติใหม่ · next = ถึงตา
+  function approvalDots(w) {
+    const av = approvalOf(w);
+    return `<span class="ap-dots" aria-hidden="true">${FLOW_KEYS.map((k, i) => `<i class="${av.valid[k] ? 'ok' : av.why[k] ? 'redo' : i === av.firstPending ? 'next' : ''}"></i>`).join('')}</span>`;
+  }
   // สถานะของสถานีชุดเดียวทั้งแอป (ชิปในตาราง · การ์ดสรุป · แดชบอร์ด)
   function statusOf(r) {
     const w = r.wf || {}, ap = w.approval || {};
     const j = num(r.jph), load = j ? ctOf(r) / (3600 / j) * 100 : 0;
     if (w.improve === false) return load > 100 ? { key: 'decide', label: 'ต้องตัดสินใจ · ยังเกิน TAKT', alarm: true, load } : { key: 'closed', label: 'ปิด – ไม่ปรับปรุง', load };
-    if (ap.submitted) { const av = approvalOf(w); return av.n >= 5 ? { key: 'approved', label: 'อนุมัติครบ 5/5', load } : { key: 'pending', label: `รออนุมัติ ${av.n}/5` + (av.redo ? ` · ต้องอนุมัติใหม่ ${av.redo}` : ''), load }; }
+    if (ap.submitted) { const av = approvalOf(w); return av.n >= 5 ? { key: 'approved', label: 'อนุมัติครบ 5/5', load } : { key: 'pending', label: `อนุมัติแล้ว ${av.n}/5` + (av.firstPending >= 0 ? ` · รอ Flow ${av.firstPending + 1}` : ''), sub: av.redo ? 'ต้องอนุมัติใหม่: ' + FLOW_KEYS.map((k, i) => av.why[k] ? 'Flow ' + (i + 1) : '').filter(Boolean).join(', ') : '', dots: approvalDots(w), load }; }
     if (w.improve === true) { const step = 4 + (w.lineBalance && w.lineBalance.saved ? 1 : 0) + (w.newOis && w.newOis.reviewed ? 1 : 0); return { key: 'progress', label: `กำลังทำ ขั้น ${step}/6`, load }; }
     const adv = advise(r);
     return adv.status === 'improve' ? { key: 'decide', label: 'ต้องตัดสินใจ', alarm: load > 100, reasons: adv.reasons, load } : adv.status === 'ok' ? { key: 'ok', label: 'ปกติ', load } : { key: 'nodata', label: 'รอข้อมูล', load };
@@ -853,7 +860,7 @@
     util: { $, $$, uid, esc, ud, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
-      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf, beforeOf, approvalOf,
+      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf, beforeOf, approvalOf, approvalDots,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },
       advise, balance, RULES,
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },

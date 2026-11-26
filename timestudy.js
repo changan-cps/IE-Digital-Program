@@ -498,7 +498,7 @@
     host.querySelector('#ts-count').textContent = list.length;
     if (!list.length) { wrap.innerHTML = '<div class="empty-row"><p>ยังไม่มี element — ใช้ปุ่มจับเวลา หรือ “＋ แถว”</p></div>'; }
     else {
-      wrap.innerHTML = `<table class="el-table ease-table"><thead><tr><th>#</th><th>คนที่</th><th>ขั้นตอน</th><th>วินาที</th><th>ก้าว</th><th>ประเภท</th><th>แบบงาน</th><th>เครื่อง (วิ)</th>${DIMS.map(d => `<th>${d.label}</th>`).join('')}<th>รวม</th><th></th></tr></thead><tbody></tbody></table>`;
+      wrap.innerHTML = `<table class="el-table ease-table"><thead><tr><th>#</th><th>คนที่</th><th>ขั้นตอน</th><th>วินาที</th><th>ก้าว</th><th>ประเภท</th><th>แบบงาน</th><th>เครื่อง (วิ)</th><th>ความง่าย (1–5)<small class="ease-h">หมุน · ยก · ก้ม · หนัก</small></th><th></th></tr></thead><tbody></tbody></table>`;
       const tb = wrap.querySelector('tbody');
       list.forEach((e, i) => tb.appendChild(row(list, e, i)));
     }
@@ -712,11 +712,11 @@
       <td class="c-type" data-l="ประเภท"><div class="r-type seg" role="radiogroup" tabindex="-1" aria-label="ประเภท แถว ${i + 1}">${TYPES.map(ty => `<button type="button" role="radio" data-ty="${ty.k}" style="--c:${ty.color}">${ty.k}</button>`).join('')}</div></td>
       <td data-l="แบบงาน"><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
       <td data-l="เครื่อง (วิ)"><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
-      ${DIMS.map(d => `<td class="c-dim" data-l="${d.label}"><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></td>`).join('')}
-      <td class="r-sum" data-l="รวม"></td>
+      <td class="c-ease" data-l="ความง่าย (1–5)"><details class="ease-pop"><summary aria-label="ความง่าย แถว ${i + 1}"><span class="ease-chips">${DIMS.map(d => `<i data-k="${d.k}" title="${d.label}">–</i>`).join('')}</span><b class="r-sum"></b></summary>
+        <div class="ease-pop-body">${DIMS.map(d => `<label><span>${d.label}</span><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></label>`).join('')}<small class="muted">ระดับที่ไม่มีคำอธิบาย: รอเกณฑ์จากโรงงาน</small></div></details></td>
       <td class="c-del"><button class="r-del" title="ลบแถว" aria-label="ลบแถว ${i + 1}" type="button">✕</button></td>`;
     const paintRow = () => {
-      tr.querySelectorAll('.r-dim').forEach(s => { const n = sc(s.value); s.classList.toggle('low', n > 0 && n <= 3); });
+      tr.querySelectorAll('.r-dim').forEach(s => { const n = sc(s.value); s.classList.toggle('low', n > 0 && n <= 3); const c = tr.querySelector(`.ease-chips i[data-k="${s.dataset.k}"]`); if (c) { c.textContent = n || '–'; c.classList.toggle('low', n > 0 && n <= 3); } });
       const v = rowScore(e); const cell = tr.querySelector('.r-sum'); cell.textContent = v ? v.toFixed(1) : ''; cell.style.color = v ? easeColor(v) : '';
     };
     tr.querySelectorAll('.r-dim').forEach(s => { s.value = e[s.dataset.k] || ''; s.onchange = () => { e[s.dataset.k] = s.value; paintRow(); renderEase(); }; });
@@ -732,8 +732,22 @@
     const stp = tr.querySelector('.r-steps'); stp.value = e.steps ?? ''; stp.oninput = () => { e.steps = stp.value; refreshMetrics(); };
     const op = tr.querySelector('.r-op'); op.value = e.op || 1; op.oninput = () => { e.op = Math.max(1, Math.min(9, parseInt(op.value, 10) || 1)); renderSwct(); };
     const kd = tr.querySelector('.r-kind'), mc = tr.querySelector('.r-mach');
-    kd.value = kindOf(e); mc.value = e.mach ?? ''; mc.disabled = kd.value !== 'auto';
-    kd.onchange = () => { e.kind = kd.value; mc.disabled = kd.value !== 'auto'; renderSwct(); };
+    const machOff = () => { mc.disabled = kd.value !== 'auto'; mc.placeholder = mc.disabled ? '—' : ''; mc.title = mc.disabled ? 'ใช้เฉพาะแบบงาน “เครื่องจักร”' : 'เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้'; };
+    kd.value = kindOf(e); mc.value = e.mach ?? ''; machOff();
+    kd.onchange = () => { e.kind = kd.value; machOff(); renderSwct(); };
+    const pop = tr.querySelector('.ease-pop');
+    // กล่องเลือกคะแนนลอยเหนือตาราง (ตารางเลื่อนแนวนอนได้ จึงใช้ fixed ไม่ให้ถูกตัด) · จอเล็กแสดงในการ์ดตามปกติ
+    pop.ontoggle = () => {
+      const body = pop.querySelector('.ease-pop-body');
+      if (!pop.open) { body.removeAttribute('style'); return; }
+      tr.closest('tbody').querySelectorAll('.ease-pop[open]').forEach(x => { if (x !== pop) x.open = false; });
+      if (matchMedia('(max-width:720px)').matches) return;
+      const r = pop.querySelector('summary').getBoundingClientRect(), h = body.offsetHeight || 260, w = 250;
+      const top = r.bottom + 4 + h > innerHeight - 8 ? Math.max(8, r.top - h - 4) : r.bottom + 4;
+      Object.assign(body.style, { position: 'fixed', top: top + 'px', left: Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px', right: 'auto' });
+      const close = () => { pop.open = false; removeEventListener('scroll', close, true); };
+      addEventListener('scroll', close, { capture: true, once: true });
+    };
     mc.oninput = () => { e.mach = mc.value; renderSwct(); };
     tr.querySelector('.r-del').onclick = () => { const idx = list.indexOf(e); if (idx > -1) list.splice(idx, 1); renderTable(); };
     return tr;

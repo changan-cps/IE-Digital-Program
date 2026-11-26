@@ -44,7 +44,7 @@
           const b = { ct: D().beforeOf(j).ct }, a = U().totals(j.after);
           const saved = b.ct - a.ct, has = a.count > 0;
           return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
-            <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}${lockedBy(j) ? ' · 🔒' : ''}</em>
+            <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}${lockedBy(j) ? ' · 🔒 OIS ส่งแล้ว' : ''}</em>
             <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}"${lockedBy(j) ? ' disabled title="ล็อก: OIS รออนุมัติ"' : ''}>ลบ</button>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
@@ -236,7 +236,7 @@
       <div class="tbl"></div>
       <div class="mini-metrics">${mini('CT', fmt(t.ct) + ' วิ')}${mini('VA', fmt(t.VA) + ' · ' + fmt(t.vaPct) + '%', '#15856b')}${mini('NNVA', fmt(t.NNVA), '#ad7206')}${mini('NVA', fmt(t.NVA), '#a64475')}</div>
       <div class="stack">${stack(t)}</div>`;
-    if (ph === 'before' && editing.autoBefore) { const nt = document.createElement('p'); nt.className = 'hint'; nt.textContent = D().beforeOf(editing).frozen ? 'Before นี้เก็บไว้ตอนส่ง OIS — ไม่เปลี่ยนตามรอบ Time Study ใหม่' : 'Before นี้ใช้รอบที่ CT สูงสุดของ Time Study สถานีนี้ และอัปเดตเองเมื่อมีรอบใหม่ · ถ้าแก้ด้วยมือ ระบบจะหยุดเขียนทับ'; sec.appendChild(nt); }
+    if (ph === 'before' && editing.autoBefore) { const nt = document.createElement('p'); nt.className = 'hint'; nt.textContent = D().beforeOf(editing).frozen ? 'Before นี้เก็บไว้ตอนส่ง OIS — ไม่เปลี่ยนตามรอบ Time Study ใหม่' : lockedBy(editing) ? 'OIS ส่งแล้ว แต่ไม่มีค่า Before ที่เก็บไว้ตอนส่ง — แสดงรอบที่ CT สูงสุดในตอนนี้' : 'Before นี้ใช้รอบที่ CT สูงสุดของ Time Study สถานีนี้ และอัปเดตเองเมื่อมีรอบใหม่ · ถ้าแก้ด้วยมือ ระบบจะหยุดเขียนทับ'; sec.appendChild(nt); }
     host.querySelector('#ph-' + ph).replaceChildren(sec);
     const tbl = sec.querySelector('.tbl');
     if (!list.length) tbl.innerHTML = `<div class="empty-row"><p>${ph === 'after' ? 'คัดลอกจาก Before แล้วแก้ หรือ ＋ ขั้นตอน' : 'กด ＋ ขั้นตอน เพื่อเพิ่มรายการ'}</p></div>`;

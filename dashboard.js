@@ -14,6 +14,7 @@
   // ---------- periods ----------
   const parseD = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? new Date(+m[1], m[2] - 1, +m[3]) : null; };
   const dt = (d, o) => d.toLocaleDateString(I().locale(), o).replace('Sept', 'Sep');
+  const detOpen = () => { try { return localStorage.getItem('cps-ie-dzdetail') === '1'; } catch (e) { return false; } };
   function buckets(m) {
     const out = [], now = new Date(); now.setHours(0, 0, 0, 0);
     if (m === 'week') {
@@ -232,15 +233,16 @@
         <section class="panel"><div class="panelhead"><h2>${esc(t('handsTitle'))}</h2><small class="muted">${esc(t('handsNote', n, mode))}</small></div><div class="dz-body" data-chart="hands"></div></section>
         <section class="panel"><div class="panelhead"><h2>${esc(t('topTitle'))}</h2><small class="muted">${esc(t('topNote', nJob))}</small></div><div class="dz-body dz-top">${topList(P.kaizen)}</div></section>
       </div>
-      <h2 class="dz-band">${esc(t('bandDetail'))}</h2>
+      <details class="dz-detail"${detOpen() ? ' open' : ''}><summary class="dz-band">${esc(t('bandDetail'))}</summary>
       ${lb.lines.length ? swctPanel(lb) : ''}
-      ${lineBalanceTable(lb)}
+      ${lineBalanceTable(lb)}</details>
       ${D().canEdit() ? `<div class="dash-links">
         <button class="bigbtn" data-go="timestudy"><b>${esc(t('goTs'))}</b><span>${esc(t('goTsSub'))}</span></button>
         <button class="bigbtn" data-go="analysis"><b>${esc(t('goAn'))}</b><span>${esc(t('goAnSub'))}</span></button>
       </div>` : ''}
       <details class="dz-more"><summary>${esc(t('recent'))}</summary>${recent(P.studies, P.jobs)}</details>`;
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => window.CPS.showTab(b.dataset.go));
+    { const dt = el.querySelector('.dz-detail'); if (dt) dt.ontoggle = () => { try { localStorage.setItem('cps-ie-dzdetail', dt.open ? '1' : '0'); } catch (e) {} }; }
     el.querySelector('[data-ppt]').onclick = e => downloadPpt(e.currentTarget, ctx);
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; try { localStorage.setItem(PKEY, mode); } catch (e) {} render(el, ctx); });
     el.querySelectorAll('[data-sw]').forEach(sl => sl.onchange = () => { if (sl.dataset.sw === 'line') swSel = sl.value; else swPick = sl.value; saveSw(); render(el, ctx); });
