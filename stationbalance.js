@@ -122,9 +122,9 @@
     if (!st) return '';
     const { esc } = U(); const F = lineFacts(st, op);
     const sp = ([k, v], i, color) => `<span>${esc(k)}${v ? ` <b${color && i === 0 ? ` style="color:${color}"` : ''}>${esc(v)}</b>` : ''}</span>`;
-    return `<div class="sb-lbr">${F.main.map((p, i) => sp(p, i, lbrColor(st.lbr))).join('')}` +
+    return `<div class="sb-lbr">${F.main.slice(0, 4).map((p, i) => sp(p, i, lbrColor(st.lbr))).join('')}` +
       (F.sub ? `<div class="lbr-op"><small>${esc(LI().t('perOp'))}</small>${F.sub.map((p, i) => sp(p, i)).join('')}</div>` : '') +
-      `<span class="lbr-f">${esc(LI().t('lbrBoth'))}</span></div>`;
+      `<details class="lbr-more"><summary>${esc(LI().t('lbrMore'))}</summary><div>${F.main.slice(4).map((p, i) => sp(p, i + 4)).join('')}<span class="lbr-f">${esc(LI().t('lbrBoth'))}</span></div></details></div>`;
   }
   function groupTakt(list) {
     const jphs = list.map(r => U().num(r.jph)).filter(Boolean);

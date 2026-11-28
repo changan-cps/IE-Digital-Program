@@ -79,7 +79,7 @@
             <span class="tag">รอบ ${i + 1}</span>${i === iMax ? maxTag : ''}
             <small>${s.operator ? U().ud(s.operator) + ' · ' : ''}${esc(U().dateTxt(s.date))}</small>
             <em>${fmt(t.ct)} วิ · VA ${fmt(t.vaPct)}%</em>
-            <span class="row-btns"><button data-edit="${s.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(label)} รอบ ${i + 1}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${s.id}" aria-label="ลบ ${esc(label)} รอบ ${i + 1}"${submittedFor(s) ? ' disabled title="ล็อก: ใช้กับ OIS ที่ส่งอนุมัติแล้ว"' : ''}>${submittedFor(s) ? '🔒 ลบ' : 'ลบ'}</button>` : ''}</span>
+            <span class="row-btns"><button data-edit="${s.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(label)} รอบ ${i + 1}">${can ? 'เปิด' : 'ดู'}</button>${can ? (submittedFor(s) ? '<span class="row-lock" title="ล็อก: ใช้กับ OIS ที่ส่งอนุมัติแล้ว" aria-label="ล็อก: ใช้กับ OIS ที่ส่งอนุมัติแล้ว">🔒</span>' : `<details class="row-more"><summary aria-label="เพิ่มเติม ${esc(label)} รอบ ${i + 1}">⋯</summary><button class="del" data-del="${s.id}" aria-label="ลบ ${esc(label)} รอบ ${i + 1}">ลบ</button></details>`) : ''}</span>
           </div>`; }).join('')}</div>
       </section>`;
     });

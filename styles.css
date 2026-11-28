@@ -717,3 +717,23 @@ input:disabled,select:disabled,textarea:disabled{background:#eef2f6;color:#5f738
 
 /* round 16: phone KPI cards one per row */
 @media(max-width:480px){.cards.dz-cards{grid-template-columns:1fr}}
+/* round 17 */
+.sv-chip{display:inline-block;font-style:normal;font-size:12px;font-weight:600;line-height:1.2;padding:3px 8px;border-radius:6px;white-space:nowrap;vertical-align:middle}
+.sv-chip.ok{background:#e4f6ef;color:#12735a}.sv-chip.pend{background:#fff4e0;color:#8a4b00}.sv-chip.ns{background:#eef2f6;color:#566a7d}
+.dz-toplist span .sv-chip{align-self:flex-end;margin-top:3px}
+.row-more{position:relative}.row-more>summary{list-style:none;cursor:pointer;display:grid;place-items:center;min-width:38px;min-height:38px;border:1px solid var(--line);border-radius:9px;color:var(--muted);font-weight:700}
+.row-more>summary::-webkit-details-marker{display:none}.row-more>summary:focus-visible{outline:2px solid #1f6fb2;outline-offset:2px}
+.row-more[open]>.del{position:absolute;right:0;top:calc(100% + 4px);z-index:8;margin:0;background:#fff;border:1px solid #e6b9bd;box-shadow:0 8px 20px rgba(16,43,70,.14);white-space:nowrap}
+.row-lock{display:grid;place-items:center;min-width:38px;min-height:38px;color:var(--muted);cursor:help}
+.wf-flow.redo{border-color:var(--line);background:#fff}.wf-flow.redo .wf-flow-no{background:#e2e9f0;color:inherit}
+.wf-flow.now{border-color:#1f6fb2;box-shadow:0 0 0 2px #cfe0f0;background:#f6faff}.wf-flow.now .wf-flow-no{background:#1f6fb2;color:#fff}
+.wf-nowtxt{color:#17548a;font-weight:700}
+.wf-why{margin:0 0 10px;color:#8a4b00;font-weight:600;font-size:13px}
+.lbr-more{flex-basis:100%;font-size:13px}.lbr-more>summary{cursor:pointer;color:var(--muted);width:max-content}.lbr-more>div{display:flex;flex-wrap:wrap;gap:6px 18px;padding-top:6px}
+.cards.dz-cards>.stat{min-width:0}.stat .dz-leg{white-space:normal}
+@media(max-width:560px){
+  .topbar .brand{overflow:hidden;flex:1 1 0}.topbar .brand>div{overflow:hidden;text-overflow:ellipsis}
+  .topbar .top-actions{flex:none}.topbar .top-actions>button.ghost:not(.help-btn){max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cards.dz-cards{grid-template-columns:minmax(0,1fr)}
+  .page-head .head-btns{flex-wrap:wrap}
+}

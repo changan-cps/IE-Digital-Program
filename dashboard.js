@@ -318,7 +318,7 @@
     const top = kz.slice().sort((a, b) => b.red - a.red).slice(0, 6), mx = Math.max(...top.map(k => k.red), 1);
     return `<ol class="dz-toplist">${top.map(k => `<li><div><b>${U().ud(k.j.name || k.j.station || '—')}</b><small class="muted">${esc([k.j.team, k.j.station].filter(Boolean).join(' · '))} · ${esc(U().dateTxt(k.j.date))}</small></div>
       <div class="dz-topbar"><i style="width:${Math.max(2, k.red / mx * 100)}%"></i></div>
-      <span><b>−${fmt(k.red)} ${s}</b><small>${fmt(k.bf)} → ${fmt(k.af)} ${s} (−${fmt(k.pct)}%)</small></span></li>`).join('')}</ol>`;
+      <span><b>−${fmt(k.red)} ${s}</b><small>${fmt(k.bf)} → ${fmt(k.af)} ${s} (−${fmt(k.pct)}%)</small>${(sv => `<em class="sv-chip ${sv.key}">${esc(sv.label)}</em>`)(D().savingStatus(k.j))}</span></li>`).join('')}</ol>`;
   }
 
   const areaOf = l => { const L = D().scope.level; return [L === 'team' ? '' : l.ws, L === 'team' || L === 'group' ? '' : l.group, L === 'team' ? '' : l.team].filter(Boolean).join(' / ') || l.team || '—'; };

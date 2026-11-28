@@ -44,8 +44,8 @@
           const b = { ct: D().beforeOf(j).ct }, a = U().totals(j.after);
           const saved = b.ct - a.ct, has = a.count > 0;
           return `<div class="recent-row"><b>${j.name ? U().ud(j.name) : 'ไม่มีชื่อ'}</b><small>${esc([j.station, j.line, U().dateTxt(j.date)].filter(Boolean).join(' · '))}${can ? '' : ' · ' + esc([j.workshop, j.group, j.team].filter(Boolean).join('/'))}</small>
-            <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}${lockedBy(j) ? ' · 🔒 OIS ส่งแล้ว' : ''}</em>
-            <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can ? `<button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}"${lockedBy(j) ? ' disabled title="ล็อก: ใช้กับ OIS ที่ส่งอนุมัติแล้ว"' : ''}>${lockedBy(j) ? '🔒 ลบ' : 'ลบ'}</button>` : ''}</span></div>`;
+            <em>${has ? 'ลด ' + fmt(saved) + ' วิ' : 'ยังไม่มี After'}${has ? (sv => ` <span class="sv-chip ${sv.key}">${lockedBy(j) ? '🔒 ' : ''}${esc(sv.label)}</span>`)(D().savingStatus(j)) : lockedBy(j) ? ' · 🔒 OIS ส่งแล้ว' : ''}</em>
+            <span class="row-btns"><button data-edit="${j.id}" aria-label="${can ? 'เปิด' : 'ดู'} ${esc(j.name || '')}">${can ? 'เปิด' : 'ดู'}</button>${can && !lockedBy(j) ? `<details class="row-more"><summary aria-label="เพิ่มเติม ${esc(j.name || '')}">⋯</summary><button class="del" data-del="${j.id}" aria-label="ลบ ${esc(j.name || '')}">ลบ</button></details>` : ''}</span></div>`;
         }).join('')}</div></section>`}`;
     const nb = host.querySelector('#an-new'); if (nb) nb.onclick = () => { editing = blankJob(); renderEditor(); };
     const q = host.querySelector('#an-q'); if (q) q.oninput = () => { const v = q.value.trim().toLowerCase(); host.querySelectorAll('.recent-row').forEach(r => r.hidden = !!v && !r.textContent.toLowerCase().includes(v)); };
@@ -276,11 +276,12 @@
     const b = U().totals(j.before), a = U().totals(j.after), has = a.count > 0;
     const saved = b.ct - a.ct, savedPct = b.ct ? (saved / b.ct) * 100 : 0, wasteCut = b.NVA - a.NVA;
     const el = host.querySelector('#an-report');
+    const sv = D().savingStatus(j), svCol = { ok: '#15856b', pend: '#8a4b00', ns: '#52708a' }[sv.key];
     el.innerHTML = `<div class="panelhead"><h2>รายงานสรุปอัตโนมัติ</h2></div>
       <div class="report-cards">
         ${rc('CT ก่อน', fmt(b.ct) + ' วิ')}
         ${rc('CT หลัง', has ? fmt(a.ct) + ' วิ' : '—')}
-        ${rc('ลดเวลาได้', has ? fmt(saved) + ' วิ' : '—', saved > 0 ? '#15856b' : saved < 0 ? '#a64475' : '', has ? fmt(savedPct) + '%' : '')}
+        ${rc('ลดเวลาได้', has ? fmt(saved) + ' วิ' : '—', saved > 0 ? svCol : saved < 0 ? '#a64475' : '', has ? fmt(savedPct) + '% · ' + sv.label : '')}
         ${rc('VA%', fmt(b.vaPct) + '%' + (has ? ' → ' + fmt(a.vaPct) + '%' : ''), '#15856b')}
         ${rc('NVA (สูญเปล่า) ก่อน → หลัง', has ? fmt(b.NVA) + ' → ' + fmt(a.NVA) + ' วิ' : '—', has ? (a.NVA < b.NVA ? '#15856b' : a.NVA > b.NVA ? '#c0392b' : '') : '')}
       </div>
@@ -298,15 +299,15 @@
   const CONCL = {
     th: { noAfter: 'บันทึกข้อมูล “หลังปรับปรุง” เพื่อให้ระบบสรุปผลเปรียบเทียบอัตโนมัติ', unnamed: 'ไม่ระบุ', head: (n, l) => `งาน “${n}”${l}: `,
       cut: (s, p, b, a) => `ลดรอบเวลา ${s} วิ (${p}%) จาก ${b} วิ เหลือ ${a} วิ`, up: x => `รอบเวลาเพิ่มขึ้น ${x} วิ ควรทบทวน`, same: 'รอบเวลาคงเดิม',
-      va: (b, a) => `. VA ${b}% → ${a}%`, wCut: w => `, ลดความสูญเปล่า ${w} วิ`, wUp: w => `, ความสูญเปล่า (NVA) เพิ่มขึ้น ${w} วิ`, dot: '. ',
+      va: (b, a) => `. VA ${b}% → ${a}%`, wCut: w => `, ลดความสูญเปล่า ${w} วิ`, wUp: w => `, ความสูญเปล่า (NVA) เพิ่มขึ้น ${w} วิ`, dot: '. ', st: { ok: () => ' [OIS อนุมัติครบ 5/5]', pend: n => ` [OIS รออนุมัติ ${n}/5 — ยังไม่นับเป็นผลที่อนุมัติ]`, ns: () => ' [ยังไม่ส่ง OIS อนุมัติ — ยังไม่นับเป็นผลที่อนุมัติ]' },
       tr: (n, m) => `อบรมพนักงานตามวิธีใหม่รวม ${n} คน ใน ${m} เดือน`, noTr: 'ยังไม่มีบันทึกการอบรม' },
     en: { noAfter: 'Record the “After” data so the system can summarise the comparison automatically', unnamed: 'unnamed', head: (n, l) => `Job “${n}”${l}: `,
       cut: (s, p, b, a) => `cycle time cut by ${s} s (${p}%), from ${b} s to ${a} s`, up: x => `cycle time rose by ${x} s — review needed`, same: 'cycle time unchanged',
-      va: (b, a) => `. VA ${b}% → ${a}%`, wCut: w => `, waste cut by ${w} s`, wUp: w => `, waste (NVA) rose by ${w} s`, dot: '. ',
+      va: (b, a) => `. VA ${b}% → ${a}%`, wCut: w => `, waste cut by ${w} s`, wUp: w => `, waste (NVA) rose by ${w} s`, dot: '. ', st: { ok: () => ' [OIS fully approved 5/5]', pend: n => ` [OIS awaiting approval ${n}/5 — not yet an approved result]`, ns: () => ' [OIS not submitted — not yet an approved result]' },
       tr: (n, m) => `${n} operator${n == 1 ? '' : 's'} trained on the new method over ${m} month${m == 1 ? '' : 's'}`, noTr: 'No training recorded yet' },
     zh: { noAfter: '请记录“改善后”数据，系统将自动生成对比总结', unnamed: '未命名', head: (n, l) => `作业“${n}”${l}：`,
       cut: (s, p, b, a) => `周期时间缩短 ${s} 秒（${p}%），由 ${b} 秒降至 ${a} 秒`, up: x => `周期时间增加 ${x} 秒，需复查`, same: '周期时间不变',
-      va: (b, a) => `。VA ${b}% → ${a}%`, wCut: w => `，浪费减少 ${w} 秒`, wUp: w => `，浪费（NVA）增加 ${w} 秒`, dot: '。',
+      va: (b, a) => `。VA ${b}% → ${a}%`, wCut: w => `，浪费减少 ${w} 秒`, wUp: w => `，浪费（NVA）增加 ${w} 秒`, dot: '。', st: { ok: () => '［OIS 已全部审批 5/5］', pend: n => `［OIS 待审批 ${n}/5 — 尚未计入已审批成果］`, ns: () => '［OIS 未提交 — 尚未计入已审批成果］' },
       tr: (n, m) => `按新方法共培训 ${n} 人，历时 ${m} 个月`, noTr: '尚无培训记录' },
   };
   function conclusion(j, b, a, has, saved, savedPct, wasteCut) {
@@ -318,7 +319,7 @@
     if (!has) return T.noAfter;
     const tr = trainTotals(j.training); const p = [];
     p.push(T.head(j.name || T.unnamed, j.line ? ' (' + j.line + ')' : ''));
-    if (saved > 0) p.push(T.cut(fmt(saved), fmt(savedPct), fmt(b.ct), fmt(a.ct)));
+    if (saved > 0) { p.push(T.cut(fmt(saved), fmt(savedPct), fmt(b.ct), fmt(a.ct))); const sv = D().savingStatus(j); p.push(T.st[sv.key](sv.n)); }
     else if (saved < 0) p.push(T.up(fmt(-saved)));
     else p.push(T.same);
     p.push(T.va(fmt(b.vaPct), fmt(a.vaPct)));

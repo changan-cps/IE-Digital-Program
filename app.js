@@ -731,6 +731,13 @@
     out.firstPending = FLOW_KEYS.findIndex(k => !out.valid[k]);
     return out;
   }
+  // สถานะอนุมัติของยอด CT ที่ลดได้ของงานวิเคราะห์ (3 กลุ่มเดียวกับแดชบอร์ด): ok = อนุมัติครบ · pend = รออนุมัติ · ns = ยังไม่ส่ง
+  function savingStatus(job) {
+    const sr = listStations().find(r => gkey(r) === gkey(job)), ap = sr && sr.wf && sr.wf.approval;
+    if (!ap || !ap.submitted) return { key: 'ns', n: 0, label: 'ยังไม่ส่งอนุมัติ' };
+    const n = approvalOf(sr.wf).n;
+    return n >= 5 ? { key: 'ok', n, label: 'อนุมัติครบ 5/5' } : { key: 'pend', n, label: `รออนุมัติ ${n}/5` };
+  }
   // จุด 5 จุดบอกความคืบหน้าการอนุมัติ: ok = อนุมัติแล้ว · redo = ต้องอนุมัติใหม่ · next = ถึงตา
   function approvalDots(w) {
     const av = approvalOf(w);
@@ -862,7 +869,7 @@
     util: { $, $$, uid, esc, ud, num, round1, fmt, TYPES, totals, toast, ask, dateTxt },
     applyShell,
     data: {
-      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf, beforeOf, approvalOf, approvalDots,
+      listStudies, listJobs, listStations, upsert, remove, removeUndo, canEdit, ctInfo, ctOf, statusOf, beforeOf, approvalOf, approvalDots, savingStatus,
       group: { key: gkey, roundsOf, aggregate, flow: flowFromStation },
       advise, balance, RULES,
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },
