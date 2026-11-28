@@ -75,6 +75,9 @@
       <nav class="wf-steps" aria-label="ขั้นตอน">${steps.map((s, si) => { const lk = s.done !== true ? lockWhy(s.n) : ''; const sk = lk && noImp && s.n >= 4;
         return `<button type="button" data-step="${si}" aria-label="ขั้น ${s.n} ${esc(s.t)} · ${s.done === true ? 'เสร็จ' : sk ? 'ข้าม' : lk ? 'ยังไม่ถึง' : 'รอดำเนินการ'}"${lk ? ` title="${esc(lk)}"` : ''}${si === nowIdx ? ' aria-current="step"' : ''} class="wf-step ${s.done === true ? 'done' : sk ? 'skip' : lk ? 'lock' : ''}${si === nowIdx ? ' now' : ''}"><span class="wf-dot">${s.done === true ? '✓' : s.n}</span><small>${esc(s.t)}</small></button>`; }).join('<i class="wf-sep"></i>')}</nav>
       ${ended ? (over ? `<div class="ro-banner" style="background:#fdecea;border-color:#f3c4bd;color:#a12a1d">⚠ บันทึกไว้ว่า “ไม่ปรับปรุง” แต่สถานีนี้ยังเกิน TAKT (ภาระ ${fmt(loadOf(r))}%) — ควรกลับไปเลือก “ปรับปรุง” ในขั้น 3</div>` : '<div class="ro-banner" style="background:#e6f5ef;border-color:#bfe6d4;color:#14684e">✓ สรุป: ไม่ปรับปรุง — ปิดงานสถานีนี้แล้ว (ขั้น 4–6 ไม่ต้องทำ)</div>') : ''}
+      ${cameFrom ? (() => { const j = U().num(r.jph), tk = j ? 3600 / j : 0, ct = D().ctOf(r);
+        return over && tk ? `<div class="wf-advise block wf-ctx"><b>มาจาก <span translate="no">${esc(cameFrom.station)}</span> — สถานีนี้คือคอขวดของไลน์</b><p>เกิน TAKT ${fmt(loadOf(r))}% (CT ${fmt(ct)} วิ · TAKT ${fmt(tk)} วิ) · ต้องลดงานอย่างน้อย ${fmt(Math.ceil((ct - tk) * 10) / 10)} วิ จึงจะถึง TAKT</p></div>`
+          : `<div class="wf-advise info wf-ctx"><b>มาจาก <span translate="no">${esc(cameFrom.station)}</span></b></div>`; })() : ''}
       <div id="wf-body"></div>`;
     host.querySelector('#wf-back').onclick = () => onBack && onBack();
     { const rb = host.querySelector('#wf-return'); if (rb) rb.onclick = () => { const back = '#/stations/' + encodeURIComponent(cameFrom.id); if (history.state && history.state.prev === back) history.back(); else open(cameFrom.id, host, onBack); }; }
@@ -92,7 +95,10 @@
       body.appendChild(panelStep4(st, can));
       body.appendChild(panelStep5(st, can));
       body.appendChild(panelStep6(st, can));
-    }
+    } else [[4, '4 · Line Balance'], [5, '5 · ตรวจ OIS ใหม่'], [6, '6 · ส่งอนุมัติ']].forEach(([n, t]) => {
+      const d = document.createElement('div'); d.className = 'wf-pad'; d.innerHTML = `<p class="muted">${noImp ? '' : '🔒 '}${esc(lockWhy(n))}</p>`;
+      body.appendChild(panel(t, d, noImp ? '<span class="wf-badge lock">ข้าม</span>' : badgeLock));
+    });
   }
 
   function panel(title, bodyNode, badge) {
@@ -128,7 +134,7 @@
     const hasStudy = !!matchStudy();
     const reopen2 = !st.s2 && rec().wf && rec().wf.improve === false && loadOf(rec()) > 100;   // เกิน TAKT แต่เคยปิดแบบไม่ปรับปรุง: สร้างงานวิเคราะห์แล้วเปิดการตัดสินใจใหม่ในปุ่มเดียว
     const b = el('button', st.s2 ? 'ghost' : 'primary', st.s2 ? 'เปิดงานวิเคราะห์ของ ' + rec().station : 'สร้างงานวิเคราะห์ของ ' + rec().station);
-    if (reopen2) b.textContent = 'สร้างงานวิเคราะห์ + เปิดการตัดสินใจใหม่';
+    if (reopen2) b.textContent = 'เริ่มวิเคราะห์ Kaizen สถานีนี้';
     if (!st.s2 && !hasStudy) { b.disabled = true; b.title = 'ต้องมี Time Study ของสถานีนี้ก่อน'; }
     b.onclick = () => { if (reopen2) { G().flow(G().key(rec())); rec().wf.improve = null; saveRec(); render(); return; } let jb = st.job; if (!jb) { G().flow(G().key(rec())); jb = matchJob(); } if (jb) window.CPSAnalysis.openJob(jb.id); };
     d.appendChild(b);
