@@ -680,7 +680,7 @@
   function route() {
     if (!$('#app') || $('#app').hidden || /[#&]sheet=/.test(location.hash)) return;
     const h = routeNow(); if (h === location.hash) return;
-    if (routing || !/^#\//.test(location.hash)) history.replaceState(null, '', h); else history.pushState(null, '', h);
+    if (routing || !/^#\//.test(location.hash)) history.replaceState(history.state, '', h); else history.pushState({ prev: location.hash.replace(/~[^/]*$/, '') }, '', h);
   }
   function applyRoute() {
     if ($('#app').hidden) return;
@@ -697,12 +697,13 @@
     routing = true;
     try {
       if (tab !== currentTab) showTab(tab);
-      if (tab === 'timestudy') { const T = window.CPSTimeStudy, cur = T.currentId(); if (id && id !== cur) { if (cur) T.leave(); if (!T.openId(id)) T.render($('#tab-timestudy')); } else if (!id && cur) { T.leave(); T.render($('#tab-timestudy')); } }
-      else if (tab === 'analysis') { const A = window.CPSAnalysis, cur = A.currentId(); if (id && id !== cur) { if (cur) A.leave(); if (A.openJob(id) === false) A.render($('#tab-analysis')); } else if (!id && cur) { A.leave(); A.render($('#tab-analysis')); } }
-      else if (tab === 'stations') { const cur = window.CPSWorkflow.currentId(); if (id && id !== cur) { if (listStations().some(r => r.id === id)) window.CPSStations.openWorkflow(id); else window.CPSStations.render($('#tab-stations')); } else if (!id && cur) window.CPSStations.render($('#tab-stations')); }
+      if (tab === 'timestudy') { const T = window.CPSTimeStudy, cur = T.currentId(); if (id && id !== cur) { if (cur) T.leave(); if (!T.openId(id)) { T.render($('#tab-timestudy')); toast('ไม่พบรอบจับเวลาจากลิงก์นี้ — แสดงรายการ'); } } else if (!id && cur) { T.leave(); T.render($('#tab-timestudy')); } }
+      else if (tab === 'analysis') { const A = window.CPSAnalysis, cur = A.currentId(); if (id && id !== cur) { if (cur) A.leave(); if (A.openJob(id) === false) { A.render($('#tab-analysis')); toast('ไม่พบงานวิเคราะห์จากลิงก์นี้ — แสดงรายการ'); } } else if (!id && cur) { A.leave(); A.render($('#tab-analysis')); } }
+      else if (tab === 'stations') { const cur = window.CPSWorkflow.currentId(); if (id && id !== cur) { const [sid, fid] = id.split('~'), fr = fid && listStations().find(r => r.id === fid);
+          if (listStations().some(r => r.id === sid)) window.CPSStations.openWorkflow(sid, fr ? { from: { id: fr.id, station: fr.station } } : undefined); else { window.CPSStations.render($('#tab-stations')); toast('ไม่พบสถานีจากลิงก์นี้ — แสดงตารางสถานี'); } } else if (!id && cur) window.CPSStations.render($('#tab-stations')); }
     } finally { routing = false; }
     scrollTo(0, 0);
-    history.replaceState(null, '', routeNow());
+    history.replaceState(history.state, '', routeNow());
   }
   addEventListener('popstate', applyRoute);
   function showTab(tab) {

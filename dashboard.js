@@ -193,7 +193,8 @@
       const good = goodDown ? d < 0 : d > 0;
       return `<span class="dz-d ${good ? 'up' : 'down'}">${d < 0 ? '▼' : '▲'} ${fmt(Math.abs(d))}${unit} ${t('vsPrev', mode)}</span>`;
     };
-    const kpi = (label, val, unit, sub, color) => `<div class="stat"><small>${esc(label).replace(/\n/g, '<br>')}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + esc(unit) : ''}</em></strong>${sub ? `<span>${sub}</span>` : ''}</div>`;
+    const biLab = l => { const p = String(l).split('\n'); return p.length === 2 && I().bilingual ? '\u2063' + p[0] + '\u2064' + p[1] + '\u2062' : p.join(' '); };
+    const kpi = (label, val, unit, sub, color) => `<div class="stat"><small>${esc(biLab(label))}</small><strong${color ? ` style="color:${color}"` : ''}>${val}<em>${unit ? ' ' + esc(unit) : ''}</em></strong>${sub ? `<span>${sub}</span>` : ''}</div>`;
     const title = scope.team || scope.group || scope.workshop || t('allAreas');
     const levelLabel = t('level_' + (scope.level || 'team'));
     const subT = [scope.workshop, scope.group].filter(x => x && x !== title).join(' / ');

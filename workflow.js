@@ -64,7 +64,7 @@
       : n === 3 ? (!st.s3 && (!st.s1 || !st.s2) ? 'ทำขั้น 1–2 ให้เสร็จก่อน' : '')
       : n >= 4 && noImp ? 'ข้าม — บันทึกไว้ว่าไม่ปรับปรุงในขั้น 3'
       : n >= 4 && undecided ? 'ต้องยืนยันการปรับปรุงในขั้น 3 ก่อน'
-      : n === 5 && !st.s5 && !st.s4 ? 'ทำ Line Balance (ขั้น 4) ให้เสร็จก่อน'
+      : n >= 5 && !st[n === 5 ? 's5' : 's6'] && !st.s4 ? 'ทำ Line Balance (ขั้น 4) ให้เสร็จก่อน'
       : n === 6 && !st.s6 && !st.s5 ? 'ตรวจร่าง OIS (ขั้น 5) ให้เสร็จก่อน' : '';
     const nowIdx = steps.findIndex(x => x.done === false && !lockWhy(x.n));
     host.innerHTML = `
@@ -77,7 +77,7 @@
       ${ended ? (over ? `<div class="ro-banner" style="background:#fdecea;border-color:#f3c4bd;color:#a12a1d">⚠ บันทึกไว้ว่า “ไม่ปรับปรุง” แต่สถานีนี้ยังเกิน TAKT (ภาระ ${fmt(loadOf(r))}%) — ควรกลับไปเลือก “ปรับปรุง” ในขั้น 3</div>` : '<div class="ro-banner" style="background:#e6f5ef;border-color:#bfe6d4;color:#14684e">✓ สรุป: ไม่ปรับปรุง — ปิดงานสถานีนี้แล้ว (ขั้น 4–6 ไม่ต้องทำ)</div>') : ''}
       <div id="wf-body"></div>`;
     host.querySelector('#wf-back').onclick = () => onBack && onBack();
-    { const rb = host.querySelector('#wf-return'); if (rb) rb.onclick = () => open(cameFrom.id, host, onBack); }
+    { const rb = host.querySelector('#wf-return'); if (rb) rb.onclick = () => { const back = '#/stations/' + encodeURIComponent(cameFrom.id); if (history.state && history.state.prev === back) history.back(); else open(cameFrom.id, host, onBack); }; }
     const body = host.querySelector('#wf-body');
     host.querySelectorAll('.wf-step[data-step]').forEach(b => b.onclick = () => {
       const si = +b.dataset.step, s = steps[si], lk = s.done !== true ? lockWhy(s.n) : '', ps = body.querySelectorAll('.wf-panel');
@@ -459,5 +459,5 @@
   function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; if (tag === 'button') e.type = 'button'; return e; }
 
   const isOpen = () => !!(host && stationId && host.querySelector('.wf-steps') && rec());
-  window.CPSWorkflow = { FLOWS, open, isOpen, refresh: () => render(), currentId: () => (isOpen() ? stationId : null) };
+  window.CPSWorkflow = { FLOWS, open, isOpen, refresh: () => render(), currentId: () => (isOpen() ? stationId + (cameFrom ? '~' + cameFrom.id : '') : null) };
 })();
