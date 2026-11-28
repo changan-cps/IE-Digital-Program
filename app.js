@@ -460,7 +460,8 @@
   }
   function applyShell() {
     const I = window.CPSDashI18n; const L = I ? I.lang : 'th';
-    const pick = k => L === 'zhen' ? (Array.isArray(SHELL.zh[k]) ? SHELL.zh[k].map((z, i) => z === SHELL.en[k][i] ? z : z + ' / ' + SHELL.en[k][i]) : SHELL.zh[k] + ' / ' + SHELL.en[k]) : (SHELL[L] || SHELL.th)[k];
+    const bi = (z, e) => z === e ? z : '⁣' + z + '⁤' + e + '⁢';   // ui-i18n วาง English เป็นบรรทัดที่สอง
+    const pick = k => L === 'zhen' ? (Array.isArray(SHELL.zh[k]) ? SHELL.zh[k].map((z, i) => bi(z, SHELL.en[k][i])) : bi(SHELL.zh[k], SHELL.en[k])) : (SHELL[L] || SHELL.th)[k];
     $$('#tabs button').forEach((b, i) => { b.textContent = pick('tabs')[i]; });
     if ($('#btn-switch')) $('#btn-switch').textContent = pick('sw');
     if ($('#btn-logout')) $('#btn-logout').textContent = pick('out');

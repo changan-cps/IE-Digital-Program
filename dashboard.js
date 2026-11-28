@@ -393,8 +393,10 @@
       </div></div><div class="dz-body">${body}<p class="muted dz-swnote">${esc(t('swctNote'))}</p></div></section>`;
   }
   // SWCT → PNG สำหรับสไลด์ (แบ่งหน้าละไม่เกิน 20 แถว ใช้สเกลเวลาเดียวกันทุกหน้า)
+  const biPlain = s => String(s).replace(/\u2063([^\u2064]*)\u2064([^\u2062]*)\u2062/g, '$1 / $2');
+  const biDeep = v => typeof v === 'string' ? biPlain(v) : Array.isArray(v) ? v.map(biDeep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, biDeep(x)])) : v;
   async function svgToPng(svg, w, h) {
-    const src = svg.replace('<svg ', `<svg width="${w}" height="${h}" `);
+    const src = biPlain(svg).replace('<svg ', `<svg width="${w}" height="${h}" `);
     const url = URL.createObjectURL(new Blob([src], { type: 'image/svg+xml' })), img = new Image();
     try {
       await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(new Error('SWCT image')); img.src = url; });
@@ -502,8 +504,9 @@
       if (!window.PptxGenJS) await loadScript(PPTX_CDN);
       if (!window.JSZip) await loadScript(JSZIP_CDN);
       btn.textContent = t('pptStep2');
-      const R = reportData(ctx);
+      let R = reportData(ctx);
       R.swct = await swctReport(ctx.lineBalance());
+      R = biDeep(R);
       const pptx = window.CPSPptReport.build(window.PptxGenJS, R, new URL('ppt/', location.href).href);
       btn.textContent = t('pptStep3');
       const blob = await window.CPSPptReport.toBlob(pptx, window.JSZip);

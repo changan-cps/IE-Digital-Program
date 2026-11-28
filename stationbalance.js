@@ -30,7 +30,7 @@
   const L = k => {
     const l = window.CPSDashI18n ? window.CPSDashI18n.lang : 'th';
     if (l !== 'zhen') return (SBT[l] || SBT.th)[k];
-    const z = SBT.zh[k], e = SBT.en[k], two = (x, y) => x === y ? x : x + (/ \/ /.test(x + y) ? ' · ' : ' / ') + y;   // แบบเดียวกับตัวแปลหน้าจอ   // 中 / EN แบบเดียวกับแดชบอร์ด
+    const z = SBT.zh[k], e = SBT.en[k], two = (x, y) => x === y ? x : '⁣' + x + '⁤' + y + '⁢';   // แบบเดียวกับตัวแปลหน้าจอ   // 中 / EN แบบเดียวกับแดชบอร์ด
     return Array.isArray(z) ? z.map((x, i) => two(x, e[i])) : two(z, e);
   };
   const unitN = n => n === 1 && L('unit') === 'stations' ? 'station' : L('unit');

@@ -744,3 +744,8 @@ input:disabled,select:disabled,textarea:disabled{background:#eef2f6;color:#5f738
 .ease-h{font-size:12px}
 .ease-table .r-more{white-space:nowrap}
 .ap-dots i{width:18px;height:18px;font:700 12px/1 system-ui,sans-serif}.ap-dots i.redo{background:#9a5b00}
+
+/* round 20: 中/EN — English as a smaller second line */
+html.bi [data-bi-en]::after{content:attr(data-bi-en);display:block;flex-basis:100%;grid-column:1/-1;font-size:.8em;font-weight:400;line-height:1.3;opacity:.72;white-space:normal;letter-spacing:0;text-transform:none}
+html.bi [data-bi-en]{flex-wrap:wrap}
+html.bi .tabs button[data-bi-en]::after,html.bi .wf-step small[data-bi-en]::after{font-size:.78em}

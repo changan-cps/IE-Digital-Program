@@ -651,7 +651,7 @@
     const opt = v => '<option value="">–</option>' + SYMS.map(x => `<option value="${x[0]}"${v === x[0] ? ' selected' : ''}>${x[1]} ${x[2]}</option>`).join('');
     box.innerHTML = `<table class="el-table th-table"><thead><tr><th>#</th><th>มือซ้ายทำอะไร</th><th>ซ้าย</th><th>ขวา</th><th>มือขวาทำอะไร</th></tr></thead><tbody>${list.map((e, i) => {
       const l = e.lh || {}, r = e.rh || {};
-      return `<tr data-i="${i}"><td class="idx">${i + 1}</td><td><input class="th-ld" value="${esc(l.d || '')}" placeholder="${esc(e.name || '')}"></td><td><select class="th-ls">${opt(l.s)}</select></td><td><select class="th-rs">${opt(r.s)}</select></td><td><input class="th-rd" value="${esc(r.d || '')}"></td></tr>`;
+      return `<tr data-i="${i}"><td class="idx">${i + 1}</td><td><input class="th-ld" value="${esc(l.d || '')}" placeholder="${esc(e.name || '')}" data-noi18n="placeholder"></td><td><select class="th-ls">${opt(l.s)}</select></td><td><select class="th-rs">${opt(r.s)}</select></td><td><input class="th-rd" value="${esc(r.d || '')}"></td></tr>`;
     }).join('')}</tbody></table>`;
     box.querySelectorAll('tr[data-i]').forEach(tr => {
       const e = list[+tr.dataset.i];
@@ -675,7 +675,7 @@
     list.forEach((e, i) => {
       const y = top + i * RH + RH / 2, l = e.lh || {}, r = e.rh || {};
       const ld = (l.d || e.name || ''), rd = (r.d || '');
-      g += `<line x1="0" y1="${y + RH / 2}" x2="${W}" y2="${y + RH / 2}" class="th-row"/><text x="6" y="${y + 4}" class="th-t">${esc(ld.length > 34 ? ld.slice(0, 34) + '…' : ld)}</text><text x="${cD + cS * 10 + 6}" y="${y + 4}" class="th-t">${esc(rd.length > 34 ? rd.slice(0, 34) + '…' : rd)}</text>`;
+      g += `<line x1="0" y1="${y + RH / 2}" x2="${W}" y2="${y + RH / 2}" class="th-row"/><text x="6" y="${y + 4}" class="th-t" translate="no">${esc(ld.length > 34 ? ld.slice(0, 34) + '…' : ld)}</text><text x="${cD + cS * 10 + 6}" y="${y + 4}" class="th-t" translate="no">${esc(rd.length > 34 ? rd.slice(0, 34) + '…' : rd)}</text>`;
       if (SYMK.includes(l.s)) pl.push([xL(l.s), y]);
       if (SYMK.includes(r.s)) pr.push([xR(r.s), y]);
     });

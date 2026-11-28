@@ -166,7 +166,7 @@
   function pair(z, e, sep) {
     if (Array.isArray(z)) return z.map((x, i) => pair(x, e[i], sep));
     if (z && typeof z === 'object') { const o = {}; Object.keys(z).forEach(k => o[k] = pair(z[k], e[k], sep)); return o; }
-    return z === e ? z : z + sep + e;
+    return z === e ? z : typeof sep === 'function' ? sep(z, e) : z + sep + e;
   }
   const get = (k, a, sep) => lang !== BI ? raw(lang, k, a) : EN_ONLY.includes(k) ? raw('en', k, a) : pair(raw('zh', k, a), raw('en', k, a), sep);
   const api = {
@@ -178,7 +178,7 @@
       try { if (v === BI) localStorage.setItem(OWN, BI); else { localStorage.removeItem(OWN); localStorage.setItem(KEY, v); } } catch (e) {}
     },
     locale: () => LOCALE[lang],
-    t: (k, ...a) => get(k, a, ' / '),      // บนหน้าเว็บ: 中文 / English
+    t: (k, ...a) => get(k, a, (z, e) => '\u2063' + z + '\u2064' + e + '\u2062'),   // บนหน้าเว็บ: ชั้นแปล (ui-i18n) วาง English เป็นบรรทัดที่สองใต้ 中文
     tn: (k, ...a) => get(k, a, '\n'),      // ในสไลด์: 中文 บรรทัดบน · English บรรทัดล่าง
   };
   Object.assign(D.th, { lbrOp: 'LBR ต่อคน (นับคนละช่อง)', lbrBoth: 'Line Balance Rate = ΣCT ÷ (จำนวนสถานี × CT สูงสุด) · LBR ต่อคน นับผู้ปฏิบัติงานแต่ละคนเป็น 1 ช่อง', noAreaRo: 'ยังไม่มีข้อมูลในพื้นที่นี้',
