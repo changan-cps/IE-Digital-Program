@@ -122,9 +122,10 @@
     host.innerHTML = `
       <div class="page-head">
         <div><h1>บันทึก Time Study</h1></div>
-        <div class="head-btns"><button id="ts-back" class="ghost">← กลับ</button><button id="ts-save" class="primary">บันทึกค่า</button></div>
+        <div class="head-btns"><span id="ts-pin" class="ts-pin" aria-live="polite"></span><button id="ts-back" class="ghost">← กลับ</button><button id="ts-save" class="primary">บันทึกค่า</button></div>
+        <nav class="ts-nav" aria-label="ส่วนของหน้านี้">${[['ts-s-info', 'ข้อมูลงาน'], ['ts-s-video', 'วิดีโอ'], ['ts-s-el', 'Element'], ['ts-s-ergo', 'การยศาสตร์'], ['ts-s-swct', 'SWCT'], ['ts-s-hands', 'สองมือ'], ['ts-s-ease', 'ความง่าย']].map(([id, l]) => `<button type="button" data-go="${id}">${l}</button>`).join('')}</nav>
       </div>
-      <section class="panel"><div class="panelhead"><h2>ข้อมูลงาน</h2></div>
+      <section class="panel" id="ts-s-info"><div class="panelhead"><h2>ข้อมูลงาน</h2></div>
         <div class="field-grid">
           ${fld('รหัสสถานี (ใช้รวมรอบจับเวลา)', 'station', s.station || '', 'เช่น CA-05A')}
           ${fld('ชื่องาน / กระบวนการ', 'name', s.name, 'เช่น ประกอบฝาปั๊ม')}
@@ -134,7 +135,7 @@
         </div>
       </section>
 
-      <section class="panel ts-videopanel${videoUrl ? '' : ' no-video'}">
+      <section class="panel ts-videopanel${videoUrl ? '' : ' no-video'}" id="ts-s-video">
         <div class="panelhead"><h2>วิดีโอ (ในเครื่อง — ไม่ถูกบันทึก)</h2>
           <div class="head-btns"><button id="ts-ai-top" type="button" class="ghost"${videoUrl ? '' : ' hidden'}>🤖 แยก element อัตโนมัติ (AI)</button><label class="filebtn">เลือก/ถ่ายวิดีโอ<input id="ts-file" class="vh" type="file" accept="video/*" capture="environment"></label></div>
         </div>
@@ -168,7 +169,7 @@
         </details>
       </section>
 
-      <details class="panel ts-ergo"${s.ergo.risk || s.ergo.notes || (s.ergo.issues || []).length ? ' open' : ''}><summary class="panelhead"><h2>การยศาสตร์ (Ergonomic)</h2>
+      <details id="ts-s-ergo" class="panel ts-ergo"${s.ergo.risk || s.ergo.notes || (s.ergo.issues || []).length ? ' open' : ''}><summary class="panelhead"><h2>การยศาสตร์ (Ergonomic)</h2>
         <button id="ts-ergo-ai" type="button" class="ghost">🤖 ให้ AI ประเมิน</button></summary>
         <div class="field-grid">
           <label class="field"><span>ระดับความเสี่ยงรวม</span>
@@ -182,22 +183,22 @@
         <p class="hint">AI จะช่วยระบุท่าทางเสี่ยง (แนว RULA/REBA) และจับคู่กับ element ที่เกี่ยวข้องให้อัตโนมัติเมื่อเปิดใช้โหมด AI</p>
       </details>
 
-      <section class="panel"><div class="panelhead"><h2>Element <span id="ts-count">0</span></h2>
+      <section class="panel" id="ts-s-el"><div class="panelhead"><h2>Element <span id="ts-count">0</span></h2>
         <button id="ts-addrow" class="ghost" type="button">＋ แถว</button></div>
         <div id="ts-table" class="tbl"></div>
         <div id="ts-metrics" class="mini-metrics"></div>
         <div id="ts-bar" class="stack"></div>
         <p class="hint">คะแนนความง่าย: 1 = ยากสุด, 5 = ง่ายสุด · คะแนน ≤ 3 ขึ้นสีแดง = จุดต้องปรับปรุง</p>
       </section>
-      <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>ตารางงานมาตรฐาน (SWCT)</h2>
+      <section class="panel ts-after" id="ts-s-swct" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2><button type="button" class="ts-tog">ตารางงานมาตรฐาน (SWCT)</button></h2>
         <div class="head-btns"><label class="swct-takt" title="ว่าง = ใช้ TAKT ของสถานี">TAKT <input id="swct-takt" type="number" min="0" step="0.1" inputmode="decimal"> วิ</label><button id="swct-print" type="button" class="ghost">พิมพ์ SWCT</button></div></div>
         <div id="ts-swct" class="swct-wrap"></div>
       </section>
-      <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>แผนภูมิสองมือ (Two-Handed Process Chart)</h2>
+      <section class="panel ts-after" id="ts-s-hands" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2><button type="button" class="ts-tog">แผนภูมิสองมือ (Two-Handed Process Chart)</button></h2>
         <div class="head-btns"><label class="swct-takt">Proposed เทียบกับ <select id="th-cmp"></select></label><button id="th-print" type="button" class="ghost">พิมพ์</button></div></div>
         <div id="th-table" class="tbl"></div><div id="th-chart" class="swct-wrap"></div><div id="th-sum" class="th-sum"></div>
         <p class="hint">○ ทำงาน · ⇨ เคลื่อนย้าย · D รอ/มือว่าง · ▽ ถือค้าง · □ ตรวจสอบ · แถวละ 1 element · AI ร่างให้ แก้ได้ในตารางด้านบน · Proposed = เลือกรอบหลังปรับปรุงของสถานีเดียวกันมาเทียบ</p></section>
-      <section class="panel ts-after" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2>สรุปคะแนนความง่ายในการทำงาน</h2></div><div id="ts-ease"></div></section>`;
+      <section class="panel ts-after" id="ts-s-ease" data-fold="จะแสดงเมื่อมีเวลา element อย่างน้อย 1 แถว"><div class="panelhead"><h2><button type="button" class="ts-tog">สรุปคะแนนความง่ายในการทำงาน</button></h2></div><div id="ts-ease"></div></section>`;
 
     // field bindings
     host.querySelectorAll('[data-f]').forEach(inp => inp.oninput = () => { s[inp.dataset.f] = inp.value; if (inp.dataset.f === 'station') renderSwct(); saveDraft(); });
@@ -206,6 +207,20 @@
       leave(); renderList();
     };
     host.querySelector('#ts-save').onclick = saveStudy;
+    // รายงาน (SWCT / สองมือ / ความง่าย) พับได้ · บนมือถือเริ่มแบบพับเพื่อให้หน้าจับเวลาสั้น
+    const narrow = window.matchMedia && window.matchMedia('(max-width:720px)').matches;
+    host.querySelectorAll('.ts-after').forEach(sec => {
+      if (!(sec.id in tsClosed)) tsClosed[sec.id] = narrow;
+      const tog = sec.querySelector('.ts-tog'), paint = () => { sec.classList.toggle('ts-closed', !!tsClosed[sec.id]); tog.setAttribute('aria-expanded', String(!tsClosed[sec.id])); };
+      tog.onclick = () => { tsClosed[sec.id] = !tsClosed[sec.id]; paint(); };
+      paint();
+    });
+    host.querySelectorAll('.ts-nav [data-go]').forEach(b => b.onclick = () => {
+      const sec = host.querySelector('#' + b.dataset.go); if (!sec) return;
+      if (sec.tagName === 'DETAILS') sec.open = true;
+      if (tsClosed[sec.id]) { tsClosed[sec.id] = false; sec.classList.remove('ts-closed'); const tg = sec.querySelector('.ts-tog'); if (tg) tg.setAttribute('aria-expanded', 'true'); }
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     host.querySelector('#ts-file').onchange = onFile;
     const v = host.querySelector('#ts-video');
     host.querySelector('#ts-play').onclick = () => { v.paused ? v.play() : v.pause(); };
@@ -506,7 +521,7 @@
     host.querySelector('#ts-metrics').innerHTML =
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
       mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว');
-    host.querySelector('#ts-bar').innerHTML = stack(t);
+    host.querySelector('#ts-bar').innerHTML = stack(t); pinSummary(t);
     renderEase(); renderSwct(); renderHands();
   }
   // ---- ตารางงานมาตรฐาน (Standardized Work Combination Table) ----
@@ -753,13 +768,19 @@
     return tr;
   }
   const totalSteps = list => (list || []).reduce((a, e) => a + Math.max(0, Math.round(U().num(e.steps))), 0);
+  const tsClosed = {};
+  function pinSummary(t) {
+    const p = host && host.querySelector('#ts-pin'); if (!p || !editing) return;
+    const { fmt } = U(), n = (editing.elements || []).length;
+    p.innerHTML = n ? `CT <b>${fmt(t.ct)}</b> วิ · VA <b>${fmt(t.vaPct)}%</b> · ${n} element` : '';
+  }
   function refreshMetrics() {
     const { fmt } = U(); const t = U().totals(editing.elements);
     host.querySelector('#ts-metrics').innerHTML =
       mini('รอบเวลา (CT)', fmt(t.ct) + ' วิ') + mini('VA', fmt(t.VA) + ' วิ · ' + fmt(t.vaPct) + '%', '#15856b') +
       mini('NNVA', fmt(t.NNVA) + ' วิ', '#ad7206') + mini('NVA', fmt(t.NVA) + ' วิ', '#a64475') + mini('ก้าวเดิน', totalSteps(editing.elements) + ' ก้าว') +
       (untyped() ? mini('ยังไม่ระบุประเภท', untyped() + ' แถว', '#c0392b') : '');
-    host.querySelector('#ts-bar').innerHTML = stack(t);
+    host.querySelector('#ts-bar').innerHTML = stack(t); pinSummary(t);
     renderSwct();
     saveDraft();
   }

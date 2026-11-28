@@ -221,12 +221,16 @@
       <div class="cards dz-cards">
         ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85')), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
         ${kpi(I().tn('r_ctLatest', mode), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? esc(B[iCt].long + ' · ' + t('fromN', B[iCt].st.length)) + (same && same.n ? '<br>' + delta(same.cur, same.prev, ' ' + s, true) + ` <small class="dz-same">${esc(t('sameSt', same.n))}</small>` : same ? `<br><small class="dz-same">${esc(t('noSame'))}</small>` : '') : esc(t('noStudy')))}
-        ${kpi(t('ctReduced'), totRed ? '▼ ' + fmt(totRed) : '0', s, esc(nJob ? t('jobsAvg', nJob, fmt(totBf ? totRed / totBf * 100 : 0)) : t('noJobs')) + (nJob ? '<br>' + esc(t('redSplit', fmt(redOk), fmt(redPend), fmt(totRed - redOk - redPend))) : ''), totRed ? '#15856b' : '')}
+        ${(() => { const rest = Math.max(0, totRed - redOk - redPend), okV = redOk > 0.05;
+          const leg = (c, k, v) => `<small class="dz-leg"><i class="${c}"></i>${esc(t(k))} ${fmt(v)} ${esc(s)}</small>`;
+          const sub = nJob ? `<b class="dz-meter" role="img" aria-label="${esc(t('redSplit', fmt(redOk), fmt(redPend), fmt(rest)))}"><i class="ok" style="flex:${redOk}"></i><i class="pend" style="flex:${redPend}"></i><i class="ns" style="flex:${rest}"></i></b>` +
+            leg('pend', 'lgPend', redPend) + leg('ns', 'lgNs', rest) + `<small class="dz-leg dz-all">${esc(t('redAll', fmt(totRed), nJob))}</small>` : esc(t('noJobs'));
+          return kpi(t('ctApproved'), okV ? '▼ ' + fmt(redOk) : '0', s, sub, okV ? '#15856b' : ''); })()}
         ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
       </div>
       <p class="muted dz-sub">Time Study <b>${nSt}</b> ${esc(t('items'))} (${esc(t('latestData', mode, iCt >= 0 ? B[iCt].st.length : 0))}) · ${esc(t('trained'))} <b>${trained}</b> ${esc(t('people'))}</p>
       <h2 class="dz-band">${esc(t('bandTrend'))}</h2>
-      <section class="panel"><div class="panelhead"><h2>${esc(t('redTitle', mode))}</h2><small class="muted">${esc(t('redNote', mode))} · ${esc(t('redZero'))}</small></div><div class="dz-body" data-chart="red"></div></section>
+      <section class="panel"><div class="panelhead"><h2>${esc(t('redTitle', mode))}</h2><small class="muted">${esc(t('redNoteB', mode))} · ${esc(t('redZero'))}</small></div><div class="dz-body" data-chart="red"></div></section>
       <div class="dz-grid">
         <section class="panel"><div class="panelhead"><h2>${esc(t('ctTitle'))}</h2><small class="muted">${esc(t('ctNote'))}</small></div><div class="dz-body" data-chart="ct"></div></section>
         <section class="panel"><div class="panelhead"><h2>${esc(t('lbrTitle', mode))}</h2><small class="muted" title="${esc(t('lbrHelp', mode))}">${esc(t('lbrNote', mode))}</small></div><div class="dz-body" data-chart="lbr"></div></section>
@@ -255,13 +259,14 @@
     const { fmt, esc } = U(), s = t('s');
     const labels = B.map(b => b.label), wOf = k => { const d = el.querySelector(`[data-chart="${k}"]`); return d ? [d, Math.max(260, d.clientWidth - 24)] : [null, 0]; };
     // 1) combination: CT reduced per period (bars) + cumulative (line), one axis in seconds
-    let cum = 0; const cumV = B.map(b => (cum += b.red));
+    let cum = 0; const cumV = B.map(b => (cum += (b.redOk || 0)));
+    const BK = { ok: '#15856b', pend: '#b67700', ns: '#9fb0c1' }, nsOf = b => Math.max(0, b.red - (b.redOk || 0) - (b.redPend || 0));
     let [d, W] = wOf('red');
     if (d) d.innerHTML = B.some(b => b.jobs.length) ? chart('red', W, {
       labels, h: 270, aria: t('redTitle', mode),
-      stack: [{ name: t('redSeries', mode), color: C.s1, vals: B.map(b => b.red) }],
-      lines: [{ name: t('cumSeries'), color: C.s2, vals: cumV, endLabel: v => t('cumLabel', fmt(v)) }],
-      tip: i => `<b>${esc(B[i].long)}</b>${tipRow(C.s1, t('reduced'), '−' + fmt(B[i].red) + ' ' + s)}${tipRow(C.s2, t('cumulative'), '−' + fmt(cumV[i]) + ' ' + s, 'line')}<div class="tr muted">${esc(t('jobsN', B[i].jobs.length))}${B[i].before ? esc(t('reducePct', fmt(B[i].red / B[i].before * 100))) : ''}</div>`,
+      stack: [{ name: t('lgOk'), color: BK.ok, vals: B.map(b => b.redOk || 0) }, { name: t('lgPend'), color: BK.pend, vals: B.map(b => b.redPend || 0) }, { name: t('lgNs'), color: BK.ns, vals: B.map(nsOf) }],
+      lines: [{ name: t('cumOkSeries'), color: C.ink, vals: cumV, endLabel: v => t('cumOkLabel', fmt(v)) }],
+      tip: i => `<b>${esc(B[i].long)}</b>${tipRow(BK.ok, t('lgOk'), '−' + fmt(B[i].redOk || 0) + ' ' + s)}${tipRow(BK.pend, t('lgPend'), '−' + fmt(B[i].redPend || 0) + ' ' + s)}${tipRow(BK.ns, t('lgNs'), '−' + fmt(nsOf(B[i])) + ' ' + s)}${tipRow(C.ink, t('cumOk'), '−' + fmt(cumV[i]) + ' ' + s, 'line')}<div class="tr muted">${esc(t('jobsN', B[i].jobs.length))}${B[i].before ? esc(t('reducePct', fmt(B[i].red / B[i].before * 100))) : ''}</div>`,
     }) : `<div class="blank">${esc(t('noJobsPeriod'))}</div>`;
     // 2) CT stacked by VA/NNVA/NVA + avg TAKT (same unit)
     [d, W] = wOf('ct');
@@ -469,7 +474,7 @@
       kpis: [
         { label: 'Time Study', value: nStudy + ' ' + t('items'), sub: t('periods', n, mode) },
         { label: tn('r_ctLatest', mode), value: ctL != null ? f(ctL) + ' ' + s : '—', sub: delta },
-        { label: tn('ctReduced'), value: totRed ? '−' + f(totRed) + ' ' + s : '0', sub: t('jobsN', nJob) + (nJob ? ' · ' + t('redSplit', f(redOk), f(redPend), f(totRed - redOk - redPend)) : ''), color: totRed ? '15856B' : null },
+        { label: tn('ctApproved'), value: redOk > 0.05 ? '−' + f(redOk) + ' ' + s : '0', sub: nJob ? t('redSplit', f(redOk), f(redPend), f(Math.max(0, totRed - redOk - redPend))) + ' · ' + t('redAll', f(totRed), nJob) : t('noJobs'), color: redOk > 0.05 ? '15856B' : null },
         { label: tn('r_vaAvg'), value: sumCt ? f(sumVA / sumCt * 100) + '%' : '—', sub: t('r_vaSub') },
         { label: 'Line Balance Rate', value: lb.lines.length ? f(lb.lbr) + '%' : '—', sub: lb.lines.length ? t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85') : null, color: lb.lines.length ? lbrColor(lb.lbr).slice(1).toUpperCase() : null },
         { label: tn('trained'), value: trained + ' ' + t('people'), sub: null },
@@ -478,7 +483,7 @@
       // ข้อความคงที่ของสไลด์ในภาษาที่เลือก
       tx: {
         s, sec: t('sec'), generated: t('r_generated', ''), summary: t('r_summary', mode), key: t('r_key'),
-        redTitle: t('redTitle', mode), redSeries: t('redSeries', mode), cumSeries: t('cumSeries'), totRed: tn('r_totRed'), jobsN: t('jobsN', nJob),
+        redTitle: t('redTitle', mode), redSeries: t('redSeries', mode), cumSeries: t('cumSeries'), totRed: tn('r_totRed'), jobsN: t('jobsN', nJob) + (nJob ? ' · ' + t('redSplit', f(redOk), f(redPend), f(Math.max(0, totRed - redOk - redPend))) : ''),
         avgJob: tn('r_avgJob'), vsBefore: t('r_vsBefore'), best: tn('r_best', mode), noJobs: t('noJobsPeriod'),
         ctTitle: t('ctTitleBy', mode), takt: t('taktAvg') + ' (' + t('sec') + ')', ctLatest: tn('r_ctLatest', mode), vaAvg: tn('r_vaAvg'), vaSub: t('r_vaSub'), inPeriod: t('r_inPeriod'), noStudy: t('noStudyPeriod'),
         target: t('target85'), lbrCols: tn('r_lbrCols'), overall: t('r_overall', f(lb.lbr), lb.lines.length), noStation: t('noStation'),
