@@ -222,9 +222,10 @@
         ${lb.lines.length ? kpi('Line Balance Rate', fmt(lb.lbr) + '%', '', esc(t('linesLow', lb.lines.length, lb.low) + ' · ' + t('target85')), lbrColor(lb.lbr)) : kpi('Line Balance Rate', '—', '', esc(t('noStation')))}
         ${kpi(I().tn('r_ctLatest', mode), iCt >= 0 ? fmt(avg(B[iCt])) : '—', t('sec'), iCt >= 0 ? esc(B[iCt].long + ' · ' + t('fromN', B[iCt].st.length)) + (same && same.n ? '<br>' + delta(same.cur, same.prev, ' ' + s, true) + ` <small class="dz-same">${esc(t('sameSt', same.n))}</small>` : same ? `<br><small class="dz-same">${esc(t('noSame'))}</small>` : '') : esc(t('noStudy')))}
         ${(() => { const rest = Math.max(0, totRed - redOk - redPend), okV = redOk > 0.05;
-          const leg = (c, k, v) => `<small class="dz-leg"><i class="${c}"></i>${esc(t(k))} ${fmt(v)} ${esc(s)}</small>`;
+          const leg = (c, k, v) => { const [dot, big] = c.split(' '); return `<small class="dz-leg${big ? ' ' + big : ''}"><i class="${dot}"></i>${esc(t(k))} ${fmt(v)} ${esc(s)}</small>`; };
           const sub = nJob ? `<b class="dz-meter" role="img" aria-label="${esc(t('redSplit', fmt(redOk), fmt(redPend), fmt(rest)))}"><i class="ok" style="flex:${redOk}"></i><i class="pend" style="flex:${redPend}"></i><i class="ns" style="flex:${rest}"></i></b>` +
-            leg('pend', 'lgPend', redPend) + leg('ns', 'lgNs', rest) + `<small class="dz-leg dz-all">${esc(t('redAll', fmt(totRed), nJob))}</small>` : esc(t('noJobs'));
+            (okV ? '' : `<small class="dz-leg dz-none">${esc(t('noneOk'))}</small>`) +
+            leg(okV ? 'pend' : 'pend dz-big', 'lgPend', redPend) + leg('ns', 'lgNs', rest) + `<small class="dz-leg dz-all">${esc(t('redAll', fmt(totRed), nJob))}</small>` : esc(t('noJobs'));
           return kpi(t('ctApproved'), okV ? '▼ ' + fmt(redOk) : '0', s, sub, okV ? '#15856b' : ''); })()}
         ${kpi(I().tn('r_vaAvg'), sumT.ct ? fmt(sumT.VA / sumT.ct * 100) : '—', '%', sumT.ct ? esc(t('r_vaSub')) : '')}
       </div>

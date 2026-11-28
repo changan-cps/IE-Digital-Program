@@ -724,6 +724,7 @@
       const s = fl[k]; if (!s || !s.by) return;
       if (gen && s.at < gen) { out.why[k] = 'stale'; return; }
       if (seen.has(s.by)) { out.why[k] = 'dup'; return; }
+      if (FLOW_KEYS.slice(0, FLOW_KEYS.indexOf(k)).some(p => !out.valid[p])) { out.why[k] = 'order'; return; }   // อนุมัติต้องเรียง Flow 1→5
       seen.add(s.by); out.valid[k] = true; out.n++;
     });
     out.redo = Object.keys(out.why).length;
@@ -733,7 +734,8 @@
   // จุด 5 จุดบอกความคืบหน้าการอนุมัติ: ok = อนุมัติแล้ว · redo = ต้องอนุมัติใหม่ · next = ถึงตา
   function approvalDots(w) {
     const av = approvalOf(w);
-    return `<span class="ap-dots" aria-hidden="true">${FLOW_KEYS.map((k, i) => av.valid[k] ? '<i class="ok">✓</i>' : av.why[k] ? '<i class="redo">↺</i>' : i === av.firstPending ? '<i class="next"></i>' : '<i></i>').join('')}</span>`;
+    const lab = (k, i) => 'Flow ' + (i + 1) + ' · ' + (av.valid[k] ? 'อนุมัติแล้ว' : av.why[k] ? 'ต้องอนุมัติใหม่' : i === av.firstPending ? 'ถึงตา' : 'ยังไม่ถึง');
+    return `<span class="ap-dots" role="img" aria-label="${FLOW_KEYS.map(lab).join(' · ')}">${FLOW_KEYS.map((k, i) => `<i title="${lab(k, i)}"${av.valid[k] ? ' class="ok">✓' : av.why[k] ? ' class="redo">↺' : i === av.firstPending ? ' class="next">' : '>'}</i>`).join('')}</span>`;
   }
   // สถานะของสถานีชุดเดียวทั้งแอป (ชิปในตาราง · การ์ดสรุป · แดชบอร์ด)
   function statusOf(r) {

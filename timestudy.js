@@ -719,17 +719,20 @@
   function row(list, e, i) {
     const { TYPES, uid } = U();
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="idx" data-l="#">${i + 1}</td>
-      <td data-l="คนที่"><input class="r-op" type="number" min="1" max="9" step="1" inputmode="numeric" title="ผู้ปฏิบัติงานคนที่ (สำหรับ SWCT หลายคน)"></td>
+    tr.innerHTML = `<td class="idx" data-l="#">${i + 1}<button type="button" class="r-more" aria-expanded="false">รายละเอียด</button></td>
+      <td class="r-x" data-l="คนที่"><input class="r-op" type="number" min="1" max="9" step="1" inputmode="numeric" title="ผู้ปฏิบัติงานคนที่ (สำหรับ SWCT หลายคน)"></td>
       <td class="c-name" data-l="ขั้นตอน"><input class="r-name" placeholder="ชื่อขั้นตอน"></td>
       <td data-l="วินาที"><input class="r-sec" type="number" min="0" step="0.1" inputmode="decimal"></td>
-      <td data-l="ก้าว"><input class="r-steps" type="number" min="0" step="1" inputmode="numeric" title="จำนวนก้าวเดิน (AI ประมาณให้ แก้ได้)"></td>
+      <td class="r-x" data-l="ก้าว"><input class="r-steps" type="number" min="0" step="1" inputmode="numeric" title="จำนวนก้าวเดิน (AI ประมาณให้ แก้ได้)"></td>
       <td class="c-type" data-l="ประเภท"><div class="r-type seg" role="radiogroup" tabindex="-1" aria-label="ประเภท แถว ${i + 1}">${TYPES.map(ty => `<button type="button" role="radio" data-ty="${ty.k}" style="--c:${ty.color}">${ty.k}</button>`).join('')}</div></td>
-      <td data-l="แบบงาน"><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
-      <td data-l="เครื่อง (วิ)"><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
-      <td class="c-ease" data-l="ความง่าย (1–5)"><details class="ease-pop"><summary aria-label="ความง่าย แถว ${i + 1}"><span class="ease-chips">${DIMS.map(d => `<i data-k="${d.k}" title="${d.label}">–</i>`).join('')}</span><b class="r-sum"></b></summary>
+      <td class="r-x" data-l="แบบงาน"><select class="r-kind">${KINDS.map(k => `<option value="${k[0]}">${k[1]}</option>`).join('')}</select></td>
+      <td class="r-x" data-l="เครื่อง (วิ)"><input class="r-mach" type="number" min="0" step="0.1" inputmode="decimal" title="เวลาที่เครื่องจักร/หุ่นยนต์ทำงานเองต่อจากขั้นนี้"></td>
+      <td class="c-ease r-x" data-l="ความง่าย (1–5)"><details class="ease-pop"><summary aria-label="ความง่าย แถว ${i + 1}"><span class="ease-chips">${DIMS.map(d => `<i data-k="${d.k}" title="${d.label}">–</i>`).join('')}</span><b class="r-sum"></b></summary>
         <div class="ease-pop-body">${DIMS.map(d => `<label><span>${d.label}</span><select class="r-dim" data-k="${d.k}"><option value="">–</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}${d.r[n] ? ' · ' + d.r[n] : ''}</option>`).join('')}</select></label>`).join('')}<small class="muted">ระดับที่ไม่มีคำอธิบาย: รอเกณฑ์จากโรงงาน</small></div></details></td>
-      <td class="c-del"><button class="r-del" title="ลบแถว" aria-label="ลบแถว ${i + 1}" type="button">✕</button></td>`;
+      <td class="c-del r-x"><button class="r-del" title="ลบแถว" aria-label="ลบแถว ${i + 1}" type="button">✕</button></td>`;
+    if (e.id && openRows.has(e.id)) tr.classList.add('r-open');
+    { const mb = tr.querySelector('.r-more'); mb.setAttribute('aria-expanded', String(tr.classList.contains('r-open')));
+      mb.onclick = () => { const on = tr.classList.toggle('r-open'); mb.setAttribute('aria-expanded', String(on)); if (e.id) on ? openRows.add(e.id) : openRows.delete(e.id); }; }
     const paintRow = () => {
       tr.querySelectorAll('.r-dim').forEach(s => { const n = sc(s.value); s.classList.toggle('low', n > 0 && n <= 3); const c = tr.querySelector(`.ease-chips i[data-k="${s.dataset.k}"]`); if (c) { c.textContent = n || '–'; c.classList.toggle('low', n > 0 && n <= 3); } });
       const v = rowScore(e); const cell = tr.querySelector('.r-sum'); cell.textContent = v ? v.toFixed(1) : ''; cell.style.color = v ? easeColor(v) : '';
@@ -768,7 +771,7 @@
     return tr;
   }
   const totalSteps = list => (list || []).reduce((a, e) => a + Math.max(0, Math.round(U().num(e.steps))), 0);
-  const tsClosed = {};
+  const tsClosed = {}, openRows = new Set();
   function pinSummary(t) {
     const p = host && host.querySelector('#ts-pin'); if (!p || !editing) return;
     const { fmt } = U(), n = (editing.elements || []).length;
