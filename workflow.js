@@ -225,7 +225,7 @@
       lead.innerHTML = `<b>ไลน์นี้ยังถึง TAKT ไม่ได้จนกว่า Kaizen ของ <span translate="no">${esc(overT.map(it => it.station).join(', '))}</span> จะลดงานได้</b>` +
         overT.map(it => { const w2 = walls(it); return w2 ? `<p><span translate="no">${esc(it.station)}</span> อยู่ระหว่างสถานีที่ส่ง OIS แล้ว (<span translate="no">${esc(w2.map(x => x.station).join(', '))}</span>) — ย้ายงานออกไม่ได้ ต้องลดงานใน Kaizen ของสถานีนั้น</p>` : `<p><span translate="no">${esc(it.station)}</span> ${fmt(num(propOf[it.id]) / takt * 100)}% ยังเกิน TAKT หลังเกลี่ยงาน</p>`; }).join('');
       const lrow = el('div', 'wf-btnrow');
-      overT.forEach(it => { const b = el('button', it.id === r.id ? 'primary' : 'ghost', it.id === r.id ? 'ลดงานในงานวิเคราะห์ของสถานีนี้ (ขั้น 2)' : 'เปิดขั้นตอนของ ' + it.station + ' →');
+      overT.forEach(it => { const b = el('button', 'primary', it.id === r.id ? 'ลดงานในงานวิเคราะห์ของสถานีนี้ (ขั้น 2)' : 'เปิดขั้นตอนของ ' + it.station + ' →');
         b.onclick = () => { if (it.id === r.id) { const jb = matchJob(); if (jb) window.CPSAnalysis.openJob(jb.id); } else open(it.id, host, onBack, { top: true, from: { id: r.id, station: r.station } }); }; lrow.appendChild(b); });
       lead.appendChild(lrow); d.appendChild(lead);
     }
@@ -268,7 +268,7 @@
       const row = el('div', 'wf-btnrow'); row.style.marginTop = '12px';
       const use = el('button', 'ghost', noValid ? '↺ คืนค่า CT เดิม' : '↺ ใช้ข้อเสนอของระบบ'); use.onclick = () => { applyProp(); lb.saved = false; saveRec(); render(); };
       if (noValid) use.title = 'ไม่มีการย้ายงานที่ใช้ได้ — ปุ่มนี้คืนค่า CT หลังปรับเป็นค่าเดิมของทุกสถานี';
-      const ok = el('button', 'primary', '');
+      const ok = el('button', overT.length ? 'ghost' : 'primary', '');
       refreshOk = () => { const nm = !prop.moves.length && !items.some(manualOf);
         ok.textContent = nm ? (lb.saved ? '✓ ยืนยันอีกครั้ง (ไม่มีการย้ายงาน)' : '✓ ยืนยัน (ไม่มีการย้ายงาน)') : (lb.saved ? '✓ ยืนยัน Line Balance อีกครั้ง' : '✓ ยืนยัน Line Balance');
         if (nm) ok.title = 'ไม่มีการย้ายงาน — ยืนยันเพื่อบันทึกว่าไลน์นี้คงงานเดิม แล้วตรวจร่าง OIS ในขั้น 5'; else ok.removeAttribute('title'); };
@@ -297,7 +297,9 @@
         saveRec(); U().toast(sent ? 'บันทึก Line Balance แล้ว (OIS ส่งอนุมัติไปแล้ว ไม่ได้สร้างใหม่)' : 'ยืนยัน Line Balance แล้ว — ตรวจร่าง OIS ในขั้น 5 ก่อนส่งอนุมัติ'); render();
         setTimeout(() => { const p = host.querySelectorAll('.wf-panel')[4]; if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
       };
-      row.append(ok, use); d.appendChild(row);
+      row.append(ok, use);
+      if (overT.length) d.insertAdjacentHTML('beforeend', `<p class="lb-note">ยืนยันตอนนี้ = บันทึกว่าไลน์นี้คงงานเดิมไว้ก่อน ทั้งที่ <span translate="no">${esc(overT.map(it => it.station).join(', '))}</span> ยังเกิน TAKT · ยืนยันใหม่ได้อีกครั้งหลัง Kaizen ของสถานีนั้นลดงานได้</p>`);
+      d.appendChild(row);
     }
     return panel('4 · Line Balance', d, badgeDone(st.s4));
   }

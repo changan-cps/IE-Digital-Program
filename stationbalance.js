@@ -183,7 +183,8 @@
     const adv = D().advise(r);
     const stt = D().statusOf(r);
     const cls = stt.alarm ? 'adv alarm' : { ok: 'adv ok', approved: 'adv ok', pending: 'adv prog', progress: 'adv prog', decide: 'adv improve', closedOver: 'adv alarm', closed: 'adv', nodata: 'adv' }[stt.key];
-    const done = `<span class="${cls}"${stt.reasons ? ` title="${esc(stt.reasons.join(' · '))}"` : ''}>${stt.alarm ? '▲ ' : ''}${esc(stt.label)}${stt.dots || ''}${stt.sub ? `<small class="ap-sub">${esc(stt.sub)}</small>` : ''}</span>`;
+    const tip = stt.reasons ? stt.reasons.join(' · ') : stt.sub || '';
+    const done = `<span class="${cls}"${tip ? ` title="${esc(tip)}"` : ''}>${stt.alarm ? '▲ ' : ''}${esc(stt.label)}</span>`;
     const nR = D().group.roundsOf(r.station).length;
     const wfBtn = `<td class="sb-wf">${done}<button class="wf-open" data-wf="${esc(r.id)}" aria-label="${esc(L('step'))} ${esc(r.station)}">${esc(L('step'))}</button><button class="sb-chart" type="button" data-st="${esc(r.station)}"${nR ? '' : ' disabled title="ยังไม่มีรอบจับเวลาของสถานีนี้"'}>SWCT / สองมือ</button></td>`;
     const lockRow = !!(r.wf && r.wf.approval && r.wf.approval.submitted);

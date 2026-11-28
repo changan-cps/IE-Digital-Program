@@ -231,7 +231,9 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:22px}
 .r-more{display:none}
 .wf-step{background:none;border:0;font:inherit;color:inherit;cursor:pointer;padding:4px 2px;border-radius:10px}
 .wf-step:hover .wf-dot{box-shadow:0 0 0 3px #dfe9f3}.wf-step:focus-visible{outline:2px solid #1f6fb2;outline-offset:2px}
-.wf-step.lock .wf-dot{background:#fff;border:1px dashed #aab7c4;color:#7d8d9c}.wf-step.lock small{color:#8796a5}
+.wf-step.lock .wf-dot{background:#fff;border:1px dashed #8796a5;color:#566a7d}.wf-step.lock small{color:#566a7d}
+.lb-note{margin:12px 0 0;font-size:13px;color:#52708a}
+.sb-table td.sb-st{white-space:nowrap}
 .wf-badge.lock{background:#eef2f6;color:#566a7d}
 .wf-rev{color:#12735a}
 .sb-inbox-note{margin:0;padding:8px 16px 12px;font-size:13px}
