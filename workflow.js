@@ -42,7 +42,7 @@
   function open(id, container, back, opt) {
     stationId = id; host = container; onBack = back; cameFrom = opt && opt.from && opt.from.id !== id ? opt.from : null;
     const tt = document.getElementById('toast'); if (tt && !tt.classList.contains('has-action')) tt.classList.remove('show');
-    render(); scrollTo(0, 0);
+    render(); scrollTo(0, 0); window.CPS.route && window.CPS.route();
     if (!(opt && opt.top)) requestAnimationFrame(() => { const p = [...host.querySelectorAll('.wf-panel')].find(x => !x.querySelector('.wf-badge.ok') && !x.querySelector('.wf-badge.lock') && !x.querySelector('.wf-lock')); if (p && p !== host.querySelector('.wf-panel')) p.scrollIntoView({ block: 'start' }); });
   }
 
@@ -458,5 +458,6 @@
   }
   function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; if (tag === 'button') e.type = 'button'; return e; }
 
-  window.CPSWorkflow = { FLOWS, open, isOpen: () => !!(host && stationId && host.querySelector('.wf-steps') && rec()), refresh: () => render() };
+  const isOpen = () => !!(host && stationId && host.querySelector('.wf-steps') && rec());
+  window.CPSWorkflow = { FLOWS, open, isOpen, refresh: () => render(), currentId: () => (isOpen() ? stationId : null) };
 })();

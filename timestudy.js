@@ -57,6 +57,7 @@
 
   // ---------------- list ----------------
   function renderList() {
+    window.CPS.route && window.CPS.route();
     const { esc, fmt } = U();
     const can = D().canEdit(); const G = D().group;
     const studies = D().listStudies();
@@ -115,6 +116,7 @@
 
   // ---------------- editor ----------------
   function renderEditor() {
+    window.CPS.route && window.CPS.route();
     const { esc } = U();
     const s = editing;
     if (!s.ergo) s.ergo = { risk: '', notes: '', issues: [] };
@@ -822,5 +824,6 @@
     handsSum: study => handsSummary((study && study.elements) || [], '')
   };
   function showFor(q) { tsQuery = q || ''; window.CPS.showTab('timestudy'); }
-  window.CPSTimeStudy = { render, charts, isDirty, leave, showFor };
+  function openId(id) { const s0 = D().listStudies().find(x => x.id === id); if (!s0) return false; window.CPS.showTab('timestudy'); editing = structuredClone(s0); laps = []; render(document.getElementById('tab-timestudy')); scrollTo(0, 0); return true; }
+  window.CPSTimeStudy = { render, charts, isDirty, leave, showFor, openId, currentId: () => (editing ? editing.id || 'new' : null) };
 })();

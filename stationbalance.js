@@ -47,6 +47,7 @@
 
   function render(container) {
     host = container;
+    queueMicrotask(() => window.CPS.route && window.CPS.route());
     const { esc, fmt, num } = U();
     const can = D().canEdit();
     const rows = D().listStations();
@@ -248,8 +249,10 @@
     if (!list.length) return '';
     const data = list.map(r => ({ r, s: stackOf(r), t: takt(r.jph) }));
     const maxV = Math.max(5, ...data.map(d => Math.max(d.s.ct, d.t))) * 1.15;
-    const bw = 44, gap = 26, left = 46, top = 22, ph = 200, bottom = 40;
-    const W = Math.max(520, left + data.length * (bw + gap) + gap), H = top + ph + bottom;
+    const left = 46, top = 22, ph = 200, bottom = 40, nB = data.length;
+    const avail = host ? host.clientWidth - 34 : 0;   // กว้างเท่าที่การ์ดมี (แท่งไม่กว้างเกิน) · จอแคบยังเลื่อนข้างได้เหมือนเดิม
+    const W = Math.max(520, left + nB * 70 + 26, Math.min(avail, left + nB * 130 + 26)), H = top + ph + bottom;
+    const slot = (W - left - 26) / nB, bw = Math.max(44, Math.min(78, slot * 0.6)), gap = slot - bw;
     const Y = v => top + ph - (v / maxV) * ph;
     const step = maxV <= 60 ? 10 : maxV <= 150 ? 25 : maxV <= 400 ? 50 : 100;
     let g = '';

@@ -654,7 +654,9 @@
     $('#scope-crumb').textContent = crumb; $('#foot-scope').textContent = crumb;
     document.body.classList.toggle('readonly', !canEdit());
     setSync(sheetUrl ? 'ok' : 'off', sheetUrl ? 'เชื่อมข้อมูลกลางแล้ว' : 'ยังไม่เชื่อมข้อมูลกลาง — ขอลิงก์สำหรับทีมจากผู้ดูแลระบบ');
-    showTab(currentTab);
+    { const wanted = /^#\/(dashboard|timestudy|stations|analysis)/.test(location.hash) ? location.hash : '';   // เปิดจากลิงก์ตรง: ไปที่หน้านั้นหลังเข้าแอป
+      routing = true; try { showTab(currentTab); } finally { routing = false; }
+      if (wanted) { history.replaceState(null, '', wanted); applyRoute(); } else route(); }
     syncPull(true);
   }
   // leaving an unsaved time study asks first (the draft stays in this browser either way)
@@ -668,6 +670,40 @@
     }
     go();
   }
+  // ---- เส้นทางในแอป (#/แท็บ/รหัส): ปุ่ม Back ย้อนภายในแอป · ส่งลิงก์ตรงถึงสถานี/รอบ/งานได้ (#sheet= ของลิงก์ทีมไม่เกี่ยว) ----
+  let routing = false;
+  const routeNow = () => {
+    const id = currentTab === 'timestudy' ? window.CPSTimeStudy?.currentId?.() : currentTab === 'analysis' ? window.CPSAnalysis?.currentId?.() : currentTab === 'stations' ? window.CPSWorkflow?.currentId?.() : null;
+    return '#/' + currentTab + (id ? '/' + encodeURIComponent(id) : '');
+  };
+  function route() {
+    if (!$('#app') || $('#app').hidden || /[#&]sheet=/.test(location.hash)) return;
+    const h = routeNow(); if (h === location.hash) return;
+    if (routing || !/^#\//.test(location.hash)) history.replaceState(null, '', h); else history.pushState(null, '', h);
+  }
+  function applyRoute() {
+    if ($('#app').hidden) return;
+    const m = location.hash.match(/^#\/(dashboard|timestudy|stations|analysis)(?:\/([^/]+))?$/);
+    if (!m) { route(); return; }
+    if (location.hash === routeNow()) return;
+    const d = dirtyEditor();
+    if (d) {   // มีงานยังไม่บันทึก: ถามก่อน · ถ้าอยู่ต่อ คืนที่อยู่เดิม
+      const here = routeNow();
+      ask(d[1], [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }).then(ok => { if (ok) { window[d[0]].leave(); applyRoute(); } else history.pushState(null, '', here); });
+      return;
+    }
+    const tab = m[1], id = m[2] ? decodeURIComponent(m[2]) : '';
+    routing = true;
+    try {
+      if (tab !== currentTab) showTab(tab);
+      if (tab === 'timestudy') { const T = window.CPSTimeStudy, cur = T.currentId(); if (id && id !== cur) { if (cur) T.leave(); if (!T.openId(id)) T.render($('#tab-timestudy')); } else if (!id && cur) { T.leave(); T.render($('#tab-timestudy')); } }
+      else if (tab === 'analysis') { const A = window.CPSAnalysis, cur = A.currentId(); if (id && id !== cur) { if (cur) A.leave(); if (A.openJob(id) === false) A.render($('#tab-analysis')); } else if (!id && cur) { A.leave(); A.render($('#tab-analysis')); } }
+      else if (tab === 'stations') { const cur = window.CPSWorkflow.currentId(); if (id && id !== cur) { if (listStations().some(r => r.id === id)) window.CPSStations.openWorkflow(id); else window.CPSStations.render($('#tab-stations')); } else if (!id && cur) window.CPSStations.render($('#tab-stations')); }
+    } finally { routing = false; }
+    scrollTo(0, 0);
+    history.replaceState(null, '', routeNow());
+  }
+  addEventListener('popstate', applyRoute);
   function showTab(tab) {
     if (tab !== currentTab && dirtyEditor()) return guardLeave(() => showTab(tab));
     if (tab !== currentTab) { scrollTo(0, 0); const tt = $('#toast'); if (tt && !tt.classList.contains('has-action')) tt.classList.remove('show'); }
@@ -676,8 +712,8 @@
     const tbh = $('.topbar') ? $('.topbar').offsetHeight : 0; if (tbh) document.documentElement.style.setProperty('--topbar-h', tbh + 'px');
     $$('#tabs button').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
     $$('.tab-page').forEach(p => p.hidden = p.id !== 'tab-' + tab);
-    if (tab === 'stations' && prevTab !== 'stations') { window.CPSStations?.render($('#tab-stations')); return; }
-    render();
+    if (tab === 'stations' && prevTab !== 'stations') { window.CPSStations?.render($('#tab-stations')); route(); return; }
+    render(); route();
   }
   function render() {
     if ($('#app').hidden) return;
@@ -875,7 +911,7 @@
       approval: { get: () => (store.approval = store.approval || {}), save: () => persist() },
       get scope() { return scope; }
     },
-    showTab,
+    showTab, route,
     sheet: { configured: () => !!sheetUrl, call: sheetFetch },
     render,
   };

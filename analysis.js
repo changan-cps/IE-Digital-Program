@@ -30,6 +30,7 @@
   }
 
   function renderList() {
+    window.CPS.route && window.CPS.route();
     const { esc, fmt } = U();
     const can = D().canEdit();
     const jobs = D().listJobs().slice().sort((x, y) => String(x.station || x.name || '').localeCompare(String(y.station || y.name || ''), undefined, { numeric: true }));
@@ -56,6 +57,7 @@
   }
 
   function renderEditor() {
+    window.CPS.route && window.CPS.route();
     const { esc } = U(); const j = editing;
     if (j.autoBefore !== false) { const bo = D().beforeOf(j); if (bo.src === 'study') {   // Before = รอบที่ CT สูงสุด
       const old = j.before || [], nb = bo.els.map((e, i) => ({ id: (old[i] && old[i].id) || U().uid(), name: e.name, sec: U().round1(U().num(e.sec)), type: e.type, note: (old[i] && old[i].note) || '' }));
@@ -383,6 +385,6 @@ ${row('รอบเวลา (วิ)', fmt(b.ct), fmt(a.ct))}${row('VA (วิ)
     win.document.close();
   }
 
-  function openJob(id) { const jb = D().listJobs().find(x => x.id === id); if (!jb) return; window.CPS.showTab('analysis'); editing = structuredClone(jb); render(document.getElementById('tab-analysis')); scrollTo(0, 0); }
-  window.CPSAnalysis = { render, isDirty, leave, openJob };
+  function openJob(id) { const jb = D().listJobs().find(x => x.id === id); if (!jb) return false; window.CPS.showTab('analysis'); editing = structuredClone(jb); render(document.getElementById('tab-analysis')); scrollTo(0, 0); }
+  window.CPSAnalysis = { render, isDirty, leave, openJob, currentId: () => (editing ? editing.id || 'new' : null) };
 })();
