@@ -658,12 +658,12 @@
     syncPull(true);
   }
   // leaving an unsaved time study asks first (the draft stays in this browser either way)
-  const dirtyEditor = () => currentTab === 'timestudy' && window.CPSTimeStudy?.isDirty?.() ? ['CPSTimeStudy', 'Time Study', 'Time Study']
-    : currentTab === 'analysis' && window.CPSAnalysis?.isDirty?.() ? ['CPSAnalysis', 'งานวิเคราะห์', 'วิเคราะห์งาน'] : null;
+  const dirtyEditor = () => currentTab === 'timestudy' && window.CPSTimeStudy?.isDirty?.() ? ['CPSTimeStudy', 'ยังไม่ได้บันทึก Time Study นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)']
+    : currentTab === 'analysis' && window.CPSAnalysis?.isDirty?.() ? ['CPSAnalysis', 'ยังไม่ได้บันทึกงานวิเคราะห์นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้จากหน้ารายการ)'] : null;
   function guardLeave(go) {
     const d = dirtyEditor();
     if (d) {
-      ask(`ยังไม่ได้บันทึก ${d[1]} นี้ — ออกโดยไม่บันทึก? (ร่างยังเก็บไว้ในเครื่อง กู้คืนได้ที่หน้า ${d[2]})`, [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }).then(ok => { if (ok) { window[d[0]].leave(); go(); } });
+      ask(d[1], [], { ok: 'ออก (เก็บร่างไว้)', cancel: 'อยู่ต่อ' }).then(ok => { if (ok) { window[d[0]].leave(); go(); } });
       return;
     }
     go();

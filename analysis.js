@@ -57,7 +57,11 @@
 
   function renderEditor() {
     const { esc } = U(); const j = editing;
-    if (j.autoBefore !== false) { const bo = D().beforeOf(j); if (bo.src === 'study') { j.before = bo.els.map(e => ({ id: U().uid(), name: e.name, sec: U().round1(U().num(e.sec)), type: e.type, note: '' })); j.autoBefore = true; } }   // Before = รอบที่ CT สูงสุด
+    if (j.autoBefore !== false) { const bo = D().beforeOf(j); if (bo.src === 'study') {   // Before = รอบที่ CT สูงสุด
+      const old = j.before || [], nb = bo.els.map((e, i) => ({ id: (old[i] && old[i].id) || U().uid(), name: e.name, sec: U().round1(U().num(e.sec)), type: e.type, note: (old[i] && old[i].note) || '' }));
+      const same = old.length === nb.length && nb.every((e, i) => old[i].name === e.name && U().num(old[i].sec) === e.sec && old[i].type === e.type);
+      if (!same) j.before = nb;   // ค่าเดิมตรงกับรอบสูงสุดอยู่แล้ว = ไม่แตะ (วาดใหม่/สลับภาษาไม่ทำให้นับว่าแก้)
+      j.autoBefore = true; } }
     host.innerHTML = `
       <div class="page-head"><div><h1>วิเคราะห์งาน</h1></div>
         <div class="head-btns"><button id="an-back" class="ghost">← กลับ</button><button id="an-ai" class="ghost">🤖 AI ร่างข้อเสนอ</button><button id="an-print" class="ghost">พิมพ์/PDF</button><button id="an-save" class="primary">บันทึก</button></div></div>
@@ -282,7 +286,7 @@
       </div>
       <div class="compare">${cmp('ก่อน', b, Math.max(b.ct, a.ct, 1))}${has ? cmp('หลัง', a, Math.max(b.ct, a.ct, 1)) : ''}</div>
       <div class="legend">${U().TYPES.map(t => `<span><i style="background:${t.color}"></i>${esc(t.label)}</span>`).join('')}</div>
-      <p class="conclusion">${esc(conclusion(j, b, a, has, saved, savedPct, wasteCut))}</p>`;
+      <p class="conclusion" translate="no">${esc(conclusion(j, b, a, has, saved, savedPct, wasteCut))}</p>`;
   }
   function rc(l, v, c, sub) { return `<div><small>${U().esc(l)}</small><strong${c ? ` style="color:${c}"` : ''}>${v}</strong>${sub ? `<em>${U().esc(sub)}</em>` : ''}</div>`; }
   function cmp(label, t, scale) {
@@ -290,18 +294,37 @@
     const segs = U().TYPES.map(ty => t[ty.k] ? `<i style="width:${(t[ty.k] / (t.ct || 1)) * 100}%;background:${ty.color}"></i>` : '').join('');
     return `<div class="cmp-row"><span class="cmp-label">${label}</span><div class="cmp-track"><div class="cmp-bar" style="width:${(t.ct / scale) * 100}%">${segs}</div></div><span class="cmp-val">${fmt(t.ct)} วิ</span></div>`;
   }
+  // ประโยคสรุปเขียนเต็มประโยคในแต่ละภาษา (ชื่องาน/ไลน์เป็นข้อมูลผู้ใช้ ไม่แปล)
+  const CONCL = {
+    th: { noAfter: 'บันทึกข้อมูล “หลังปรับปรุง” เพื่อให้ระบบสรุปผลเปรียบเทียบอัตโนมัติ', unnamed: 'ไม่ระบุ', head: (n, l) => `งาน “${n}”${l}: `,
+      cut: (s, p, b, a) => `ลดรอบเวลา ${s} วิ (${p}%) จาก ${b} วิ เหลือ ${a} วิ`, up: x => `รอบเวลาเพิ่มขึ้น ${x} วิ ควรทบทวน`, same: 'รอบเวลาคงเดิม',
+      va: (b, a) => `. VA ${b}% → ${a}%`, wCut: w => `, ลดความสูญเปล่า ${w} วิ`, wUp: w => `, ความสูญเปล่า (NVA) เพิ่มขึ้น ${w} วิ`, dot: '. ',
+      tr: (n, m) => `อบรมพนักงานตามวิธีใหม่รวม ${n} คน ใน ${m} เดือน`, noTr: 'ยังไม่มีบันทึกการอบรม' },
+    en: { noAfter: 'Record the “After” data so the system can summarise the comparison automatically', unnamed: 'unnamed', head: (n, l) => `Job “${n}”${l}: `,
+      cut: (s, p, b, a) => `cycle time cut by ${s} s (${p}%), from ${b} s to ${a} s`, up: x => `cycle time rose by ${x} s — review needed`, same: 'cycle time unchanged',
+      va: (b, a) => `. VA ${b}% → ${a}%`, wCut: w => `, waste cut by ${w} s`, wUp: w => `, waste (NVA) rose by ${w} s`, dot: '. ',
+      tr: (n, m) => `${n} operator${n == 1 ? '' : 's'} trained on the new method over ${m} month${m == 1 ? '' : 's'}`, noTr: 'No training recorded yet' },
+    zh: { noAfter: '请记录“改善后”数据，系统将自动生成对比总结', unnamed: '未命名', head: (n, l) => `作业“${n}”${l}：`,
+      cut: (s, p, b, a) => `周期时间缩短 ${s} 秒（${p}%），由 ${b} 秒降至 ${a} 秒`, up: x => `周期时间增加 ${x} 秒，需复查`, same: '周期时间不变',
+      va: (b, a) => `。VA ${b}% → ${a}%`, wCut: w => `，浪费减少 ${w} 秒`, wUp: w => `，浪费（NVA）增加 ${w} 秒`, dot: '。',
+      tr: (n, m) => `按新方法共培训 ${n} 人，历时 ${m} 个月`, noTr: '尚无培训记录' },
+  };
   function conclusion(j, b, a, has, saved, savedPct, wasteCut) {
+    const I = window.CPSDashI18n, L = I && I.bilingual ? ['zh', 'en'] : [I && CONCL[I.lang] ? I.lang : 'th'];
+    return L.map(l => conclusionIn(CONCL[l], j, b, a, has, saved, savedPct, wasteCut)).join(' / ');
+  }
+  function conclusionIn(T, j, b, a, has, saved, savedPct, wasteCut) {
     const { fmt } = U();
-    if (!has) return 'บันทึกข้อมูล “หลังปรับปรุง” เพื่อให้ระบบสรุปผลเปรียบเทียบอัตโนมัติ';
+    if (!has) return T.noAfter;
     const tr = trainTotals(j.training); const p = [];
-    p.push(`งาน “${j.name || 'ไม่ระบุ'}”${j.line ? ' (' + j.line + ')' : ''}: `);
-    if (saved > 0) p.push(`ลดรอบเวลา ${fmt(saved)} วิ (${fmt(savedPct)}%) จาก ${fmt(b.ct)} เหลือ ${fmt(a.ct)} วิ`);
-    else if (saved < 0) p.push(`รอบเวลาเพิ่มขึ้น ${fmt(-saved)} วิ ควรทบทวน`);
-    else p.push('รอบเวลาคงเดิม');
-    p.push(`. VA ${fmt(b.vaPct)}% → ${fmt(a.vaPct)}%`);
-    if (wasteCut > 0) p.push(`, ลดความสูญเปล่า ${fmt(wasteCut)} วิ`);
-    p.push('. ');
-    p.push(tr.people ? `อบรมพนักงานตามวิธีใหม่รวม ${tr.people} คน ใน ${tr.months} เดือน` : 'ยังไม่มีบันทึกการอบรม');
+    p.push(T.head(j.name || T.unnamed, j.line ? ' (' + j.line + ')' : ''));
+    if (saved > 0) p.push(T.cut(fmt(saved), fmt(savedPct), fmt(b.ct), fmt(a.ct)));
+    else if (saved < 0) p.push(T.up(fmt(-saved)));
+    else p.push(T.same);
+    p.push(T.va(fmt(b.vaPct), fmt(a.vaPct)));
+    if (wasteCut > 0.05) p.push(T.wCut(fmt(wasteCut))); else if (wasteCut < -0.05) p.push(T.wUp(fmt(-wasteCut)));
+    p.push(T.dot);
+    p.push(tr.people ? T.tr(tr.people, tr.months) : T.noTr);
     return p.join('');
   }
 
@@ -355,7 +378,7 @@ ${row('รอบเวลา (วิ)', fmt(b.ct), fmt(a.ct))}${row('VA (วิ)
 <h2>เป้าหมายคะแนนความง่าย</h2>${!TDIMS.some(([k]) => j.targets && j.targets[k] && (j.targets[k].now || j.targets[k].goal)) ? '<p>—</p>' : `<table class="el"><thead><tr><th>มิติ</th><th>ปัจจุบัน</th><th>เป้าหมาย</th><th>มาตรการหลัก</th></tr></thead><tbody>${TDIMS.map(([k, l]) => { const r = (j.targets || {})[k] || {}; return `<tr><td>${l}</td><td>${esc(r.now || '—')}</td><td>${esc(r.goal || '—')}</td><td>${esc(r.act || '')}</td></tr>`; }).join('')}</tbody></table>`}
 <h2>ข้อเสนอปรับปรุง (4M1E)</h2>${!(j.suggest || []).length ? '<p>—</p>' : `<table class="el"><thead><tr><th>หมวด</th><th>ข้อเสนอ</th><th>ลำดับ</th></tr></thead><tbody>${j.suggest.slice().sort((x, y) => (x.prio || '').localeCompare(y.prio || '')).map(s => `<tr><td>${esc(catLabel(s.cat))}</td><td>${esc(s.text)}</td><td>${esc(s.prio)}</td></tr>`).join('')}</tbody></table>`}
 <h2>การอบรม (รายเดือน)</h2>${!(j.training || []).length ? '<p>—</p>' : `<table class="el"><thead><tr><th>เดือน</th><th>คน</th><th>ผู้สอน</th><th>หัวข้อ</th></tr></thead><tbody>${j.training.slice().sort((x, y) => (y.month || '').localeCompare(x.month || '')).map(r => `<tr><td>${esc(r.month)}</td><td style="text-align:right">${fmt(num(r.count))}</td><td>${esc(r.trainer)}</td><td>${esc(r.topic)}</td></tr>`).join('')}</tbody></table><p>รวม ${tr.people} คน · ${tr.months} เดือน</p>`}
-<h2>สรุป</h2><p class="concl">${esc(conclusion(j, b, a, has, saved, savedPct, b.NVA - a.NVA))}</p>`);
+<h2>สรุป</h2><p class="concl" translate="no">${esc(conclusion(j, b, a, has, saved, savedPct, b.NVA - a.NVA))}</p>`);
     win.document.close();
   }
 
